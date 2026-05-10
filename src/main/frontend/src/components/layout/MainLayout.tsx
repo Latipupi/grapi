@@ -66,7 +66,16 @@ const MainLayout: React.FC = () => {
   const menuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
     { label: 'POS Kasir', icon: ShoppingCart, to: '/pos' },
-    { label: 'Master Data', icon: Database, to: '/master/branches' },
+    { 
+      label: 'Master Data', 
+      icon: Database, 
+      to: '/master',
+      children: [
+        { label: 'Cabang', to: '/master/branches' },
+        { label: 'Kategori', to: '/master/categories' },
+        { label: 'Produk', to: '/master/products' },
+      ]
+    },
     { label: 'Inventory', icon: Package, to: '/inventory' },
     { label: 'Laporan', icon: FileText, to: '/reports' },
     { label: 'Pengaturan', icon: Settings, to: '/settings' },
@@ -100,20 +109,45 @@ const MainLayout: React.FC = () => {
           </div>
 
           <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
-            {menuItems.map((item) => (
-              <button
-                key={item.to}
-                onClick={() => handleNavigation(item.to)}
-                className="w-full"
-              >
-                <SidebarItem
-                  icon={item.icon}
-                  label={sidebarOpen ? item.label : ''}
-                  to={item.to}
-                  active={location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to))}
-                />
-              </button>
-            ))}
+            {menuItems.map((item) => {
+              const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
+              
+              return (
+                <div key={item.label} className="space-y-1">
+                  <button
+                    onClick={() => item.children ? null : handleNavigation(item.to)}
+                    className="w-full"
+                  >
+                    <SidebarItem
+                      icon={item.icon}
+                      label={sidebarOpen ? item.label : ''}
+                      to={item.children ? '#' : item.to}
+                      active={isActive}
+                    />
+                  </button>
+                  
+                  {item.children && sidebarOpen && isActive && (
+                    <div className="pl-12 space-y-1 animate-in slide-in-from-top-2 duration-300">
+                      {item.children.map((child) => (
+                        <Link
+                          key={child.to}
+                          to={child.to}
+                          onClick={() => window.innerWidth < 768 && setSidebarOpen(false)}
+                          className={cn(
+                            "block py-2 text-sm transition-colors",
+                            location.pathname === child.to 
+                              ? "text-blue-600 font-semibold" 
+                              : "text-slate-500 hover:text-blue-600"
+                          )}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
 
           <div className="mt-auto pt-4 border-t border-slate-100">

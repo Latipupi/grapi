@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Plus, Search, Edit2, Trash2, MapPin, Phone } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
+import { Dialog } from '../components/ui/Dialog';
+
+const branchSchema = z.object({
+  name: z.string().min(3, 'Nama minimal 3 karakter'),
+  address: z.string().min(5, 'Alamat minimal 5 karakter'),
+  phone: z.string().min(10, 'Nomor telepon minimal 10 karakter'),
+  active: z.boolean().default(true),
+});
+
+type BranchFormValues = z.infer<typeof branchSchema>;
 
 interface Branch {
   id: number;
@@ -17,7 +30,17 @@ interface Branch {
 
 const BranchesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  
   const queryClient = useQueryClient();
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<BranchFormValues>({
+    resolver: zodResolver(branchSchema),
+    defaultValues: {
+      active: true
+    }
+  });
 
   const { data: branches, isLoading } = useQuery<Branch[]>({
     queryKey: ['branches'],
@@ -27,12 +50,64 @@ const BranchesPage: React.FC = () => {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: (data: BranchFormValues) => api.post('/branches', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      handleCloseModal();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { id: number; values: BranchFormValues }) => 
+      api.put(`/branches/${data.id}`, data.values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      handleCloseModal();
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: number) => api.delete(`/branches/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
     },
   });
+
+  const handleOpenModal = (branch?: Branch) => {
+    if (branch) {
+      setSelectedBranch(branch);
+      reset({
+        name: branch.name,
+        address: branch.address,
+        phone: branch.phone,
+        active: branch.active
+      });
+    } else {
+      setSelectedBranch(null);
+      reset({
+        name: '',
+        address: '',
+        phone: '',
+        active: true
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedBranch(null);
+    reset();
+  };
+
+  const onSubmit = (data: BranchFormValues) => {
+    if (selectedBranch) {
+      updateMutation.mutate({ id: selectedBranch.id, values: data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
 
   const filteredBranches = branches?.filter(b => 
     b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,7 +121,10 @@ const BranchesPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">Daftar Cabang</h1>
           <p className="text-slate-500 text-sm">Kelola lokasi dan informasi cabang apotek Anda.</p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button 
+          className="flex items-center gap-2"
+          onClick={() => handleOpenModal()}
+        >
           <Plus className="w-4 h-4" />
           Tambah Cabang
         </Button>
@@ -116,14 +194,23 @@ const BranchesPage: React.FC = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8"
+                        onClick={() => handleOpenModal(branch)}
+                      >
                         <Edit2 className="w-4 h-4 text-blue-600" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8 hover:bg-red-50 group"
-                        onClick={() => deleteMutation.mutate(branch.id)}
+                        onClick={() => {
+                          if (confirm('Hapus cabang ini?')) {
+                            deleteMutation.mutate(branch.id);
+                          }
+                        }}
                       >
                         <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-600" />
                       </Button>
@@ -135,6 +222,64 @@ const BranchesPage: React.FC = () => {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        title={selectedBranch ? 'Edit Cabang' : 'Tambah Cabang Baru'}
+        footer={
+          <>
+            <Button variant="outline" onClick={handleCloseModal}>Batal</Button>
+            <Button 
+              onClick={handleSubmit(onSubmit)}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {selectedBranch ? 'Simpan Perubahan' : 'Tambah Cabang'}
+            </Button>
+          </>
+        }
+      >
+        <form className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Nama Cabang</label>
+            <Input 
+              {...register('name')}
+              placeholder="Contoh: Apotek Kimia Farma - Jakarta"
+              className={errors.name ? 'border-red-500' : ''}
+            />
+            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Alamat</label>
+            <Input 
+              {...register('address')}
+              placeholder="Alamat lengkap cabang"
+              className={errors.address ? 'border-red-500' : ''}
+            />
+            {errors.address && <p className="text-xs text-red-500">{errors.address.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Nomor Telepon</label>
+            <Input 
+              {...register('phone')}
+              placeholder="0812xxxxxx"
+              className={errors.phone ? 'border-red-500' : ''}
+            />
+            {errors.phone && <p className="text-xs text-red-500">{errors.phone.message}</p>}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              {...register('active')}
+              className="w-4 h-4 rounded text-blue-600"
+            />
+            <label className="text-sm text-slate-700">Cabang Aktif</label>
+          </div>
+        </form>
+      </Dialog>
     </div>
   );
 };
