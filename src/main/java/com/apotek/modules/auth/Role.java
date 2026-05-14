@@ -2,6 +2,8 @@ package com.apotek.modules.auth;
 
 public enum Role {
     ADMIN,
-    KASIR,
-    OWNER
+    CASHIER,
+    OWNER,
+    STAFF,
+    KASIR
 }

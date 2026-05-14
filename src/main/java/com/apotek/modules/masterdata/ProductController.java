@@ -13,6 +13,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
 
     @GetMapping
     public List<Product> getAll() {
@@ -22,6 +23,10 @@ public class ProductController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public Product create(@RequestBody Product product) {
+        if (product.getCategoryId() != null) {
+            categoryRepository.findById(product.getCategoryId()).ifPresent(product::setCategory);
+        }
+        
         if (product.getUnits() != null) {
             product.getUnits().forEach(unit -> unit.setProduct(product));
         }
@@ -44,8 +49,13 @@ public class ProductController {
                     product.setSku(details.getSku());
                     product.setBarcode(details.getBarcode());
                     product.setDescription(details.getDescription());
-                    product.setCategory(details.getCategory());
                     product.setActive(details.isActive());
+                    
+                    if (details.getCategoryId() != null) {
+                        categoryRepository.findById(details.getCategoryId()).ifPresent(product::setCategory);
+                    } else {
+                        product.setCategory(null);
+                    }
                     
                     // Update units - simple replacement for MVP
                     if (details.getUnits() != null) {

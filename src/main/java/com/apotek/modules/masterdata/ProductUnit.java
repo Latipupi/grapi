@@ -1,6 +1,7 @@
 package com.apotek.modules.masterdata;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -8,10 +9,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "product_units")
-@Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ProductUnit {
 
     @Id

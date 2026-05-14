@@ -34,7 +34,13 @@ public class SecurityConfig {
                                 "/vite.svg",
                                 "/react.svg",
                                 "/favicon.ico",
-                                "/manifest.json"
+                                "/manifest.json",
+                                "/pos/**",
+                                "/inventory/**",
+                                "/purchasing/**",
+                                "/master/**",
+                                "/reports/**",
+                                "/settings/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

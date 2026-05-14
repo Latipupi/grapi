@@ -1,17 +1,21 @@
 package com.apotek.modules.masterdata;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "products")
-@Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Product {
 
     @Id
@@ -21,6 +25,10 @@ public class Product {
     @ManyToOne
     @JoinColumn(name = "category_id")
     private Category category;
+
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Long categoryId;
 
     @Column(nullable = false)
     private String name;
@@ -34,8 +42,7 @@ public class Product {
     @Column(name = "is_active")
     private boolean active = true;
 
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ProductUnit> units = new ArrayList<>();
 
     @Column(name = "created_at", updatable = false)
@@ -43,6 +50,28 @@ public class Product {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    // Virtual field for API convenience - Base Unit Name
+    @JsonProperty("unit")
+    public String getUnit() {
+        if (units == null || units.isEmpty()) return null;
+        return units.stream()
+                .filter(ProductUnit::isBaseUnit)
+                .map(ProductUnit::getUnitName)
+                .findFirst()
+                .orElse(units.get(0).getUnitName());
+    }
+
+    // Virtual field for API convenience - Base Unit Price
+    @JsonProperty("sellingPrice")
+    public BigDecimal getSellingPrice() {
+        if (units == null || units.isEmpty()) return BigDecimal.ZERO;
+        return units.stream()
+                .filter(ProductUnit::isBaseUnit)
+                .map(ProductUnit::getPricePerUnit)
+                .findFirst()
+                .orElse(units.get(0).getPricePerUnit());
+    }
 
     @PrePersist
     protected void onCreate() {

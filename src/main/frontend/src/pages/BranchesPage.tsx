@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -54,8 +55,12 @@ const BranchesPage: React.FC = () => {
     mutationFn: (data: BranchFormValues) => api.post('/branches', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      alert('Cabang berhasil ditambahkan');
       handleCloseModal();
     },
+    onError: (error: any) => {
+      alert('Gagal menambah cabang: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const updateMutation = useMutation({
@@ -63,8 +68,12 @@ const BranchesPage: React.FC = () => {
       api.put(`/branches/${data.id}`, data.values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      alert('Data cabang berhasil diperbarui');
       handleCloseModal();
     },
+    onError: (error: any) => {
+      alert('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const deleteMutation = useMutation({
@@ -122,7 +131,7 @@ const BranchesPage: React.FC = () => {
           <p className="text-slate-500 text-sm">Kelola lokasi dan informasi cabang apotek Anda.</p>
         </div>
         <Button 
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
           onClick={() => handleOpenModal()}
         >
           <Plus className="w-4 h-4" />
@@ -167,8 +176,14 @@ const BranchesPage: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredBranches?.map((branch) => (
-                <TableRow key={branch.id}>
+              filteredBranches?.map((branch, index) => (
+                <motion.tr 
+                  key={branch.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="group border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
+                >
                   <TableCell className="font-medium text-slate-800">{branch.name}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 text-slate-500">
@@ -197,26 +212,26 @@ const BranchesPage: React.FC = () => {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8"
+                        className="h-8 w-8 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"
                         onClick={() => handleOpenModal(branch)}
                       >
-                        <Edit2 className="w-4 h-4 text-blue-600" />
+                        <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 hover:bg-red-50 group"
+                        className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
                         onClick={() => {
                           if (confirm('Hapus cabang ini?')) {
                             deleteMutation.mutate(branch.id);
                           }
                         }}
                       >
-                        <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-600" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </TableCell>
-                </TableRow>
+                </motion.tr>
               ))
             )}
           </TableBody>
@@ -232,6 +247,7 @@ const BranchesPage: React.FC = () => {
             <Button variant="outline" onClick={handleCloseModal}>Batal</Button>
             <Button 
               onClick={handleSubmit(onSubmit)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
               disabled={createMutation.isPending || updateMutation.isPending}
             >
               {selectedBranch ? 'Simpan Perubahan' : 'Tambah Cabang'}
@@ -274,9 +290,9 @@ const BranchesPage: React.FC = () => {
             <input 
               type="checkbox" 
               {...register('active')}
-              className="w-4 h-4 rounded text-blue-600"
+              className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
             />
-            <label className="text-sm text-slate-700">Cabang Aktif</label>
+            <label className="text-sm text-slate-700 font-medium">Cabang Aktif</label>
           </div>
         </form>
       </Dialog>

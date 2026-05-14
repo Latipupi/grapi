@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,8 +47,12 @@ const CategoriesPage: React.FC = () => {
     mutationFn: (data: CategoryFormValues) => api.post('/categories', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      alert('Kategori berhasil ditambahkan');
       handleCloseModal();
     },
+    onError: (error: any) => {
+      alert('Gagal menambah kategori: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const updateMutation = useMutation({
@@ -55,8 +60,12 @@ const CategoriesPage: React.FC = () => {
       api.put(`/categories/${data.id}`, data.values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      alert('Kategori berhasil diperbarui');
       handleCloseModal();
     },
+    onError: (error: any) => {
+      alert('Gagal memperbarui kategori: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const deleteMutation = useMutation({
@@ -110,7 +119,7 @@ const CategoriesPage: React.FC = () => {
           <p className="text-slate-500 text-sm">Kelola pengelompokan produk apotek Anda.</p>
         </div>
         <Button 
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
           onClick={() => handleOpenModal()}
         >
           <Plus className="w-4 h-4" />
@@ -153,11 +162,17 @@ const CategoriesPage: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered?.map((category) => (
-                <TableRow key={category.id}>
+              filtered?.map((category, index) => (
+                <motion.tr 
+                  key={category.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="group border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
+                >
                   <TableCell>
                     <div className="flex items-center gap-2 font-medium text-slate-800">
-                      <Tag className="w-4 h-4 text-blue-500" />
+                      <Tag className="w-4 h-4 text-emerald-500" />
                       {category.name}
                     </div>
                   </TableCell>
@@ -169,26 +184,26 @@ const CategoriesPage: React.FC = () => {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8"
+                        className="h-8 w-8 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"
                         onClick={() => handleOpenModal(category)}
                       >
-                        <Edit2 className="w-4 h-4 text-blue-600" />
+                        <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 hover:bg-red-50 group"
+                        className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
                         onClick={() => {
                           if (confirm('Hapus kategori ini?')) {
                             deleteMutation.mutate(category.id);
                           }
                         }}
                       >
-                        <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-600" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </TableCell>
-                </TableRow>
+                </motion.tr>
               ))
             )}
           </TableBody>
@@ -204,6 +219,7 @@ const CategoriesPage: React.FC = () => {
             <Button variant="outline" onClick={handleCloseModal}>Batal</Button>
             <Button 
               onClick={handleSubmit(onSubmit)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
               disabled={createMutation.isPending || updateMutation.isPending}
             >
               {selectedCategory ? 'Simpan Perubahan' : 'Tambah Kategori'}

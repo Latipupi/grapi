@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,7 +57,7 @@ const ProductsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  
+
   const queryClient = useQueryClient();
 
   const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<ProductFormValues>({
@@ -95,20 +96,28 @@ const ProductsPage: React.FC = () => {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      alert('Produk berhasil ditambahkan');
       handleCloseModal();
     },
+    onError: (error: any) => {
+      alert('Gagal menambah produk: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { id: number; values: ProductFormValues }) => 
+    mutationFn: (data: { id: number; values: ProductFormValues }) =>
       api.put(`/products/${data.id}`, {
         ...data.values,
         categoryId: data.values.categoryId ? parseInt(data.values.categoryId) : null
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      alert('Data produk berhasil diperbarui');
       handleCloseModal();
     },
+    onError: (error: any) => {
+      alert('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const deleteMutation = useMutation({
@@ -155,6 +164,7 @@ const ProductsPage: React.FC = () => {
   };
 
   const onSubmit = (data: ProductFormValues) => {
+    console.log("Payload data ", data);
     if (selectedProduct) {
       updateMutation.mutate({ id: selectedProduct.id, values: data });
     } else {
@@ -162,7 +172,7 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const filtered = products?.filter(p => 
+  const filtered = products?.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -174,8 +184,8 @@ const ProductsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">Daftar Produk</h1>
           <p className="text-slate-500 text-sm">Kelola inventori obat dan alat kesehatan.</p>
         </div>
-        <Button 
-          className="flex items-center gap-2"
+        <Button
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
           onClick={() => handleOpenModal()}
         >
           <Plus className="w-4 h-4" />
@@ -187,8 +197,8 @@ const ProductsPage: React.FC = () => {
         <div className="p-4 border-b border-slate-100 flex items-center gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Cari nama, SKU, atau barcode..." 
+            <Input
+              placeholder="Cari nama, SKU, atau barcode..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -222,10 +232,16 @@ const ProductsPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered?.map((product) => {
-                  const baseUnit = product.units.find(u => u.baseUnit);
+                filtered?.map((product, index) => {
+                  const baseUnit = product?.units?.find(u => u.baseUnit);
                   return (
-                    <TableRow key={product.id}>
+                    <motion.tr 
+                      key={product.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="group border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center shrink-0">
@@ -238,7 +254,7 @@ const ProductsPage: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-md text-xs font-medium whitespace-nowrap">
+                        <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium whitespace-nowrap">
                           {product.category?.name || 'Tanpa Kategori'}
                         </span>
                       </TableCell>
@@ -258,8 +274,8 @@ const ProductsPage: React.FC = () => {
                       <TableCell>
                         <span className={cn(
                           "px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
-                          product.active 
-                            ? "bg-emerald-50 text-emerald-600 border border-emerald-100" 
+                          product.active
+                            ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
                             : "bg-slate-100 text-slate-500 border border-slate-200"
                         )}>
                           {product.active ? 'Aktif' : 'Non-aktif'}
@@ -267,29 +283,29 @@ const ProductsPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"
                             onClick={() => handleOpenModal(product)}
                           >
-                            <Edit2 className="w-4 h-4 text-blue-600" />
+                            <Edit2 className="w-4 h-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 hover:bg-red-50 group"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
                             onClick={() => {
                               if (confirm('Hapus produk ini?')) {
                                 deleteMutation.mutate(product.id);
                               }
                             }}
                           >
-                            <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-600" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>
-                    </TableRow>
+                    </motion.tr>
                   );
                 })
               )}
@@ -306,8 +322,9 @@ const ProductsPage: React.FC = () => {
         footer={
           <>
             <Button variant="outline" onClick={handleCloseModal}>Batal</Button>
-            <Button 
+            <Button
               onClick={handleSubmit(onSubmit)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
               disabled={createMutation.isPending || updateMutation.isPending}
             >
               {selectedProduct ? 'Simpan Perubahan' : 'Tambah Produk'}
@@ -320,7 +337,7 @@ const ProductsPage: React.FC = () => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Nama Produk</label>
-                <Input 
+                <Input
                   {...register('name')}
                   placeholder="Contoh: Amoxicillin 500mg"
                   className={errors.name ? 'border-red-500' : ''}
@@ -341,9 +358,9 @@ const ProductsPage: React.FC = () => {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Kategori</label>
-                <select 
+                <select
                   {...register('categoryId')}
-                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 >
                   <option value="">Pilih Kategori</option>
                   {categories?.map(cat => (
@@ -353,22 +370,22 @@ const ProductsPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   {...register('active')}
-                  className="w-4 h-4 rounded text-blue-600"
+                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
                 />
-                <label className="text-sm text-slate-700">Produk Aktif</label>
+                <label className="text-sm text-slate-700 font-medium">Produk Aktif</label>
               </div>
             </div>
 
             <div className="space-y-4 border-l border-slate-100 pl-0 md:pl-6">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-bold text-slate-800">Daftar Satuan (Multi-Unit)</label>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   className="h-8"
                   onClick={() => append({ unitName: '', conversionToBase: 1, baseUnit: false, pricePerUnit: 0 })}
                 >
@@ -381,14 +398,14 @@ const ProductsPage: React.FC = () => {
                 {fields.map((field, index) => (
                   <div key={field.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                      <Input 
+                      <Input
                         {...register(`units.${index}.unitName` as const)}
                         placeholder="Satuan (Pcs, Box, Strip)"
                         className="h-8"
                       />
                       {fields.length > 1 && (
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => remove(index)}
                           className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition-colors"
                         >
@@ -399,8 +416,8 @@ const ProductsPage: React.FC = () => {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="text-[10px] uppercase font-bold text-slate-400">Harga Jual</label>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           {...register(`units.${index}.pricePerUnit` as const, { valueAsNumber: true })}
                           placeholder="Rp"
                           className="h-8"
@@ -408,8 +425,8 @@ const ProductsPage: React.FC = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] uppercase font-bold text-slate-400">Konversi ke Base</label>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           {...register(`units.${index}.conversionToBase` as const, { valueAsNumber: true })}
                           placeholder="1"
                           className="h-8"
@@ -418,8 +435,8 @@ const ProductsPage: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         {...register(`units.${index}.baseUnit` as const)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -430,9 +447,9 @@ const ProductsPage: React.FC = () => {
                             setValue(`units.${index}.conversionToBase`, 1);
                           }
                         }}
-                        className="w-3 h-3 rounded text-blue-600"
+                        className="w-3 h-3 rounded text-emerald-600 focus:ring-emerald-500"
                       />
-                      <label className="text-[11px] text-slate-600">Jadikan Satuan Dasar</label>
+                      <label className="text-[11px] text-slate-600 font-medium">Jadikan Satuan Dasar</label>
                     </div>
                   </div>
                 ))}

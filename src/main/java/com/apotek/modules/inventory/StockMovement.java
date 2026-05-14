@@ -1,5 +1,6 @@
 package com.apotek.modules.inventory;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.apotek.modules.masterdata.Branch;
 import com.apotek.modules.masterdata.Product;
 import jakarta.persistence.*;
@@ -12,21 +13,22 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "stock_movements")
-@Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class StockMovement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "branch_id", nullable = false)
     private Branch branch;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
@@ -42,6 +44,45 @@ public class StockMovement {
     private String referenceNumber; // PO Number, Sales Number, etc.
     private String notes;
 
+    @Column(name = "purchase_price")
+    private BigDecimal purchasePrice;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    public static StockMovementBuilder builder() { return new StockMovementBuilder(); }
+
+    public static class StockMovementBuilder {
+        private Branch branch;
+        private Product product;
+        private String type;
+        private BigDecimal quantity;
+        private String batchNumber;
+        private LocalDate expiryDate;
+        private String referenceNumber;
+        private String notes;
+        private BigDecimal purchasePrice;
+        public StockMovementBuilder branch(Branch branch) { this.branch = branch; return this; }
+        public StockMovementBuilder product(Product product) { this.product = product; return this; }
+        public StockMovementBuilder type(String type) { this.type = type; return this; }
+        public StockMovementBuilder quantity(BigDecimal qty) { this.quantity = qty; return this; }
+        public StockMovementBuilder batchNumber(String batchNumber) { this.batchNumber = batchNumber; return this; }
+        public StockMovementBuilder expiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; return this; }
+        public StockMovementBuilder referenceNumber(String ref) { this.referenceNumber = ref; return this; }
+        public StockMovementBuilder notes(String notes) { this.notes = notes; return this; }
+        public StockMovementBuilder purchasePrice(BigDecimal price) { this.purchasePrice = price; return this; }
+        public StockMovement build() {
+            StockMovement m = new StockMovement();
+            m.setBranch(branch);
+            m.setProduct(product);
+            m.setType(type);
+            m.setQuantity(quantity);
+            m.setBatchNumber(batchNumber);
+            m.setExpiryDate(expiryDate);
+            m.setReferenceNumber(referenceNumber);
+            m.setNotes(notes);
+            m.setPurchasePrice(purchasePrice);
+            return m;
+        }
+    }
 }
