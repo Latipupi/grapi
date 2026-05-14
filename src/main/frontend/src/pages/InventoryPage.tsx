@@ -301,7 +301,7 @@ const InventoryPage: React.FC = () => {
           </select>
 
           {selectedBranchId && (
-            <Link to={`/inventory/movements?branch=${selectedBranchId}`}>
+            <Link to={`/dashboard/inventory/movements?branch=${selectedBranchId}`}>
               <Button variant="outline" className="flex items-center gap-2">
                 <History className="w-4 h-4" />
                 Riwayat Mutasi

@@ -72,7 +72,7 @@ const NewPurchasePage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchases'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      navigate('/purchasing');
+      navigate('/dashboard/purchasing');
     },
   });
 
@@ -83,7 +83,7 @@ const NewPurchasePage: React.FC = () => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/purchasing')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard/purchasing')}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>

@@ -37,7 +37,7 @@ const PurchasesPage: React.FC = () => {
         </div>
         <Button 
           className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
-          onClick={() => navigate('/purchasing/new')}
+          onClick={() => navigate('/dashboard/purchasing/new')}
         >
           <Plus className="w-4 h-4" />
           Tambah Pembelian
@@ -78,7 +78,7 @@ const PurchasesPage: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                     className="cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
-                    onClick={() => navigate(`/purchasing/${purchase.id}`)}
+                    onClick={() => navigate(`/dashboard/purchasing/${purchase.id}`)}
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">

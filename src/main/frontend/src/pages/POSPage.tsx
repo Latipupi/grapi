@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Dialog } from '../components/ui/Dialog';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../lib/utils';
 
 const POSPage: React.FC = () => {
   const dispatch = useDispatch();
@@ -38,6 +39,7 @@ const POSPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>(branchId?.toString() || '');
   const [successOrder, setSuccessOrder] = useState<any>(null);
+  const [unitSelectionProduct, setUnitSelectionProduct] = useState<any>(null);
 
   const { data: inventory } = useQuery({
     queryKey: ['inventory', selectedBranchId],
@@ -86,6 +88,7 @@ const POSPage: React.FC = () => {
       paymentMethod,
       items: cart.map(item => ({
         productId: item.productId,
+        unitId: item.unitId,
         quantity: item.quantity,
         unitPrice: item.price
       }))
@@ -146,14 +149,7 @@ const POSPage: React.FC = () => {
                 className="p-4 rounded-2xl border border-slate-100 hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer group bg-white"
                 onClick={() => {
                    if (inv.stockQuantity > 0) {
-                      dispatch(addToCart({
-                        productId: inv.product.id,
-                        name: inv.product.name,
-                        sku: inv.product.sku,
-                        price: inv.product.sellingPrice,
-                        quantity: 1,
-                        availableStock: inv.stockQuantity
-                      }));
+                      setUnitSelectionProduct(inv);
                    }
                 }}
               >
@@ -199,7 +195,7 @@ const POSPage: React.FC = () => {
           <AnimatePresence initial={false}>
             {cart.map((item) => (
               <motion.div 
-                key={item.productId}
+                key={`${item.productId}-${item.unitId}`}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
@@ -208,10 +204,11 @@ const POSPage: React.FC = () => {
                 <div className="flex justify-between items-start gap-2">
                   <div className="min-w-0">
                     <h4 className="text-sm font-semibold text-white truncate">{item.name}</h4>
+                    <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">{item.unitName}</p>
                     <p className="text-[10px] text-white/40">Rp {item.price.toLocaleString()}</p>
                   </div>
                   <button 
-                    onClick={() => dispatch(removeFromCart(item.productId))}
+                    onClick={() => dispatch(removeFromCart({ productId: item.productId, unitId: item.unitId }))}
                     className="p-1 hover:text-rose-400 text-white/20 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -222,14 +219,14 @@ const POSPage: React.FC = () => {
                   <div className="flex items-center bg-white/10 rounded-lg p-0.5">
                     <button 
                       className="p-1 hover:bg-white/10 rounded-md transition-colors"
-                      onClick={() => dispatch(updateQuantity({ productId: item.productId, quantity: Math.max(1, item.quantity - 1) }))}
+                      onClick={() => dispatch(updateQuantity({ productId: item.productId, unitId: item.unitId, quantity: Math.max(1, item.quantity - 1) }))}
                     >
                       <Minus className="w-3 h-3" />
                     </button>
                     <span className="w-8 text-center text-xs font-bold">{item.quantity}</span>
                     <button 
                       className="p-1 hover:bg-white/10 rounded-md transition-colors"
-                      onClick={() => dispatch(updateQuantity({ productId: item.productId, quantity: item.quantity + 1 }))}
+                      onClick={() => dispatch(updateQuantity({ productId: item.productId, unitId: item.unitId, quantity: item.quantity + 1 }))}
                     >
                       <Plus className="w-3 h-3" />
                     </button>
@@ -324,6 +321,66 @@ const POSPage: React.FC = () => {
                 Transaksi Baru
              </Button>
           </div>
+        </div>
+      </Dialog>
+
+      {/* Unit Selection Dialog */}
+      <Dialog
+        isOpen={!!unitSelectionProduct}
+        onClose={() => setUnitSelectionProduct(null)}
+        title="Pilih Satuan Jual"
+      >
+        <div className="space-y-4">
+           <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                 <Package className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{unitSelectionProduct?.product.sku}</p>
+                 <h4 className="font-bold text-slate-800">{unitSelectionProduct?.product.name}</h4>
+              </div>
+           </div>
+
+           <div className="grid grid-cols-1 gap-3">
+              {unitSelectionProduct?.product.units.map((unit: any) => {
+                 const isAffordable = unit.conversionToBase <= unitSelectionProduct.stockQuantity;
+                 return (
+                    <button
+                      key={unit.id}
+                      disabled={!isAffordable}
+                      onClick={() => {
+                         dispatch(addToCart({
+                            productId: unitSelectionProduct.product.id,
+                            unitId: unit.id,
+                            unitName: unit.unitName,
+                            name: unitSelectionProduct.product.name,
+                            sku: unitSelectionProduct.product.sku,
+                            price: unit.pricePerUnit,
+                            quantity: 1,
+                            availableStock: unitSelectionProduct.stockQuantity,
+                            conversionToBase: unit.conversionToBase
+                         }));
+                         setUnitSelectionProduct(null);
+                      }}
+                      className={cn(
+                        "p-4 rounded-2xl border text-left transition-all flex items-center justify-between group",
+                        isAffordable 
+                          ? "border-slate-100 hover:border-emerald-500 hover:bg-emerald-50" 
+                          : "opacity-50 grayscale cursor-not-allowed bg-slate-50 border-transparent"
+                      )}
+                    >
+                       <div className="space-y-1">
+                          <p className="font-black text-slate-800 group-hover:text-emerald-700">{unit.unitName}</p>
+                          <p className="text-xs text-slate-500">Isi: {unit.conversionToBase} Satuan Dasar</p>
+                       </div>
+                       <div className="text-right">
+                          <p className="font-black text-emerald-600">Rp {unit.pricePerUnit.toLocaleString()}</p>
+                          {!isAffordable && <p className="text-[10px] text-rose-500 font-bold">Stok Tidak Cukup</p>}
+                       </div>
+                    </button>
+                 );
+              })}
+           </div>
         </div>
       </Dialog>
     </div>

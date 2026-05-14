@@ -2,11 +2,14 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
 export interface CartItem {
   productId: number;
+  unitId: number;
+  unitName: string;
   name: string;
   sku: string;
   price: number;
   quantity: number;
   availableStock: number;
+  conversionToBase: number;
 }
 
 interface POSState {
@@ -26,25 +29,34 @@ const posSlice = createSlice({
   initialState,
   reducers: {
     addToCart: (state, action: PayloadAction<CartItem>) => {
-      const existing = state.cart.find(item => item.productId === action.payload.productId);
+      const existing = state.cart.find(item => 
+        item.productId === action.payload.productId && 
+        item.unitId === action.payload.unitId
+      );
       if (existing) {
-        if (existing.quantity + action.payload.quantity <= action.payload.availableStock) {
+        const totalBaseQty = (existing.quantity + action.payload.quantity) * existing.conversionToBase;
+        if (totalBaseQty <= existing.availableStock) {
            existing.quantity += action.payload.quantity;
         }
       } else {
         state.cart.push(action.payload);
       }
     },
-    updateQuantity: (state, action: PayloadAction<{ productId: number; quantity: number }>) => {
-      const item = state.cart.find(item => item.productId === action.payload.productId);
+    updateQuantity: (state, action: PayloadAction<{ productId: number; unitId: number; quantity: number }>) => {
+      const item = state.cart.find(item => 
+        item.productId === action.payload.productId && 
+        item.unitId === action.payload.unitId
+      );
       if (item) {
-        if (action.payload.quantity <= item.availableStock) {
+        if (action.payload.quantity * item.conversionToBase <= item.availableStock) {
           item.quantity = action.payload.quantity;
         }
       }
     },
-    removeFromCart: (state, action: PayloadAction<number>) => {
-      state.cart = state.cart.filter(item => item.productId !== action.payload);
+    removeFromCart: (state, action: PayloadAction<{ productId: number; unitId: number }>) => {
+      state.cart = state.cart.filter(item => 
+        !(item.productId === action.payload.productId && item.unitId === action.payload.unitId)
+      );
     },
     clearCart: (state) => {
       state.cart = [];

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -7,7 +7,7 @@ import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
-import { Plus, Search, Edit2, Trash2, Package, Barcode, Trash } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, Barcode, Trash, Upload, Download, FileSpreadsheet } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
 import { Dialog } from '../components/ui/Dialog';
@@ -56,9 +56,24 @@ interface Category {
 const ProductsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [importData, setImportData] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        setImportData(text);
+      };
+      reader.readAsText(file);
+    }
+  };
 
   const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -127,6 +142,20 @@ const ProductsPage: React.FC = () => {
     },
   });
 
+  const bulkCreateMutation = useMutation({
+    mutationFn: (data: any[]) => api.post('/products/bulk', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      alert('Berhasil mengimpor produk');
+      setIsImportModalOpen(false);
+      setImportData('');
+    },
+    onError: (error: any) => {
+      alert('Gagal impor: ' + (error.response?.data?.message || error.message));
+    }
+  });
+
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setSelectedProduct(product);
@@ -184,13 +213,23 @@ const ProductsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-800">Daftar Produk</h1>
           <p className="text-slate-500 text-sm">Kelola inventori obat dan alat kesehatan.</p>
         </div>
-        <Button
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
-          onClick={() => handleOpenModal()}
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Produk
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 border-slate-200"
+            onClick={() => setIsImportModalOpen(true)}
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </Button>
+          <Button
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
+            onClick={() => handleOpenModal()}
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Produk
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -248,8 +287,17 @@ const ProductsPage: React.FC = () => {
                             <Package className="w-5 h-5 text-slate-400" />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-slate-800 truncate">{product.name}</p>
-                            <p className="text-xs text-slate-500">{baseUnit?.unitName || '-'}</p>
+                            <p className="font-bold text-slate-800 truncate">{product.name}</p>
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                               <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-tight">
+                                  {baseUnit?.unitName || '-'}
+                               </span>
+                               {product.units?.filter(u => !u.baseUnit).map(u => (
+                                  <span key={u.id || u.unitName} className="text-[10px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-tight">
+                                     1 {u.unitName} = {u.conversionToBase} {baseUnit?.unitName}
+                                  </span>
+                               ))}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
@@ -458,6 +506,121 @@ const ProductsPage: React.FC = () => {
             </div>
           </div>
         </form>
+      </Dialog>
+
+      {/* Import Modal */}
+      <Dialog
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        title="Import Produk (Bulk)"
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsImportModalOpen(false)}>Batal</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={bulkCreateMutation.isPending}
+              onClick={() => {
+                 // Simple CSV parser logic for demo
+                 const lines = importData.trim().split('\n');
+                 const data = lines.map(line => {
+                    const [
+                       name, sku, categoryName, barcode,
+                       baseUnit, basePrice, 
+                       midUnit, midPrice, midConv, 
+                       largeUnit, largePrice, largeConv
+                    ] = line.split(',');
+                    
+                    const units = [];
+                    // 1. Satuan Dasar
+                    units.push({
+                       unitName: baseUnit?.trim() || 'PCS',
+                       pricePerUnit: parseFloat(basePrice) || 0,
+                       conversionToBase: 1,
+                       baseUnit: true
+                    });
+
+                    // 2. Satuan Tengah (Strip)
+                    if (midUnit && midUnit.trim()) {
+                       units.push({
+                          unitName: midUnit.trim(),
+                          pricePerUnit: parseFloat(midPrice) || 0,
+                          conversionToBase: parseInt(midConv) || 1,
+                          baseUnit: false
+                       });
+                    }
+
+                    // 3. Satuan Besar (Box)
+                    if (largeUnit && largeUnit.trim()) {
+                       units.push({
+                          unitName: largeUnit.trim(),
+                          pricePerUnit: parseFloat(largePrice) || 0,
+                          conversionToBase: parseInt(largeConv) || 1,
+                          baseUnit: false
+                       });
+                    }
+
+                    return {
+                       name: name?.trim(),
+                       sku: sku?.trim(),
+                       categoryName: categoryName?.trim(),
+                       barcode: barcode?.trim(),
+                       units
+                    };
+                 });
+                 bulkCreateMutation.mutate(data);
+              }}
+            >
+              {bulkCreateMutation.isPending ? 'Mengimpor...' : 'Proses Import'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+           <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-700 text-sm">
+              <Download className="w-5 h-5 shrink-0" />
+              <div>
+                 <p className="font-bold text-base mb-1">Panduan Import 3 Tingkat (12 Kolom)</p>
+                 <p className="opacity-80 leading-relaxed">
+                    Format: <b>Nama, SKU, Kategori, Barcode, Sat1, Harga1, Sat2, Harga2, Isi2, Sat3, Harga3, Isi3</b>
+                 </p>
+                 <div className="mt-3 p-3 bg-white/60 rounded-xl border border-amber-200 text-[11px] space-y-1">
+                    <p><b>Contoh:</b> Amoxicillin, AMX01, Obat, 8991234567, Tablet, 1500, Strip, 14000, 10, Box, 135000, 100</p>
+                    <p className="text-amber-600 font-medium">*Isi = Jumlah satuan dasar dalam unit tersebut</p>
+                 </div>
+              </div>
+           </div>
+
+           <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Paste Data CSV (12 Kolom) di bawah ini:</label>
+              <textarea 
+                className="w-full h-48 rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-[10px] focus:ring-2 focus:ring-emerald-500 focus:outline-none focus:bg-white transition-all"
+                placeholder="Nama,SKU,Kategori,Barcode,Sat1,Harga1,Sat2,Harga2,Isi2,Sat3,Harga3,Isi3&#10;Amoxicillin,AMX01,Obat,89912345,Tablet,1500,Strip,14000,10,Box,135000,100"
+                value={importData}
+                onChange={(e) => setImportData(e.target.value)}
+              />
+           </div>
+
+           <div 
+             className="flex items-center justify-center py-10 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 group hover:border-emerald-500 transition-colors cursor-pointer"
+             onClick={() => fileInputRef.current?.click()}
+           >
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept=".csv"
+                onChange={handleFileChange}
+              />
+              <div className="text-center">
+                 <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <FileSpreadsheet className="w-8 h-8 text-emerald-600" />
+                 </div>
+                 <p className="text-sm font-bold text-slate-800">Upload File Excel/CSV</p>
+                 <p className="text-xs text-slate-400 mt-1">Hanya mendukung .csv (Max 5MB)</p>
+              </div>
+           </div>
+        </div>
       </Dialog>
     </div>
   );

@@ -87,7 +87,7 @@ const StockMovementsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <Link to="/inventory">
+            <Link to="/dashboard/inventory">
               <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-800">
                 <ArrowLeft className="w-4 h-4" />
               </Button>

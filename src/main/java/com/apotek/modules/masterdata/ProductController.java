@@ -15,6 +15,46 @@ public class ProductController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
 
+    @PostMapping("/bulk")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<List<Product>> bulkCreate(@RequestBody List<ProductImportDTO> dtos) {
+        List<Product> productsToSave = dtos.stream().map(dto -> {
+            Product product = new Product();
+            product.setName(dto.getName());
+            product.setSku(dto.getSku());
+            product.setBarcode(dto.getBarcode());
+            product.setDescription(dto.getDescription());
+            product.setActive(true);
+
+            if (dto.getCategoryName() != null && !dto.getCategoryName().isBlank()) {
+                Category category = categoryRepository.findByName(dto.getCategoryName())
+                        .orElseGet(() -> {
+                            Category newCat = new Category();
+                            newCat.setName(dto.getCategoryName());
+                            return categoryRepository.save(newCat);
+                        });
+                product.setCategory(category);
+            }
+
+            if (dto.getUnits() != null) {
+                for (ProductImportDTO.UnitDTO unitDto : dto.getUnits()) {
+                    ProductUnit unit = new ProductUnit();
+                    unit.setUnitName(unitDto.getUnitName());
+                    unit.setPricePerUnit(unitDto.getPricePerUnit());
+                    unit.setConversionToBase(unitDto.getConversionToBase());
+                    unit.setBaseUnit(unitDto.isBaseUnit());
+                    product.addUnit(unit);
+                }
+            }
+
+            return product;
+        }).toList();
+
+        List<Product> savedProducts = productRepository.saveAll(productsToSave);
+        return ResponseEntity.ok(savedProducts);
+    }
+
     @GetMapping
     public List<Product> getAll() {
         return productRepository.findAll();

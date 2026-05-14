@@ -75,7 +75,7 @@ const DashboardPage: React.FC = () => {
       icon: AlertCircle, 
       color: 'text-rose-600', 
       bg: 'bg-rose-50',
-      link: '/inventory' 
+      link: '/dashboard/inventory' 
     },
     { 
       label: 'Stok Menipis', 
@@ -83,7 +83,7 @@ const DashboardPage: React.FC = () => {
       icon: Package, 
       color: 'text-amber-600', 
       bg: 'bg-amber-50',
-      link: '/inventory'
+      link: '/dashboard/inventory'
     },
   ];
 
@@ -97,12 +97,12 @@ const DashboardPage: React.FC = () => {
             Sistem GApotek siap membantu Anda mengelola inventori dan penjualan secara efisien hari ini.
           </p>
           <div className="flex flex-wrap gap-4">
-             <Link to="/pos">
+             <Link to="/dashboard/pos">
                 <Button className="bg-emerald-600 hover:bg-emerald-700 h-12 px-8 rounded-xl font-bold shadow-lg shadow-emerald-500/20">
                    Buka Kasir POS
                 </Button>
              </Link>
-             <Link to="/inventory">
+             <Link to="/dashboard/inventory">
                 <Button variant="outline" className="border-white/20 hover:bg-white/10 h-12 px-8 rounded-xl font-bold text-white">
                    Cek Stok Barang
                 </Button>
@@ -227,7 +227,7 @@ const DashboardPage: React.FC = () => {
                 ))
              )}
           </div>
-          <Link to="/inventory/movements">
+          <Link to="/dashboard/inventory/movements">
              <Button variant="ghost" className="w-full mt-6 text-emerald-600 font-bold hover:bg-emerald-50">
                 Lihat Semua Aktivitas
              </Button>

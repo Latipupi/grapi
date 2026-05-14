@@ -27,6 +27,7 @@ public class SalesService {
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
+    private final ProductUnitRepository unitRepository;
 
     @Transactional
     public Sale processSale(CreateSaleRequest request) {
@@ -58,52 +59,55 @@ public class SalesService {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + item.getProductId()));
 
-            BigDecimal remainingQtyToSell = item.getQuantity();
+            ProductUnit unit = unitRepository.findById(item.getUnitId())
+                    .orElseThrow(() -> new IllegalArgumentException("Unit not found: " + item.getUnitId()));
+
+            // Convert sell quantity to base unit quantity
+            BigDecimal conversionFactor = BigDecimal.valueOf(unit.getConversionToBase());
+            BigDecimal totalBaseQtyToSell = item.getQuantity().multiply(conversionFactor);
+            BigDecimal remainingBaseQtyToSell = totalBaseQtyToSell;
             
             // FEFO Logic: Get batches sorted by expiry date
             List<InventoryBatch> batches = batchRepository.findByBranchIdAndProductIdOrderByExpiryDateAsc(
                     branch.getId(), product.getId()
             );
 
-            // Filter out empty batches or expired ones if needed (optional based on business rule)
-            // For now, just pick any available stock to satisfy the demand.
-            
             for (InventoryBatch batch : batches) {
-                if (remainingQtyToSell.compareTo(BigDecimal.ZERO) <= 0) break;
+                if (remainingBaseQtyToSell.compareTo(BigDecimal.ZERO) <= 0) break;
                 if (batch.getCurrentQuantity().compareTo(BigDecimal.ZERO) <= 0) continue;
 
-                BigDecimal qtyToTake = remainingQtyToSell.min(batch.getCurrentQuantity());
+                BigDecimal qtyToTakeFromBatch = remainingBaseQtyToSell.min(batch.getCurrentQuantity());
                 
-                // Deduct from batch via InventoryService (handles summary and log too)
+                // Deduct from batch via InventoryService
                 inventoryService.recordMovement(
                         branch.getId(),
                         product.getId(),
                         "OUT",
-                        qtyToTake,
+                        qtyToTakeFromBatch,
                         batch.getBatchNumber(),
                         batch.getExpiryDate(),
                         "SALE-" + sale.getId(), 
-                        "Point of Sale",
+                        "Point of Sale (" + unit.getUnitName() + ")",
                         batch.getPurchasePrice()
                 );
 
                 SaleDetail detail = SaleDetail.builder()
                         .product(product)
                         .batch(batch)
-                        .quantity(qtyToTake)
+                        .quantity(qtyToTakeFromBatch.divide(conversionFactor, 4, java.math.RoundingMode.HALF_UP))
                         .unitPrice(item.getUnitPrice())
-                        .subtotal(qtyToTake.multiply(item.getUnitPrice()))
+                        .subtotal(qtyToTakeFromBatch.divide(conversionFactor, 4, java.math.RoundingMode.HALF_UP).multiply(item.getUnitPrice()))
                         .purchasePrice(batch.getPurchasePrice())
                         .build();
                 
                 details.add(detail);
                 totalSaleAmount = totalSaleAmount.add(detail.getSubtotal());
-                remainingQtyToSell = remainingQtyToSell.subtract(qtyToTake);
+                remainingBaseQtyToSell = remainingBaseQtyToSell.subtract(qtyToTakeFromBatch);
             }
 
-            if (remainingQtyToSell.compareTo(BigDecimal.ZERO) > 0) {
+            if (remainingBaseQtyToSell.compareTo(BigDecimal.ZERO) > 0) {
                 throw new IllegalStateException("Insufficient stock for product: " + product.getName() + 
-                        ". Shortage: " + remainingQtyToSell);
+                        ". Shortage: " + remainingBaseQtyToSell.divide(conversionFactor, 2, java.math.RoundingMode.HALF_UP) + " " + unit.getUnitName());
             }
         }
 
@@ -138,11 +142,14 @@ public class SalesService {
 
     public static class CartItem {
         private Long productId;
+        private Long unitId;
         private BigDecimal quantity;
         private BigDecimal unitPrice;
 
         public Long getProductId() { return productId; }
         public void setProductId(Long productId) { this.productId = productId; }
+        public Long getUnitId() { return unitId; }
+        public void setUnitId(Long unitId) { this.unitId = unitId; }
         public BigDecimal getQuantity() { return quantity; }
         public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
         public BigDecimal getUnitPrice() { return unitPrice; }
