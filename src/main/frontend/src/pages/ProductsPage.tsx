@@ -59,6 +59,8 @@ const ProductsPage: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [importData, setImportData] = useState<string>('');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [viewBranchId, setViewBranchId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
@@ -104,6 +106,24 @@ const ProductsPage: React.FC = () => {
     },
   });
 
+  const { data: branches } = useQuery<any[]>({
+    queryKey: ['branches'],
+    queryFn: async () => {
+      const res = await api.get('/branches');
+      return res.data;
+    },
+  });
+
+  const { data: inventory } = useQuery<any[]>({
+    queryKey: ['inventory', viewBranchId],
+    queryFn: async () => {
+      if (!viewBranchId) return [];
+      const res = await api.get(`/inventory/branch/${viewBranchId}`);
+      return res.data;
+    },
+    enabled: !!viewBranchId
+  });
+
   const createMutation = useMutation({
     mutationFn: (data: ProductFormValues) => api.post('/products', {
       ...data,
@@ -143,13 +163,15 @@ const ProductsPage: React.FC = () => {
   });
 
   const bulkCreateMutation = useMutation({
-    mutationFn: (data: any[]) => api.post('/products/bulk', data),
+    mutationFn: (data: { items: any[], branchId?: string }) => 
+      api.post(`/products/bulk${data.branchId ? `?branchId=${data.branchId}` : ''}`, data.items),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       alert('Berhasil mengimpor produk');
       setIsImportModalOpen(false);
       setImportData('');
+      setSelectedBranchId('');
     },
     onError: (error: any) => {
       alert('Gagal impor: ' + (error.response?.data?.message || error.message));
@@ -243,6 +265,20 @@ const ProductsPage: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lihat Stok:</label>
+            <select
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none min-w-[180px]"
+              value={viewBranchId}
+              onChange={(e) => setViewBranchId(e.target.value)}
+            >
+              <option value="">Semua Cabang (Tanpa Stok)</option>
+              {branches?.map(branch => (
+                <option key={branch.id} value={branch.id.toString()}>{branch.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -252,6 +288,7 @@ const ProductsPage: React.FC = () => {
                 <TableHead>Produk</TableHead>
                 <TableHead>Kategori</TableHead>
                 <TableHead>SKU/Barcode</TableHead>
+                {viewBranchId && <TableHead>Stok</TableHead>}
                 <TableHead>Harga (Base)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
@@ -316,6 +353,18 @@ const ProductsPage: React.FC = () => {
                           </p>
                         </div>
                       </TableCell>
+                      {viewBranchId && (
+                        <TableCell>
+                          <div className={cn(
+                             "inline-flex items-center px-2 py-1 rounded-lg font-bold text-sm",
+                             (inventory?.find(inv => inv.product.id === product.id)?.stockQuantity || 0) > 0 
+                               ? "bg-emerald-50 text-emerald-700" 
+                               : "bg-red-50 text-red-600"
+                          )}>
+                            {inventory?.find(inv => inv.product.id === product.id)?.stockQuantity || 0}
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium text-slate-800 whitespace-nowrap">
                         {baseUnit ? `Rp ${baseUnit.pricePerUnit.toLocaleString()}` : '-'}
                       </TableCell>
@@ -517,7 +566,7 @@ const ProductsPage: React.FC = () => {
         footer={
           <>
             <Button variant="outline" onClick={() => setIsImportModalOpen(false)}>Batal</Button>
-            <Button
+             <Button
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
               disabled={bulkCreateMutation.isPending}
               onClick={() => {
@@ -528,7 +577,8 @@ const ProductsPage: React.FC = () => {
                        name, sku, categoryName, barcode,
                        baseUnit, basePrice, 
                        midUnit, midPrice, midConv, 
-                       largeUnit, largePrice, largeConv
+                       largeUnit, largePrice, largeConv,
+                       stock, supplier
                     ] = line.split(',');
                     
                     const units = [];
@@ -565,10 +615,12 @@ const ProductsPage: React.FC = () => {
                        sku: sku?.trim(),
                        categoryName: categoryName?.trim(),
                        barcode: barcode?.trim(),
+                       initialStock: parseFloat(stock) || 0,
+                       supplierName: supplier?.trim(),
                        units
                     };
                  });
-                 bulkCreateMutation.mutate(data);
+                 bulkCreateMutation.mutate({ items: data, branchId: selectedBranchId });
               }}
             >
               {bulkCreateMutation.isPending ? 'Mengimpor...' : 'Proses Import'}
@@ -580,19 +632,34 @@ const ProductsPage: React.FC = () => {
            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-700 text-sm">
               <Download className="w-5 h-5 shrink-0" />
               <div>
-                 <p className="font-bold text-base mb-1">Panduan Import 3 Tingkat (12 Kolom)</p>
-                 <p className="opacity-80 leading-relaxed">
-                    Format: <b>Nama, SKU, Kategori, Barcode, Sat1, Harga1, Sat2, Harga2, Isi2, Sat3, Harga3, Isi3</b>
+                 <p className="font-bold text-base mb-1">Panduan Import (14 Kolom)</p>
+                 <p className="opacity-80 leading-relaxed text-[11px]">
+                    Format: <b>Nama, SKU, Kategori, Barcode, Sat1, Harga1, Sat2, Harga2, Isi2, Sat3, Harga3, Isi3, Stok, Supplier</b>
                  </p>
                  <div className="mt-3 p-3 bg-white/60 rounded-xl border border-amber-200 text-[11px] space-y-1">
-                    <p><b>Contoh:</b> Amoxicillin, AMX01, Obat, 8991234567, Tablet, 1500, Strip, 14000, 10, Box, 135000, 100</p>
-                    <p className="text-amber-600 font-medium">*Isi = Jumlah satuan dasar dalam unit tersebut</p>
+                    <p><b>Contoh:</b> Amoxicillin, AMX01, Obat, 89912345, Tablet, 1500, Strip, 14000, 10, Box, 135000, 100, 50, PT. Sehat</p>
+                    <p className="text-amber-600 font-medium">*Kolom Stok & Supplier bersifat opsional.</p>
                  </div>
               </div>
            </div>
 
            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Paste Data CSV (12 Kolom) di bawah ini:</label>
+              <label className="text-sm font-bold text-slate-700">Pilih Cabang (Untuk Alokasi Stok):</label>
+              <select
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+              >
+                <option value="">-- Pilih Cabang --</option>
+                {branches?.map(branch => (
+                  <option key={branch.id} value={branch.id.toString()}>{branch.name}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-500">*Wajib dipilih jika ingin memasukkan stok awal.</p>
+           </div>
+
+           <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Paste Data CSV (14 Kolom) di bawah ini:</label>
               <textarea 
                 className="w-full h-48 rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-[10px] focus:ring-2 focus:ring-emerald-500 focus:outline-none focus:bg-white transition-all"
                 placeholder="Nama,SKU,Kategori,Barcode,Sat1,Harga1,Sat2,Harga2,Isi2,Sat3,Harga3,Isi3&#10;Amoxicillin,AMX01,Obat,89912345,Tablet,1500,Strip,14000,10,Box,135000,100"

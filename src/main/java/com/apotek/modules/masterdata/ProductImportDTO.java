@@ -10,7 +10,9 @@ public class ProductImportDTO {
     private String sku;
     private String barcode;
     private String categoryName;
+    private String supplierName;
     private String description;
+    private BigDecimal initialStock;
     private List<UnitDTO> units;
 
     @Data

@@ -35,6 +35,12 @@ interface Product {
   name: string;
   sku: string;
   sellingPrice: number;
+  units: {
+    id: number;
+    unitName: string;
+    conversionToBase: number;
+    baseUnit: boolean;
+  }[];
 }
 
 interface Inventory {
@@ -50,6 +56,25 @@ interface InventoryBatch {
   currentQuantity: number;
   purchasePrice: number;
 }
+
+const formatStockBreakdown = (totalQty: number, units: any[]) => {
+  if (!units || units.length === 0) return totalQty.toLocaleString();
+  
+  const sortedUnits = [...units].sort((a, b) => b.conversionToBase - a.conversionToBase);
+  
+  let remaining = totalQty;
+  const parts: string[] = [];
+  
+  sortedUnits.forEach(unit => {
+    const count = Math.floor(remaining / unit.conversionToBase);
+    if (count > 0) {
+      parts.push(`${count} ${unit.unitName}`);
+      remaining %= unit.conversionToBase;
+    }
+  });
+  
+  return parts.length > 0 ? parts.join(', ') : `0 ${sortedUnits[sortedUnits.length - 1]?.unitName || ''}`;
+};
 
 const InventoryRow: React.FC<{
   inv: Inventory;
@@ -97,6 +122,11 @@ const InventoryRow: React.FC<{
         </TableCell>
         <TableCell className="text-right font-bold text-slate-700">
           {inv.stockQuantity?.toLocaleString() || '0'}
+        </TableCell>
+        <TableCell className="text-left text-xs font-medium text-slate-600">
+          <div className="bg-slate-100 px-2 py-1 rounded-md inline-block">
+            {formatStockBreakdown(inv.stockQuantity, inv.product?.units)}
+          </div>
         </TableCell>
         <TableCell className="text-right text-sm font-medium text-emerald-600">
           {inv.product?.sellingPrice ? (
@@ -341,6 +371,7 @@ const InventoryPage: React.FC = () => {
                 <TableHead>SKU</TableHead>
                 <TableHead>Nama Produk</TableHead>
                 <TableHead className="text-right">Stok Total</TableHead>
+                <TableHead className="text-left">Kemasan (Pecahan)</TableHead>
                 <TableHead className="text-right">Harga Jual</TableHead>
                 <TableHead className="text-center">Aksi</TableHead>
               </TableRow>

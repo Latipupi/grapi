@@ -26,9 +26,17 @@ public class Product {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @ManyToOne
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+
     @Transient
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Long categoryId;
+
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Long supplierId;
 
     @Column(nullable = false)
     private String name;

@@ -14,11 +14,17 @@ public class ProductController {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final SupplierRepository supplierRepository;
+    private final BranchRepository branchRepository;
+    private final com.apotek.modules.inventory.InventoryService inventoryService;
 
     @PostMapping("/bulk")
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     @org.springframework.transaction.annotation.Transactional
-    public ResponseEntity<List<Product>> bulkCreate(@RequestBody List<ProductImportDTO> dtos) {
+    public ResponseEntity<List<Product>> bulkCreate(
+            @RequestBody List<ProductImportDTO> dtos,
+            @RequestParam(required = false) Long branchId) {
+        
         List<Product> productsToSave = dtos.stream().map(dto -> {
             Product product = new Product();
             product.setName(dto.getName());
@@ -37,6 +43,16 @@ public class ProductController {
                 product.setCategory(category);
             }
 
+            if (dto.getSupplierName() != null && !dto.getSupplierName().isBlank()) {
+                Supplier supplier = supplierRepository.findByName(dto.getSupplierName())
+                        .orElseGet(() -> {
+                            Supplier newSup = new Supplier();
+                            newSup.setName(dto.getSupplierName());
+                            return supplierRepository.save(newSup);
+                        });
+                product.setSupplier(supplier);
+            }
+
             if (dto.getUnits() != null) {
                 for (ProductImportDTO.UnitDTO unitDto : dto.getUnits()) {
                     ProductUnit unit = new ProductUnit();
@@ -52,6 +68,29 @@ public class ProductController {
         }).toList();
 
         List<Product> savedProducts = productRepository.saveAll(productsToSave);
+
+        // Record initial stock if provided
+        if (branchId != null) {
+            String importRef = "IMPORT-DATA-" + java.time.LocalDate.now().toString();
+            for (int i = 0; i < dtos.size(); i++) {
+                ProductImportDTO dto = dtos.get(i);
+                if (dto.getInitialStock() != null && dto.getInitialStock().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    Product savedProduct = savedProducts.get(i);
+                    inventoryService.recordMovement(
+                            branchId,
+                            savedProduct.getId(),
+                            "ADJUSTMENT",
+                            dto.getInitialStock(),
+                            "INITIAL",
+                            null,
+                            importRef,
+                            "Saldo awal dari import produk: " + savedProduct.getName() + (dto.getSupplierName() != null ? " (Supplier: " + dto.getSupplierName() + ")" : ""),
+                            null
+                    );
+                }
+            }
+        }
+
         return ResponseEntity.ok(savedProducts);
     }
 
