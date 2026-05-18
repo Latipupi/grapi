@@ -44,6 +44,8 @@ public class Purchase {
     @Column(nullable = false)
     private String status; // DRAFT, RECEIVED, CANCELLED
 
+    private String paymentMethod; // CASH, TRANSFER, HUTANG
+
     private String notes;
 
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -69,6 +71,8 @@ public class Purchase {
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     public List<PurchaseDetail> getDetails() { return details; }
@@ -87,6 +91,7 @@ public class Purchase {
         private String invoiceNumber;
         private BigDecimal totalAmount;
         private String status;
+        private String paymentMethod;
         private String notes;
         public PurchaseBuilder supplier(Supplier supplier) { this.supplier = supplier; return this; }
         public PurchaseBuilder branch(Branch branch) { this.branch = branch; return this; }
@@ -94,6 +99,7 @@ public class Purchase {
         public PurchaseBuilder invoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; return this; }
         public PurchaseBuilder totalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; return this; }
         public PurchaseBuilder status(String status) { this.status = status; return this; }
+        public PurchaseBuilder paymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; return this; }
         public PurchaseBuilder notes(String notes) { this.notes = notes; return this; }
         public Purchase build() {
             Purchase purchase = new Purchase();
@@ -103,6 +109,7 @@ public class Purchase {
             purchase.setInvoiceNumber(invoiceNumber);
             purchase.setTotalAmount(totalAmount);
             purchase.setStatus(status);
+            purchase.setPaymentMethod(paymentMethod);
             purchase.setNotes(notes);
             return purchase;
         }

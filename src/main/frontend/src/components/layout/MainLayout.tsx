@@ -18,7 +18,8 @@ import {
   Settings,
   Store,
   ChevronDown,
-  ShoppingBag
+  ShoppingBag,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -132,6 +133,12 @@ const MainLayout: React.FC = () => {
         { label: 'Ringkasan Laporan', to: '/dashboard/reports', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Laba Rugi', to: '/dashboard/reports/profit-loss', roles: ['ADMIN', 'OWNER'] },
       ]
+    },
+    { 
+      label: 'Hutang & Piutang', 
+      icon: CreditCard, 
+      to: '/dashboard/debts',
+      roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']
     },
     { label: 'Pengaturan', icon: Settings, to: '/dashboard/settings', roles: ['ADMIN', 'OWNER'] },
   ];

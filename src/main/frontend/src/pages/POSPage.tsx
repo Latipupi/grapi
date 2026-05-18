@@ -81,6 +81,10 @@ const POSPage: React.FC = () => {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    if (paymentMethod === 'HUTANG' && !customerId) {
+      alert("Pelanggan (Customer) wajib dipilih untuk transaksi dengan metode Hutang Tempo!");
+      return;
+    }
     const payload = {
       branchId: parseInt(selectedBranchId),
       userId,
@@ -94,6 +98,95 @@ const POSPage: React.FC = () => {
       }))
     };
     saleMutation.mutate(payload);
+  };
+
+  const handlePrintReceipt = (sale: any) => {
+    if (!sale) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Struk Belanja - #SAL-${sale.id}</title>
+          <style>
+            body { font-family: 'Courier New', Courier, monospace; width: 300px; margin: 0 auto; padding: 20px; font-size: 12px; line-height: 1.4; color: #000; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .bold { font-weight: bold; }
+            .header { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+            .header h2 { margin: 0; font-size: 16px; }
+            .header p { margin: 3px 0 0; font-size: 10px; }
+            .meta { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; font-size: 10px; }
+            .meta p { margin: 3px 0; }
+            .items { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+            .item-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+            .item-name { width: 60%; }
+            .item-sub { display: flex; justify-content: space-between; font-size: 9px; margin-top: -3px; color: #555; }
+            .totals { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+            .total-row { display: flex; justify-content: space-between; margin: 3px 0; }
+            .footer { font-size: 10px; margin-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="header text-center">
+            <h2>G-APOTEK</h2>
+            <p>${sale.branch?.name || 'Cabang Utama'}</p>
+            <p>Telp: (021) 1234567</p>
+          </div>
+          
+          <div class="meta">
+            <p>No: #SAL-${sale.id}</p>
+            <p>Tgl: ${new Date(sale.saleDate || sale.createdAt).toLocaleString('id-ID')}</p>
+            <p>Kasir: ${sale.user?.fullName || 'Kasir'}</p>
+            <p>Pelanggan: ${sale.customer?.name || 'Umum'}</p>
+          </div>
+
+          <div class="items">
+            ${sale.details ? sale.details.map((detail: any) => `
+              <div class="item-row">
+                <span class="item-name">${detail.product?.name}</span>
+                <span class="bold">Rp ${detail.subtotal.toLocaleString()}</span>
+              </div>
+              <div class="item-sub">
+                <span>${detail.quantity} x Rp ${detail.unitPrice.toLocaleString()}</span>
+                <span>Batch: ${detail.batch?.batchNumber || '-'}</span>
+              </div>
+            `).join('') : '<p class="text-center">Tidak ada item</p>'}
+          </div>
+
+          <div class="totals">
+            <div class="total-row bold">
+              <span>TOTAL</span>
+              <span>Rp ${sale.totalAmount.toLocaleString()}</span>
+            </div>
+            <div class="total-row">
+              <span>Metode Bayar</span>
+              <span>${sale.paymentMethod}</span>
+            </div>
+            <div class="total-row">
+              <span>Status</span>
+              <span>${sale.status === 'COMPLETED' ? 'LUNAS' : 'DIBATALKAN'}</span>
+            </div>
+          </div>
+
+          <div class="footer text-center">
+            <p>Terima Kasih atas Kunjungan Anda</p>
+            <p>Semoga Lekas Sembuh</p>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   return (
@@ -269,6 +362,7 @@ const POSPage: React.FC = () => {
                   <option value="CASH" className="text-slate-900">Tunai (Cash)</option>
                   <option value="TRANSFER" className="text-slate-900">Transfer Bank</option>
                   <option value="QRIS" className="text-slate-900">QRIS</option>
+                  <option value="HUTANG" className="text-slate-900">Hutang Tempo</option>
                 </select>
              </div>
           </div>
@@ -313,7 +407,7 @@ const POSPage: React.FC = () => {
              <span className="text-2xl font-black text-emerald-600">Rp 0</span>
           </div>
           <div className="flex gap-4">
-             <Button variant="outline" className="flex-1 h-12" onClick={() => window.print()}>
+             <Button variant="outline" className="flex-1 h-12" onClick={() => handlePrintReceipt(successOrder)}>
                 <Receipt className="w-4 h-4 mr-2" />
                 Cetak Struk
              </Button>

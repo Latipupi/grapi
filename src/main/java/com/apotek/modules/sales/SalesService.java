@@ -6,6 +6,7 @@ import com.apotek.modules.inventory.InventoryBatch;
 import com.apotek.modules.inventory.InventoryBatchRepository;
 import com.apotek.modules.inventory.InventoryService;
 import com.apotek.modules.masterdata.*;
+import com.apotek.modules.debt.DebtService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class SalesService {
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final ProductUnitRepository unitRepository;
+    private final DebtService debtService;
 
     @Transactional
     public Sale processSale(CreateSaleRequest request) {
@@ -118,7 +120,9 @@ public class SalesService {
             savedSale.addDetail(detail);
         }
 
-        return saleRepository.save(savedSale);
+        Sale finalSale = saleRepository.save(savedSale);
+        debtService.createDebtFromSale(finalSale);
+        return finalSale;
     }
 
     public static class CreateSaleRequest {

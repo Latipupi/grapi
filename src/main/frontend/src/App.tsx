@@ -21,6 +21,7 @@ import DashboardPage from './pages/DashboardPage';
 import ReportsPage from './pages/ReportsPage';
 import ProfitLossPage from './pages/ProfitLossPage';
 import SettingsPage from './pages/SettingsPage';
+import DebtsPage from './pages/DebtsPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -120,6 +121,11 @@ function App() {
           <Route path="reports/profit-loss" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER']}>
               <ProfitLossPage />
+            </RoleProtectedRoute>
+          } />
+          <Route path="debts" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
+              <DebtsPage />
             </RoleProtectedRoute>
           } />
           <Route path="settings" element={

@@ -23,6 +23,7 @@ const purchaseSchema = z.object({
   purchaseDate: z.string().min(1, 'Tanggal wajib diisi'),
   invoiceNumber: z.string().optional(),
   status: z.string().default('RECEIVED'),
+  paymentMethod: z.string().min(1, 'Metode pembayaran wajib dipilih'),
   notes: z.string().optional(),
   details: z.array(detailSchema).min(1, 'Minimal 1 item'),
 });
@@ -38,6 +39,7 @@ const NewPurchasePage: React.FC = () => {
     defaultValues: {
       purchaseDate: new Date().toISOString().split('T')[0],
       status: 'RECEIVED',
+      paymentMethod: 'CASH',
       details: [{ productId: '', quantity: 0, unitPrice: 0, batchNumber: '', expiryDate: '' }]
     }
   });
@@ -133,6 +135,19 @@ const NewPurchasePage: React.FC = () => {
                   {branches?.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
                 {errors.branchId && <p className="text-xs text-red-500">{errors.branchId.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Metode Pembayaran</label>
+                <select 
+                  {...register('paymentMethod')}
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                  <option value="CASH">Tunai (Cash)</option>
+                  <option value="TRANSFER">Transfer Bank</option>
+                  <option value="HUTANG">Hutang Tempo</option>
+                </select>
+                {errors.paymentMethod && <p className="text-xs text-red-500">{errors.paymentMethod.message}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

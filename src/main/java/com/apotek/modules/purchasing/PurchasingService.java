@@ -1,6 +1,7 @@
 package com.apotek.modules.purchasing;
 
 import com.apotek.modules.inventory.InventoryService;
+import com.apotek.modules.debt.DebtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ public class PurchasingService {
 
     private final PurchaseRepository purchaseRepository;
     private final InventoryService inventoryService;
+    private final DebtService debtService;
 
     public List<Purchase> getAll() {
         return purchaseRepository.findAll();
@@ -46,6 +48,8 @@ public class PurchasingService {
         if ("RECEIVED".equalsIgnoreCase(saved.getStatus())) {
             processStockUpdate(saved);
         }
+
+        debtService.createDebtFromPurchase(saved);
 
         return saved;
     }
