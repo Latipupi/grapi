@@ -53,7 +53,7 @@ public class Sale {
 
     private String notes;
 
-    @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<SaleDetail> details = new ArrayList<>();
 
     @CreationTimestamp
