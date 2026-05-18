@@ -60,14 +60,16 @@ const DashboardPage: React.FC = () => {
       value: `Rp ${stats?.totalSalesToday?.toLocaleString() || 0}`, 
       icon: DollarSign, 
       color: 'text-emerald-600', 
-      bg: 'bg-emerald-50' 
+      bg: 'bg-emerald-50',
+      link: '/dashboard/reports'
     },
     { 
       label: 'Transaksi Hari Ini', 
       value: stats?.transactionsToday || 0, 
       icon: ShoppingCart, 
       color: 'text-sky-600', 
-      bg: 'bg-sky-50' 
+      bg: 'bg-sky-50',
+      link: '/dashboard/pos'
     },
     { 
       label: 'Obat Expired', 
@@ -83,7 +85,7 @@ const DashboardPage: React.FC = () => {
       icon: Package, 
       color: 'text-amber-600', 
       bg: 'bg-amber-50',
-      link: '/dashboard/inventory'
+      link: '/dashboard/inventory?filter=low-stock'
     },
   ];
 
@@ -116,23 +118,25 @@ const DashboardPage: React.FC = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all group relative overflow-hidden">
+          <Link 
+            key={i} 
+            to={stat.link}
+            className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md hover:border-slate-200 transition-all group relative overflow-hidden block cursor-pointer"
+          >
             <div className="flex justify-between items-start mb-4">
               <div className={cn("p-3 rounded-xl", stat.bg)}>
                 <stat.icon className={cn("w-6 h-6", stat.color)} />
               </div>
-              {stat.link && (
-                <Link to={stat.link} className="text-slate-300 hover:text-emerald-600 transition-colors">
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              )}
+              <div className="text-slate-300 group-hover:text-emerald-600 transition-colors">
+                <ArrowRight className="w-5 h-5" />
+              </div>
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">{stat.label}</p>
               <h3 className="text-2xl font-black text-slate-800">{statsLoading ? '...' : stat.value}</h3>
             </div>
             <div className={cn("absolute bottom-0 left-0 h-1 w-full opacity-10", stat.color.replace('text-', 'bg-'))} />
-          </div>
+          </Link>
         ))}
       </div>
 

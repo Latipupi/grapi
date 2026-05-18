@@ -21,6 +21,11 @@ public class PurchasingController {
         return purchasingService.getAll();
     }
 
+    @GetMapping("/{id}")
+    public Purchase getById(@PathVariable Long id) {
+        return purchasingService.getById(id);
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public Purchase create(@RequestBody Purchase purchase) {

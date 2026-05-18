@@ -10,7 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Plus, Search, Package, History, ChevronDown, ChevronRight, Calendar, AlertCircle } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { cn } from '../lib/utils';
 
 const adjustmentSchema = z.object({
@@ -226,6 +226,20 @@ const InventoryPage: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW_STOCK'>(() => {
+    return searchParams.get('filter') === 'low-stock' ? 'LOW_STOCK' : 'ALL';
+  });
+
+  const handleFilterChange = (filter: 'ALL' | 'LOW_STOCK') => {
+    setStockFilter(filter);
+    if (filter === 'LOW_STOCK') {
+      setSearchParams({ filter: 'low-stock' });
+    } else {
+      setSearchParams({});
+    }
+  };
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
@@ -305,10 +319,17 @@ const InventoryPage: React.FC = () => {
 
   const filteredInventory = inventory?.filter(inv => {
     if (!inv.product) return false;
+    
     const search = searchTerm.toLowerCase();
     const nameMatch = inv.product.name?.toLowerCase().includes(search);
     const skuMatch = inv.product.sku?.toLowerCase().includes(search);
-    return nameMatch || skuMatch;
+    if (!nameMatch && !skuMatch) return false;
+
+    if (stockFilter === 'LOW_STOCK' && inv.stockQuantity >= 10) {
+      return false;
+    }
+
+    return true;
   });
 
   return (
@@ -351,8 +372,8 @@ const InventoryPage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-sm w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
               placeholder="Cari SKU atau nama produk..."
@@ -360,6 +381,32 @@ const InventoryPage: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100 self-start sm:self-auto shrink-0">
+            <button
+              onClick={() => handleFilterChange('ALL')}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
+                stockFilter === 'ALL'
+                  ? "bg-white text-slate-800 shadow-sm border border-slate-100/50"
+                  : "text-slate-500 hover:text-slate-800"
+              )}
+            >
+              Semua Barang
+            </button>
+            <button
+              onClick={() => handleFilterChange('LOW_STOCK')}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
+                stockFilter === 'LOW_STOCK'
+                  ? "bg-rose-500 text-white shadow-sm shadow-rose-100"
+                  : "text-slate-500 hover:text-rose-500"
+              )}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              Stok Menipis (&lt; 10)
+            </button>
           </div>
         </div>
 

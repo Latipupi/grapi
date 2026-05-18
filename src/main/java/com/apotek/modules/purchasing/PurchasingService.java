@@ -23,6 +23,11 @@ public class PurchasingService {
         return purchaseRepository.findByBranchIdOrderByPurchaseDateDesc(branchId);
     }
 
+    public Purchase getById(Long id) {
+        return purchaseRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new RuntimeException("Purchase not found with id: " + id));
+    }
+
     @Transactional
     public Purchase createPurchase(Purchase purchase) {
         // Initial status is usually RECEIVED for MVP simplicity (Auto-Stock)

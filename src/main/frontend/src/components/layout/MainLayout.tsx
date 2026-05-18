@@ -87,50 +87,61 @@ const MainLayout: React.FC = () => {
   };
 
   const menuItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
-    { label: 'POS Kasir', icon: ShoppingCart, to: '/dashboard/pos' },
+    { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+    { label: 'POS Kasir', icon: ShoppingCart, to: '/dashboard/pos', roles: ['ADMIN', 'OWNER', 'CASHIER', 'KASIR'] },
     { 
       label: 'Inventory', 
       icon: Package, 
       to: '/dashboard/inventory',
+      roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'],
       children: [
-        { label: 'Stok Barang', to: '/dashboard/inventory' },
-        { label: 'Riwayat Mutasi', to: '/dashboard/inventory/movements' },
+        { label: 'Stok Barang', to: '/dashboard/inventory', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Riwayat Mutasi', to: '/dashboard/inventory/movements', roles: ['ADMIN', 'OWNER', 'STAFF'] },
       ]
     },
     { 
       label: 'Pembelian', 
       icon: ShoppingBag, 
       to: '/dashboard/purchasing',
+      roles: ['ADMIN', 'OWNER', 'STAFF'],
       children: [
-        { label: 'Riwayat Pembelian', to: '/dashboard/purchasing' },
-        { label: 'Input Baru', to: '/dashboard/purchasing/new' },
+        { label: 'Riwayat Pembelian', to: '/dashboard/purchasing', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Input Baru', to: '/dashboard/purchasing/new', roles: ['ADMIN', 'OWNER', 'STAFF'] },
       ]
     },
     { 
       label: 'Master Data', 
       icon: Database, 
       to: '/dashboard/master',
+      roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'],
       children: [
-        { label: 'Cabang', to: '/dashboard/master/branches' },
-        { label: 'Kategori', to: '/dashboard/master/categories' },
-        { label: 'Produk', to: '/dashboard/master/products' },
-        { label: 'Supplier', to: '/dashboard/master/suppliers' },
-        { label: 'Pelanggan', to: '/dashboard/master/customers' },
-        { label: 'Pengguna', to: '/dashboard/master/users' },
+        { label: 'Cabang', to: '/dashboard/master/branches', roles: ['ADMIN', 'OWNER'] },
+        { label: 'Kategori', to: '/dashboard/master/categories', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Produk', to: '/dashboard/master/products', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Supplier', to: '/dashboard/master/suppliers', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Pelanggan', to: '/dashboard/master/customers', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Pengguna', to: '/dashboard/master/users', roles: ['ADMIN', 'OWNER'] },
       ]
     },
     { 
       label: 'Laporan', 
       icon: FileText, 
       to: '/dashboard/reports',
+      roles: ['ADMIN', 'OWNER', 'STAFF'],
       children: [
-        { label: 'Ringkasan Laporan', to: '/dashboard/reports' },
-        { label: 'Laba Rugi', to: '/dashboard/reports/profit-loss' },
+        { label: 'Ringkasan Laporan', to: '/dashboard/reports', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Laba Rugi', to: '/dashboard/reports/profit-loss', roles: ['ADMIN', 'OWNER'] },
       ]
     },
-    { label: 'Pengaturan', icon: Settings, to: '/dashboard/settings' },
+    { label: 'Pengaturan', icon: Settings, to: '/dashboard/settings', roles: ['ADMIN', 'OWNER'] },
   ];
+
+  const filteredMenuItems = menuItems.filter(item => 
+    item.roles.includes(role || '')
+  ).map(item => ({
+    ...item,
+    children: item.children ? item.children.filter(child => child.roles.includes(role || '')) : undefined
+  })).filter(item => !item.children || item.children.length > 0 || !item.to.includes('/master'));
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-x-hidden">
@@ -160,7 +171,7 @@ const MainLayout: React.FC = () => {
           </div>
 
           <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               const isActive = location.pathname === item.to || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
               const isExpanded = expandedMenus.includes(item.label);
               
