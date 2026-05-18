@@ -24,15 +24,81 @@ interface Sale {
   status: string;
   user: { fullName: string };
   customer?: { name: string };
-  branch: { name: string };
+  branch: { id: number; name: string };
 }
 
 const ReportsPage: React.FC = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [statusFilter, setStatusFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const [appliedFilters, setAppliedFilters] = useState({
+    start: '',
+    end: '',
+    status: '',
+    branch: ''
+  });
 
   const { data: sales, isLoading } = useQuery<Sale[]>({
     queryKey: ['sales-report'],
     queryFn: () => api.get('/sales').then(res => res.data),
+  });
+
+  const { data: branches } = useQuery<any[]>({
+    queryKey: ['branches'],
+    queryFn: () => api.get('/branches').then(res => res.data),
+  });
+
+  const handleApplyFilters = () => {
+    setAppliedFilters({
+      start: dateRange.start,
+      end: dateRange.end,
+      status: statusFilter,
+      branch: branchFilter
+    });
+  };
+
+  const handleResetFilters = () => {
+    setDateRange({ start: '', end: '' });
+    setStatusFilter('');
+    setBranchFilter('');
+    setAppliedFilters({ start: '', end: '', status: '', branch: '' });
+  };
+
+  const filteredSales = sales?.filter(sale => {
+    // 1. Search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      const idMatch = `#sal-${sale.id}`.toLowerCase().includes(search) || `sal-${sale.id}`.toLowerCase().includes(search) || String(sale.id).includes(search);
+      const customerMatch = sale.customer?.name?.toLowerCase().includes(search);
+      const userMatch = sale.user?.fullName?.toLowerCase().includes(search);
+      if (!idMatch && !customerMatch && !userMatch) return false;
+    }
+
+    // 2. Status filter
+    if (appliedFilters.status && sale.status !== appliedFilters.status) {
+      return false;
+    }
+
+    // 3. Branch filter
+    if (appliedFilters.branch && String(sale.branch?.id) !== appliedFilters.branch) {
+      return false;
+    }
+
+    // 4. Date range filter
+    if (appliedFilters.start) {
+      const startDate = new Date(appliedFilters.start);
+      startDate.setHours(0, 0, 0, 0);
+      if (new Date(sale.saleDate) < startDate) return false;
+    }
+    if (appliedFilters.end) {
+      const endDate = new Date(appliedFilters.end);
+      endDate.setHours(23, 59, 59, 999);
+      if (new Date(sale.saleDate) > endDate) return false;
+    }
+
+    return true;
   });
 
   return (
@@ -55,39 +121,68 @@ const ReportsPage: React.FC = () => {
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-4 items-end">
-         <div className="space-y-1.5 flex-1 min-w-[200px]">
+         <div className="space-y-1.5 flex-1 min-w-[150px]">
             <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
                <Calendar className="w-3 h-3" /> Tanggal Mulai
             </label>
             <Input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} />
          </div>
-         <div className="space-y-1.5 flex-1 min-w-[200px]">
+         <div className="space-y-1.5 flex-1 min-w-[150px]">
             <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
                <Calendar className="w-3 h-3" /> Tanggal Akhir
             </label>
             <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} />
          </div>
-         <div className="space-y-1.5 flex-1 min-w-[200px]">
+         <div className="space-y-1.5 flex-1 min-w-[150px]">
             <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
                <Filter className="w-3 h-3" /> Status
             </label>
-            <select className="w-full h-10 px-3 py-2 bg-slate-50 border-transparent rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500">
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            >
                <option value="">Semua Status</option>
                <option value="COMPLETED">Berhasil</option>
                <option value="CANCELLED">Dibatalkan</option>
             </select>
          </div>
-         <Button className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700">Filter</Button>
+         <div className="space-y-1.5 flex-1 min-w-[150px]">
+            <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+               <Filter className="w-3 h-3" /> Cabang
+            </label>
+            <select 
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            >
+               <option value="">Semua Cabang</option>
+               {branches?.map(b => (
+                 <option key={b.id} value={b.id}>{b.name}</option>
+               ))}
+            </select>
+         </div>
+         <div className="flex gap-2">
+            <Button onClick={handleApplyFilters} className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700">Filter</Button>
+            {(appliedFilters.start || appliedFilters.end || appliedFilters.status || appliedFilters.branch) && (
+              <Button onClick={handleResetFilters} variant="outline" className="h-10 px-4">Reset</Button>
+            )}
+         </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
            <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input placeholder="Cari ID Transaksi..." className="pl-10 h-9" />
+              <Input 
+                placeholder="Cari ID, Customer atau Kasir..." 
+                className="pl-10 h-9" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
            </div>
            <div className="text-sm font-medium text-slate-500">
-              Menampilkan <span className="text-slate-800 font-bold">{sales?.length || 0}</span> Transaksi
+              Menampilkan <span className="text-slate-800 font-bold">{filteredSales?.length || 0}</span> Transaksi
            </div>
         </div>
 
@@ -96,6 +191,7 @@ const ReportsPage: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>ID / Tanggal</TableHead>
+                <TableHead>Cabang</TableHead>
                 <TableHead>Customer & Kasir</TableHead>
                 <TableHead>Metode Bayar</TableHead>
                 <TableHead className="text-right">Total Transaksi</TableHead>
@@ -104,11 +200,11 @@ const ReportsPage: React.FC = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="h-32 text-center text-slate-400">Memuat data...</TableCell></TableRow>
-              ) : sales?.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="h-32 text-center text-slate-400">Tidak ada transaksi ditemukan.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="h-32 text-center text-slate-400">Memuat data...</TableCell></TableRow>
+              ) : filteredSales?.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="h-32 text-center text-slate-400">Tidak ada transaksi ditemukan.</TableCell></TableRow>
               ) : (
-                sales?.map((sale, index) => (
+                filteredSales?.map((sale, index) => (
                   <motion.tr 
                     key={sale.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -123,6 +219,11 @@ const ReportsPage: React.FC = () => {
                              {new Date(sale.saleDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </p>
                        </div>
+                    </TableCell>
+                    <TableCell>
+                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100">
+                          {sale.branch?.name || 'Cabang Utama'}
+                       </span>
                     </TableCell>
                     <TableCell>
                        <div className="space-y-1">
