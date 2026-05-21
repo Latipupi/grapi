@@ -1,0 +1,12 @@
+CREATE TABLE expenses (
+    id BIGSERIAL PRIMARY KEY,
+    branch_id BIGINT NOT NULL REFERENCES branches(id),
+    category VARCHAR(255) NOT NULL,
+    amount DECIMAL(19, 4) NOT NULL,
+    expense_date DATE NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE inventory ADD COLUMN minimum_stock DECIMAL(19, 4) NOT NULL DEFAULT 10.0;

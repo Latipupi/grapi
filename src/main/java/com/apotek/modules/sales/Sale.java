@@ -39,6 +39,11 @@ public class Sale {
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shift_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private CashierShift shift;
+
     @Column(nullable = false)
     private LocalDateTime saleDate;
 
@@ -68,6 +73,7 @@ public class Sale {
         private Branch branch;
         private User user;
         private Customer customer;
+        private CashierShift shift;
         private LocalDateTime saleDate;
         private BigDecimal totalAmount;
         private String paymentMethod;
@@ -76,6 +82,7 @@ public class Sale {
         public SaleBuilder branch(Branch branch) { this.branch = branch; return this; }
         public SaleBuilder user(User user) { this.user = user; return this; }
         public SaleBuilder customer(Customer customer) { this.customer = customer; return this; }
+        public SaleBuilder shift(CashierShift shift) { this.shift = shift; return this; }
         public SaleBuilder saleDate(LocalDateTime saleDate) { this.saleDate = saleDate; return this; }
         public SaleBuilder totalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; return this; }
         public SaleBuilder paymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; return this; }
@@ -86,6 +93,7 @@ public class Sale {
             sale.setBranch(branch);
             sale.setUser(user);
             sale.setCustomer(customer);
+            sale.setShift(shift);
             sale.setSaleDate(saleDate);
             sale.setTotalAmount(totalAmount);
             sale.setPaymentMethod(paymentMethod);

@@ -51,6 +51,9 @@ public class InventoryBatch {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Version
+    private Long version;
+
     public static InventoryBatchBuilder builder() { return new InventoryBatchBuilder(); }
 
     public static class InventoryBatchBuilder {

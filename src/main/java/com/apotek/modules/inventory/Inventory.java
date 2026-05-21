@@ -35,6 +35,9 @@ public class Inventory {
     @Column(nullable = false)
     private BigDecimal stockQuantity; // In Base Unit
 
+    @Column(name = "minimum_stock", nullable = false)
+    private BigDecimal minimumStock = new BigDecimal("10.0");
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -47,14 +50,18 @@ public class Inventory {
         private Branch branch;
         private Product product;
         private BigDecimal stockQuantity;
+        private BigDecimal minimumStock = new BigDecimal("10.0");
+        
         public InventoryBuilder branch(Branch branch) { this.branch = branch; return this; }
         public InventoryBuilder product(Product product) { this.product = product; return this; }
         public InventoryBuilder stockQuantity(BigDecimal qty) { this.stockQuantity = qty; return this; }
+        public InventoryBuilder minimumStock(BigDecimal min) { this.minimumStock = min; return this; }
         public Inventory build() {
             Inventory inv = new Inventory();
             inv.setBranch(branch);
             inv.setProduct(product);
             inv.setStockQuantity(stockQuantity);
+            inv.setMinimumStock(minimumStock);
             return inv;
         }
     }

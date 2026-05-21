@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
-import { Plus, ShoppingBag, Calendar, Truck, CreditCard } from 'lucide-react';
+import { Plus, ShoppingBag, Calendar, Truck, CreditCard, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Purchase {
@@ -19,6 +19,7 @@ interface Purchase {
 
 const PurchasesPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const { data: purchases, isLoading } = useQuery<Purchase[]>({
     queryKey: ['purchases'],
@@ -27,6 +28,19 @@ const PurchasesPage: React.FC = () => {
       return res.data;
     },
   });
+
+  const filteredPurchases = React.useMemo(() => {
+    if (!purchases) return [];
+    if (!searchQuery) return purchases;
+    const query = searchQuery.toLowerCase();
+    return purchases.filter(p => {
+      const invoiceMatch = p.invoiceNumber?.toLowerCase().includes(query);
+      const idMatch = p.id.toString().includes(query) || `po-${p.id}`.includes(query) || `sp-${p.id}`.includes(query);
+      const supplierMatch = p.supplier?.name?.toLowerCase().includes(query);
+      const branchMatch = p.branch?.name?.toLowerCase().includes(query);
+      return invoiceMatch || idMatch || supplierMatch || branchMatch;
+    });
+  }, [purchases, searchQuery]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -42,6 +56,18 @@ const PurchasesPage: React.FC = () => {
           <Plus className="w-4 h-4" />
           Tambah Pembelian
         </Button>
+      </div>
+
+      {/* Kotak Pencarian */}
+      <div className="flex items-center bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-100 gap-2.5 max-w-md">
+        <Search className="w-5 h-5 text-slate-400" />
+        <input 
+          type="text" 
+          placeholder="Cari nomor invoice, ID SP/PO, supplier, cabang..." 
+          className="bg-transparent border-0 outline-none text-sm text-slate-700 placeholder-slate-400 w-full focus:ring-0 focus:outline-none"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -70,8 +96,14 @@ const PurchasesPage: React.FC = () => {
                     Belum ada riwayat pembelian.
                   </TableCell>
                 </TableRow>
+              ) : filteredPurchases.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-32 text-center text-slate-400 italic">
+                    Tidak ditemukan riwayat pembelian untuk pencarian "{searchQuery}".
+                  </TableCell>
+                </TableRow>
               ) : (
-                purchases?.map((purchase, index) => (
+                filteredPurchases.map((purchase, index) => (
                   <motion.tr 
                     key={purchase.id}
                     initial={{ opacity: 0, y: 10 }}

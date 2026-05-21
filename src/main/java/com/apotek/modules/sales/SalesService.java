@@ -7,7 +7,6 @@ import com.apotek.modules.inventory.InventoryBatchRepository;
 import com.apotek.modules.inventory.InventoryService;
 import com.apotek.modules.masterdata.*;
 import com.apotek.modules.debt.DebtService;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +29,7 @@ public class SalesService {
     private final ProductRepository productRepository;
     private final ProductUnitRepository unitRepository;
     private final DebtService debtService;
+    private final CashierShiftRepository shiftRepository;
 
     @Transactional
     public Sale processSale(CreateSaleRequest request) {
@@ -41,10 +41,23 @@ public class SalesService {
                 ? customerRepository.findById(request.getCustomerId()).orElse(null) 
                 : null;
 
+        // Validasi shift aktif - kasir WAJIB membuka shift sebelum bertransaksi
+        CashierShift activeShift = shiftRepository.findFirstByUserIdAndStatusOrderByStartTimeDesc(user.getId(), "OPEN")
+                .orElseThrow(() -> new IllegalStateException(
+                        "Shift belum dibuka! Silakan buka shift terlebih dahulu sebelum melakukan transaksi."));
+
+        if (!activeShift.getBranch().getId().equals(branch.getId())) {
+            throw new IllegalStateException(
+                    "Shift kasir Anda saat ini aktif di cabang " + activeShift.getBranch().getName() + 
+                    ", sedangkan transaksi ini dibuat untuk cabang " + branch.getName() + 
+                    "! Harap tutup shift di cabang sebelumnya terlebih dahulu.");
+        }
+
         Sale sale = Sale.builder()
                 .branch(branch)
                 .user(user)
                 .customer(customer)
+                .shift(activeShift)
                 .saleDate(LocalDateTime.now())
                 .paymentMethod(request.getPaymentMethod())
                 .status("COMPLETED")

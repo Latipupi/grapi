@@ -43,6 +43,11 @@ const DashboardPage: React.FC = () => {
     queryFn: () => api.get(`/reports/sales-trend?branchId=${branchId || ''}`).then(res => res.data),
   });
 
+  const { data: alerts, isLoading: alertsLoading } = useQuery({
+    queryKey: ['dashboard', 'alerts', branchId],
+    queryFn: () => api.get(`/dashboard/alerts?branchId=${branchId || ''}`).then(res => res.data),
+  });
+
   const formatRelativeTime = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -238,6 +243,78 @@ const DashboardPage: React.FC = () => {
           </Link>
         </div>
       </div>
+      
+      {/* Smart Alerts Section */}
+      {!alertsLoading && alerts && (alerts.expiringBatches?.length > 0 || alerts.lowStockItems?.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Low Stock Alerts */}
+          {alerts.lowStockItems?.length > 0 && (
+            <div className="bg-amber-50/50 p-8 rounded-3xl shadow-sm border border-amber-100">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Peringatan Stok Menipis</h2>
+                  <p className="text-sm text-slate-500">Produk yang berada di bawah minimum stok</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {alerts.lowStockItems.slice(0, 5).map((item: any) => (
+                  <div key={item.id} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-amber-50">
+                    <div>
+                      <p className="font-bold text-slate-700">{item.product?.name}</p>
+                      <p className="text-xs text-slate-400">Min Stok: {item.minimumStock}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-amber-600">{item.stockQuantity} {item.product?.baseUnit}</p>
+                    </div>
+                  </div>
+                ))}
+                {alerts.lowStockItems.length > 5 && (
+                  <Link to="/dashboard/inventory" className="block text-center text-sm font-bold text-amber-600 hover:text-amber-700 mt-4">
+                    Lihat {alerts.lowStockItems.length - 5} produk lainnya...
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Expiring Alerts */}
+          {alerts.expiringBatches?.length > 0 && (
+            <div className="bg-rose-50/50 p-8 rounded-3xl shadow-sm border border-rose-100">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">Peringatan Kadaluarsa</h2>
+                  <p className="text-sm text-slate-500">Produk kadaluarsa dalam 90 hari</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {alerts.expiringBatches.slice(0, 5).map((batch: any) => (
+                  <div key={batch.id} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-rose-50">
+                    <div>
+                      <p className="font-bold text-slate-700">{batch.inventory?.product?.name}</p>
+                      <p className="text-xs text-slate-400">Batch: {batch.batchNumber}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-black text-rose-600">{new Date(batch.expiryDate).toLocaleDateString('id-ID')}</p>
+                      <p className="text-xs text-rose-400">{batch.currentQuantity} {batch.inventory?.product?.baseUnit}</p>
+                    </div>
+                  </div>
+                ))}
+                {alerts.expiringBatches.length > 5 && (
+                  <Link to="/dashboard/inventory" className="block text-center text-sm font-bold text-rose-600 hover:text-rose-700 mt-4">
+                    Lihat {alerts.expiringBatches.length - 5} batch lainnya...
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

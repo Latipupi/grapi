@@ -16,8 +16,24 @@ import {
   User,
   ArrowRight,
   X,
-  Printer
+  Printer,
+  BarChart3,
+  TrendingUp,
+  PackageCheck,
+  ShoppingBag
 } from 'lucide-react';
+import { 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as ChartTooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
 
 interface Sale {
   id: number;
@@ -125,6 +141,72 @@ const ReportsPage: React.FC = () => {
 
     return true;
   });
+
+  const [showCharts, setShowCharts] = useState(true);
+
+  // 4. Calculate Aggregate Metrics
+  const metrics = React.useMemo(() => {
+    if (!filteredSales || filteredSales.length === 0) {
+      return { totalRevenue: 0, avgTicket: 0, completedCount: 0, cancelledCount: 0, totalItemsSold: 0 };
+    }
+    let totalRevenue = 0;
+    let completedCount = 0;
+    let cancelledCount = 0;
+    let totalItemsSold = 0;
+
+    filteredSales.forEach(s => {
+      if (s.status === 'COMPLETED') {
+        totalRevenue += s.totalAmount;
+        completedCount++;
+        if (s.details) {
+          s.details.forEach(d => totalItemsSold += d.quantity);
+        }
+      } else {
+        cancelledCount++;
+      }
+    });
+
+    const avgTicket = completedCount > 0 ? totalRevenue / completedCount : 0;
+    return { totalRevenue, avgTicket, completedCount, cancelledCount, totalItemsSold };
+  }, [filteredSales]);
+
+  // 5. Calculate Daily Trend for AreaChart
+  const dailyTrendData = React.useMemo(() => {
+    if (!filteredSales) return [];
+    const map = new Map<string, number>();
+    
+    // Sort transactions by date ascending first
+    const sorted = [...filteredSales].sort((a, b) => new Date(a.saleDate).getTime() - new Date(b.saleDate).getTime());
+    
+    sorted.forEach(s => {
+      if (s.status === 'COMPLETED') {
+        const dateKey = new Date(s.saleDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+        map.set(dateKey, (map.get(dateKey) || 0) + s.totalAmount);
+      }
+    });
+
+    return Array.from(map.entries()).map(([date, amount]) => ({ date, omset: amount }));
+  }, [filteredSales]);
+
+  // 6. Calculate Payment Method Distribution for PieChart
+  const paymentMethodData = React.useMemo(() => {
+    if (!filteredSales) return [];
+    const map = new Map<string, number>();
+    
+    filteredSales.forEach(s => {
+      if (s.status === 'COMPLETED') {
+        const method = s.paymentMethod || 'Lainnya';
+        map.set(method, (map.get(method) || 0) + 1);
+      }
+    });
+
+    const colors = ['#10b981', '#0ea5e9', '#f59e0b', '#ec4899', '#8b5cf6'];
+    return Array.from(map.entries()).map(([method, count], idx) => ({
+      name: method,
+      value: count,
+      color: colors[idx % colors.length]
+    }));
+  }, [filteredSales]);
 
   // 2. Sorting: Descending order (latest transaction first)
   const sortedSales = filteredSales ? [...filteredSales].sort((a, b) => {
@@ -406,6 +488,10 @@ const ReportsPage: React.FC = () => {
           <p className="text-slate-500 text-sm">Analisa performa transaksi apotek Anda.</p>
         </div>
         <div className="flex items-center gap-3">
+           <Button onClick={() => setShowCharts(!showCharts)} variant="outline" className="flex items-center gap-2 border-slate-200">
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
+              {showCharts ? 'Sembunyikan Grafik' : 'Tampilkan Grafik'}
+           </Button>
            <Button onClick={handleExportExcel} variant="outline" className="flex items-center gap-2">
               <Download className="w-4 h-4" />
               Export Excel
@@ -466,6 +552,146 @@ const ReportsPage: React.FC = () => {
             )}
          </div>
       </div>
+
+      {showCharts && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+          {/* Highlight Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan</p>
+                <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {metrics.totalRevenue.toLocaleString()}</h3>
+              </div>
+              <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+              <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Rata-rata Transaksi</p>
+                <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {Math.round(metrics.avgTicket).toLocaleString()}</h3>
+              </div>
+              <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
+            </div>
+
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+              <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+                <PackageCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Item Terjual</p>
+                <h3 className="text-xl font-black text-slate-800 mt-0.5">{metrics.totalItemsSold} Item</h3>
+              </div>
+              <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
+            </div>
+          </div>
+
+          {/* Charts Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Sales Daily Omset Trend */}
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-extrabold text-slate-800">Tren Pendapatan Harian</h3>
+                <p className="text-xs text-slate-400">Total omset bersih harian dari filter aktif</p>
+              </div>
+              <div className="h-[260px] w-full">
+                {dailyTrendData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
+                    Belum ada data penjualan selesai untuk dirender.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={dailyTrendData}>
+                      <defs>
+                        <linearGradient id="colorOmset" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#94a3b8', fontSize: 10}}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#94a3b8', fontSize: 10}}
+                        tickFormatter={(val) => `Rp ${val >= 1000000 ? (val/1000000).toFixed(1) + 'Jt' : (val/1000).toFixed(0) + 'k'}`}
+                      />
+                      <ChartTooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                        formatter={(val: number) => [`Rp ${val.toLocaleString()}`, 'Omset Harian']}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="omset" 
+                        stroke="#10b981" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorOmset)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* Payment Method Pie Chart */}
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-4">
+              <div>
+                <h3 className="font-extrabold text-slate-800">Distribusi Metode Pembayaran</h3>
+                <p className="text-xs text-slate-400">Proporsi metode bayar dari filter aktif</p>
+              </div>
+              
+              <div className="flex-1 min-h-[180px] w-full flex items-center justify-center relative">
+                {paymentMethodData.length === 0 ? (
+                  <div className="text-slate-400 text-xs italic">Tidak ada data.</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={paymentMethodData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {paymentMethodData.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 12px -2px rgb(0 0 0 / 0.1)' }}
+                        formatter={(val: number) => [`${val} Transaksi`, 'Jumlah']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              {/* Legends list */}
+              <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 border-t border-slate-50 pt-3">
+                {paymentMethodData.map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-1.5 truncate">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="truncate">{item.name} ({item.value})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">

@@ -78,13 +78,13 @@ public class DashboardController {
 
         long expiredCount = inventoryBatchRepository.findAll().stream()
                 .filter(b -> (branchId == null || b.getBranch().getId().equals(branchId))
-                        && b.getExpiryDate().isBefore(LocalDate.now())
+                        && b.getExpiryDate().isBefore(LocalDate.now().plusDays(90))
                         && b.getCurrentQuantity().compareTo(BigDecimal.ZERO) > 0)
                 .count();
 
         long lowStockCount = inventoryRepository.findAll().stream()
                 .filter(i -> (branchId == null || i.getBranch().getId().equals(branchId))
-                        && i.getStockQuantity().compareTo(new BigDecimal("10")) < 0)
+                        && i.getStockQuantity().compareTo(i.getMinimumStock() != null ? i.getMinimumStock() : new BigDecimal("10")) <= 0)
                 .count();
 
         return DashboardStats.builder()
@@ -93,6 +93,34 @@ public class DashboardController {
                 .expiredProductsCount(expiredCount)
                 .lowStockProductsCount(lowStockCount)
                 .build();
+    }
+
+    @GetMapping("/alerts")
+    public DashboardAlerts getAlerts(@RequestParam(required = false) Long branchId) {
+        LocalDate ninetyDaysFromNow = LocalDate.now().plusDays(90);
+
+        List<com.apotek.modules.inventory.InventoryBatch> expiringBatches = inventoryBatchRepository.findAll().stream()
+                .filter(b -> (branchId == null || b.getBranch().getId().equals(branchId))
+                        && b.getExpiryDate().isBefore(ninetyDaysFromNow)
+                        && b.getCurrentQuantity().compareTo(BigDecimal.ZERO) > 0)
+                .collect(Collectors.toList());
+
+        List<com.apotek.modules.inventory.Inventory> lowStockItems = inventoryRepository.findAll().stream()
+                .filter(i -> (branchId == null || i.getBranch().getId().equals(branchId))
+                        && i.getStockQuantity().compareTo(i.getMinimumStock() != null ? i.getMinimumStock() : new BigDecimal("10")) <= 0)
+                .collect(Collectors.toList());
+
+        return DashboardAlerts.builder()
+                .expiringBatches(expiringBatches)
+                .lowStockItems(lowStockItems)
+                .build();
+    }
+
+    @Data
+    @Builder
+    public static class DashboardAlerts {
+        private List<com.apotek.modules.inventory.InventoryBatch> expiringBatches;
+        private List<com.apotek.modules.inventory.Inventory> lowStockItems;
     }
 
     public static class DashboardStats {
