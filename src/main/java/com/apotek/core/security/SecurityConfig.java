@@ -35,12 +35,10 @@ public class SecurityConfig {
                                 "/react.svg",
                                 "/favicon.ico",
                                 "/manifest.json",
-                                "/pos/**",
-                                "/inventory/**",
-                                "/purchasing/**",
-                                "/master/**",
-                                "/reports/**",
-                                "/settings/**"
+                                "/login",
+                                "/home",
+                                "/dashboard",
+                                "/dashboard/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

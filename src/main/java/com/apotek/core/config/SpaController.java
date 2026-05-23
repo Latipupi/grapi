@@ -7,12 +7,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class SpaController {
 
     @GetMapping({
-        "/pos/**",
-        "/inventory/**",
-        "/purchasing/**",
-        "/master/**",
-        "/reports/**",
-        "/settings/**"
+        "/login",
+        "/home",
+        "/dashboard",
+        "/dashboard/**"
     })
     public String forward() {
         return "forward:/index.html";
