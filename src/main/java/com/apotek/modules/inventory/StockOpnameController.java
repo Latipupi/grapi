@@ -16,7 +16,7 @@ public class StockOpnameController {
     private final StockOpnameRepository opnameRepository;
 
     @PostMapping("/branch/{branchId}/start")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
     public ResponseEntity<?> startSession(
             @PathVariable Long branchId,
             @RequestParam Long userId,
@@ -42,7 +42,7 @@ public class StockOpnameController {
     }
 
     @PostMapping("/{id}/add-batch")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
     public ResponseEntity<StockOpname> addBatchToSession(
             @PathVariable Long id,
             @RequestParam Long batchId) {
@@ -55,7 +55,7 @@ public class StockOpnameController {
     }
 
     @PutMapping("/{id}/save")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
     public ResponseEntity<StockOpname> saveDraft(
             @PathVariable Long id,
             @RequestBody SaveDraftRequest request) {
@@ -68,7 +68,7 @@ public class StockOpnameController {
     }
 
     @PostMapping("/{id}/finalize")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
     public ResponseEntity<?> finalizeSession(@PathVariable Long id) {
         try {
             StockOpname opname = opnameService.finalizeOpname(id);

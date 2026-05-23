@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -82,6 +84,7 @@ const InventoryRow: React.FC<{
   handleOpenModal: (p: Product) => void;
 }> = ({ inv, selectedBranchId, handleOpenModal }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { role } = useSelector((state: RootState) => state.auth);
 
   console.log(inv, "data inv")
 
@@ -137,14 +140,18 @@ const InventoryRow: React.FC<{
           ) : '-'}
         </TableCell>
         <TableCell className="text-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8"
-            onClick={() => handleOpenModal(inv.product)}
-          >
-            Sesuaikan
-          </Button>
+          {role !== 'CASHIER' && role !== 'KASIR' ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8"
+              onClick={() => handleOpenModal(inv.product)}
+            >
+              Sesuaikan
+            </Button>
+          ) : (
+            <span className="text-slate-400 font-medium">-</span>
+          )}
         </TableCell>
       </TableRow>
       {isExpanded && (
@@ -225,6 +232,7 @@ const InventoryPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const queryClient = useQueryClient();
+  const { role } = useSelector((state: RootState) => state.auth);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW_STOCK'>(() => {
@@ -360,14 +368,16 @@ const InventoryPage: React.FC = () => {
             </Link>
           )}
 
-          <Button
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
-            onClick={() => handleOpenModal()}
-            disabled={!selectedBranchId}
-          >
-            <Plus className="w-4 h-4" />
-            Sesuaikan Stok
-          </Button>
+          {role !== 'CASHIER' && role !== 'KASIR' && (
+            <Button
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
+              onClick={() => handleOpenModal()}
+              disabled={!selectedBranchId}
+            >
+              <Plus className="w-4 h-4" />
+              Sesuaikan Stok
+            </Button>
+          )}
         </div>
       </div>
 

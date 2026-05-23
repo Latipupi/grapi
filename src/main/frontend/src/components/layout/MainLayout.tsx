@@ -97,7 +97,7 @@ const MainLayout: React.FC = () => {
       roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'],
       children: [
         { label: 'Stok Barang', to: '/dashboard/inventory', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
-        { label: 'Stock Opname', to: '/dashboard/inventory/opname', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Stock Opname', to: '/dashboard/inventory/opname', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Riwayat Mutasi', to: '/dashboard/inventory/movements', roles: ['ADMIN', 'OWNER', 'STAFF'] },
       ]
     },

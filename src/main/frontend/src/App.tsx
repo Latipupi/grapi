@@ -112,7 +112,7 @@ function App() {
           } />
           <Route path="inventory" element={<InventoryPage />} />
           <Route path="inventory/opname" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
               <StockOpnamePage />
             </RoleProtectedRoute>
           } />
