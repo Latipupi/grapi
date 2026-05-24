@@ -51,12 +51,35 @@ public class TenantRegistrationController {
             return ResponseEntity.badRequest().body(new MessageResponse("Email '" + request.getEmail() + "' sudah terdaftar."));
         }
 
+        String plan = request.getSubscriptionPlan() != null ? request.getSubscriptionPlan() : "FREE_TRIAL";
+        int maxUsers = 2;
+        int maxBranches = 1;
+        java.math.BigDecimal price = java.math.BigDecimal.ZERO;
+
+        if ("BASIC_180K".equals(plan)) {
+            maxUsers = 2;
+            maxBranches = 1;
+            price = new java.math.BigDecimal("180000");
+        } else if ("PRO_300K".equals(plan)) {
+            maxUsers = 5;
+            maxBranches = 2;
+            price = new java.math.BigDecimal("300000");
+        } else if ("PRO_UNLIMITED".equals(plan)) {
+            maxUsers = 9999;
+            maxBranches = 9999;
+            price = new java.math.BigDecimal("500000");
+        }
+
         // 3. Create Tenant
         Tenant tenant = Tenant.builder()
                 .id(tenantId)
                 .name(request.getTenantName() != null ? request.getTenantName() : "Apotek Baru")
                 .active(true)
+                .subscriptionPlan(plan)
                 .billingStatus("PENDING") // PENDING until confirmed/activated by Super Admin
+                .maxUsers(maxUsers)
+                .maxBranches(maxBranches)
+                .price(price)
                 .build();
         tenantRepository.save(tenant);
 
@@ -94,6 +117,7 @@ public class TenantRegistrationController {
         private String fullName;
         private String phone;
         private String address;
+        private String subscriptionPlan;
     }
 
     @Data

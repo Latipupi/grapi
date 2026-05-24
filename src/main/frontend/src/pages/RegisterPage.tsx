@@ -26,6 +26,7 @@ const RegisterPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [subscriptionPlan, setSubscriptionPlan] = useState('FREE_TRIAL');
   
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -48,7 +49,8 @@ const RegisterPage: React.FC = () => {
         email,
         fullName,
         phone,
-        address
+        address,
+        subscriptionPlan
       });
       
       setSuccess(response.data.message || 'Pendaftaran berhasil!');
@@ -269,6 +271,21 @@ const RegisterPage: React.FC = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 ml-1 block">Pilih Paket Langganan</label>
+                <select
+                  required
+                  value={subscriptionPlan}
+                  onChange={(e) => setSubscriptionPlan(e.target.value)}
+                  className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-slate-700 text-sm font-semibold transition-all outline-none cursor-pointer"
+                >
+                  <option value="FREE_TRIAL">FREE TRIAL (Masa Percobaan 30 Hari - Rp 0)</option>
+                  <option value="BASIC_180K">BASIC (Apotek Tunggal - Rp 180.000/bln)</option>
+                  <option value="PRO_300K">PROFESSIONAL (Apotek + Gudang - Rp 300.000/bln)</option>
+                  <option value="PRO_UNLIMITED">ENTERPRISE (Multi-Cabang & Dashboard - Rp 500.000/bln)</option>
+                </select>
               </div>
             </div>
 
