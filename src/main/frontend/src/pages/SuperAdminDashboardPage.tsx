@@ -409,6 +409,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                 value={editStatus}
                 onChange={(e) => setEditStatus(e.target.value)}
               >
+                <option value="PENDING">PENDING (Menunggu Aktivasi)</option>
                 <option value="ACTIVE">ACTIVE (Aktif Lancar)</option>
                 <option value="EXPIRED">EXPIRED (Habis Masa Aktif)</option>
                 <option value="SUSPENDED">SUSPENDED (Ditangguhkan)</option>
