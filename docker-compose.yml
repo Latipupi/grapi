@@ -36,7 +36,7 @@ services:
       # Override environment variables Spring Boot dari application.yml
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/apotekdb
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: root_production_password
+      SPRING_DATASOURCE_PASSWORD: gr4pi35790!
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: "true"
       # Anda bisa menambahkan JWT Secret key kustom di sini jika diperlukan

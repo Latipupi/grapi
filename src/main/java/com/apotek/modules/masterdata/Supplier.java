@@ -5,8 +5,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "suppliers")
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -26,6 +29,9 @@ public class Supplier {
 
     @Column(name = "is_active")
     private boolean active = true;
+
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -47,6 +53,8 @@ public class Supplier {
     public void setPic(String pic) { this.pic = pic; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public String getTenantId() { return tenantId; }
+    public void setTenantId(String tenantId) { this.tenantId = tenantId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
@@ -56,6 +64,9 @@ public class Supplier {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
     }
 
     @PreUpdate

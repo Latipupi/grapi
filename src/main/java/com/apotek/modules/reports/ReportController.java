@@ -19,6 +19,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.apotek.modules.masterdata.Branch;
+import com.apotek.modules.masterdata.BranchRepository;
+
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
@@ -26,6 +29,53 @@ public class ReportController {
 
     private final SaleRepository saleRepository;
     private final SaleDetailRepository saleDetailRepository;
+    private final BranchRepository branchRepository;
+
+    @Data
+    @Builder
+    public static class BranchComparisonData {
+        private Long branchId;
+        private String branchName;
+        private BigDecimal totalSales;
+        private BigDecimal grossProfit;
+        private long transactionCount;
+    }
+
+    @GetMapping("/branch-comparison")
+    @Transactional(readOnly = true)
+    public List<BranchComparisonData> getBranchComparison(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDateTime start = startDate != null ? LocalDate.parse(startDate).atStartOfDay() : LocalDate.now().withDayOfMonth(1).atStartOfDay();
+        LocalDateTime end = endDate != null ? LocalDate.parse(endDate).atTime(23, 59, 59) : LocalDateTime.now();
+
+        List<Branch> branches = branchRepository.findAll();
+        List<BranchComparisonData> comparison = new ArrayList<>();
+
+        for (Branch branch : branches) {
+            List<SaleDetail> details = saleDetailRepository.findBySaleBranchIdAndCreatedAtBetween(branch.getId(), start, end);
+            BigDecimal totalSales = BigDecimal.ZERO;
+            BigDecimal totalCost = BigDecimal.ZERO;
+
+            for (SaleDetail detail : details) {
+                totalSales = totalSales.add(detail.getSubtotal());
+                BigDecimal cost = detail.getPurchasePrice().multiply(detail.getQuantity());
+                totalCost = totalCost.add(cost);
+            }
+
+            BigDecimal grossProfit = totalSales.subtract(totalCost);
+            comparison.add(BranchComparisonData.builder()
+                    .branchId(branch.getId())
+                    .branchName(branch.getName())
+                    .totalSales(totalSales)
+                    .grossProfit(grossProfit)
+                    .transactionCount(details.stream().map(d -> d.getSale().getId()).distinct().count())
+                    .build());
+        }
+
+        return comparison;
+    }
 
     @GetMapping("/profit-loss")
     @Transactional(readOnly = true)

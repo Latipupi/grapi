@@ -102,8 +102,7 @@ const POSPage: React.FC = () => {
 
   const { data: branches } = useQuery<any[]>({
     queryKey: ['branches'],
-    queryFn: () => api.get('/branches').then(res => res.data),
-    enabled: !branchId
+    queryFn: () => api.get('/branches').then(res => res.data)
   });
 
   const { data: customers } = useQuery({
@@ -248,6 +247,44 @@ const POSPage: React.FC = () => {
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-slate-500 text-sm font-bold">Memuat status sesi kasir...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activeBranchId = selectedBranchId || branchId?.toString() || '';
+  const currentBranch = branches?.find((b: any) => b.id.toString() === activeBranchId);
+  const isWarehouse = currentBranch?.type === 'WAREHOUSE';
+
+  if (isWarehouse) {
+    return (
+      <div className="flex h-[calc(100vh-100px)] items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm p-8 animate-in fade-in duration-300">
+        <div className="max-w-md text-center space-y-6">
+          <div className="w-20 h-20 bg-rose-50 border border-rose-100 text-rose-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
+            <Lock className="w-10 h-10 text-rose-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-slate-800">Akses Kasir Dibatasi</h2>
+            <p className="text-slate-500 text-sm leading-relaxed">
+              Cabang <span className="font-extrabold text-slate-800">"{currentBranch?.name}"</span> terdaftar sebagai **Gudang Pusat (Warehouse)**.
+              Halaman transaksi kasir (POS) hanya dapat diakses oleh cabang bertipe **Retail**.
+            </p>
+          </div>
+          {!branchId && (
+            <div className="pt-2 space-y-3">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block text-left ml-1">Ganti ke Cabang Retail:</label>
+              <select
+                className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 focus:ring-emerald-500 cursor-pointer"
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+              >
+                <option value="">Pilih Cabang</option>
+                {branches?.map((b: any) => (
+                  <option key={b.id} value={b.id.toString()}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
     );

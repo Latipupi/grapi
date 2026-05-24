@@ -13,8 +13,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "debts")
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -53,6 +56,9 @@ public class Debt {
 
     private String notes;
 
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -79,10 +85,19 @@ public class Debt {
     public void setStatus(String status) { this.status = status; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getTenantId() { return tenantId; }
+    public void setTenantId(String tenantId) { this.tenantId = tenantId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
+    }
 
     public static DebtBuilder builder() { return new DebtBuilder(); }
 
@@ -96,6 +111,7 @@ public class Debt {
         private BigDecimal paidAmount;
         private String status;
         private String notes;
+        private String tenantId;
 
         public DebtBuilder type(String type) { this.type = type; return this; }
         public DebtBuilder sale(Sale sale) { this.sale = sale; return this; }
@@ -106,6 +122,7 @@ public class Debt {
         public DebtBuilder paidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; return this; }
         public DebtBuilder status(String status) { this.status = status; return this; }
         public DebtBuilder notes(String notes) { this.notes = notes; return this; }
+        public DebtBuilder tenantId(String tenantId) { this.tenantId = tenantId; return this; }
 
         public Debt build() {
             Debt debt = new Debt();
@@ -118,6 +135,7 @@ public class Debt {
             debt.setPaidAmount(paidAmount);
             debt.setStatus(status);
             debt.setNotes(notes);
+            debt.setTenantId(tenantId);
             return debt;
         }
     }

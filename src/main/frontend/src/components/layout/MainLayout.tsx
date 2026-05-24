@@ -19,9 +19,11 @@ import {
   Store,
   ChevronDown,
   ShoppingBag,
-  CreditCard
+  CreditCard,
+  ShieldAlert
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import PaywallOverlay from '../common/PaywallOverlay';
 
 const SidebarItem = ({ 
   icon: Icon, 
@@ -61,7 +63,7 @@ const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['Master Data', 'Inventory']); // Default open Master Data & Inventory
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
-  const { fullName, role } = useSelector((state: RootState) => state.auth);
+  const { fullName, role, tenantId, billingStatus } = useSelector((state: RootState) => state.auth);
   const location = useLocation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -89,6 +91,7 @@ const MainLayout: React.FC = () => {
 
   const menuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+    { label: 'Super Admin Panel', icon: ShieldAlert, to: '/dashboard/super-admin', roles: ['ADMIN', 'OWNER'], isSuperAdmin: true },
     { label: 'POS Kasir', icon: ShoppingCart, to: '/dashboard/pos', roles: ['ADMIN', 'OWNER', 'CASHIER', 'KASIR'] },
     { 
       label: 'Inventory', 
@@ -98,6 +101,7 @@ const MainLayout: React.FC = () => {
       children: [
         { label: 'Stok Barang', to: '/dashboard/inventory', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
         { label: 'Stock Opname', to: '/dashboard/inventory/opname', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Transfer Stok', to: '/dashboard/inventory/transfer', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Riwayat Mutasi', to: '/dashboard/inventory/movements', roles: ['ADMIN', 'OWNER', 'STAFF'] },
       ]
     },
@@ -146,15 +150,21 @@ const MainLayout: React.FC = () => {
     { label: 'Pengaturan', icon: Settings, to: '/dashboard/settings', roles: ['ADMIN', 'OWNER'] },
   ];
 
-  const filteredMenuItems = menuItems.filter(item => 
-    item.roles.includes(role || '')
-  ).map(item => ({
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.isSuperAdmin && tenantId !== 'SYSTEM') return false;
+    return item.roles.includes(role || '');
+  }).map(item => ({
     ...item,
     children: item.children ? item.children.filter(child => child.roles.includes(role || '')) : undefined
   })).filter(item => !item.children || item.children.length > 0 || !item.to.includes('/master'));
 
   return (
     <div className="min-h-screen bg-slate-50 flex overflow-x-hidden">
+      {/* Paywall blocker overlay */}
+      {tenantId !== 'SYSTEM' && (billingStatus === 'EXPIRED' || billingStatus === 'SUSPENDED' || billingStatus === 'PENDING') && (
+        <PaywallOverlay />
+      )}
+
       {/* Sidebar Overlay for Mobile */}
       {sidebarOpen && (
         <div 

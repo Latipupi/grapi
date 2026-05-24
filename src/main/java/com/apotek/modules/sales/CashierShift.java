@@ -14,8 +14,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "cashier_shifts")
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @Data
 @Builder
 @NoArgsConstructor
@@ -57,6 +60,9 @@ public class CashierShift {
     @Column(nullable = false)
     private String status; // OPEN, CLOSED
 
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -64,4 +70,11 @@ public class CashierShift {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
+    }
 }

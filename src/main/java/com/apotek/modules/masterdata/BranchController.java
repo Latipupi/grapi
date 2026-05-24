@@ -1,5 +1,7 @@
 package com.apotek.modules.masterdata;
 
+import com.apotek.modules.auth.Tenant;
+import com.apotek.modules.auth.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,6 +15,7 @@ import java.util.List;
 public class BranchController {
 
     private final BranchRepository branchRepository;
+    private final TenantRepository tenantRepository;
 
     @GetMapping
     public List<Branch> getAll() {
@@ -21,8 +24,23 @@ public class BranchController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public Branch create(@RequestBody Branch branch) {
-        return branchRepository.save(branch);
+    public ResponseEntity<?> create(@RequestBody Branch branch) {
+        String tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
+        if (tenant != null) {
+            long currentBranches = branchRepository.count();
+            if (currentBranches >= tenant.getMaxBranches()) {
+                return ResponseEntity.badRequest().body(new ErrorResponse("Batas jumlah cabang untuk paket langganan Apotek Anda telah tercapai (maksimal " + tenant.getMaxBranches() + " cabang). Silakan upgrade paket."));
+            }
+        }
+        Branch savedBranch = branchRepository.save(branch);
+        return ResponseEntity.ok(savedBranch);
+    }
+
+    @lombok.Data
+    @RequiredArgsConstructor
+    public static class ErrorResponse {
+        private final String message;
     }
 
     @GetMapping("/{id}")

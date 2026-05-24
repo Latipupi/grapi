@@ -14,8 +14,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "sales")
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -58,6 +61,9 @@ public class Sale {
 
     private String notes;
 
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<SaleDetail> details = new ArrayList<>();
 
@@ -66,6 +72,13 @@ public class Sale {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
+    }
 
     public static SaleBuilder builder() { return new SaleBuilder(); }
 
@@ -79,6 +92,7 @@ public class Sale {
         private String paymentMethod;
         private String status;
         private String notes;
+        private String tenantId;
         public SaleBuilder branch(Branch branch) { this.branch = branch; return this; }
         public SaleBuilder user(User user) { this.user = user; return this; }
         public SaleBuilder customer(Customer customer) { this.customer = customer; return this; }
@@ -88,6 +102,7 @@ public class Sale {
         public SaleBuilder paymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; return this; }
         public SaleBuilder status(String status) { this.status = status; return this; }
         public SaleBuilder notes(String notes) { this.notes = notes; return this; }
+        public SaleBuilder tenantId(String tenantId) { this.tenantId = tenantId; return this; }
         public Sale build() {
             Sale sale = new Sale();
             sale.setBranch(branch);
@@ -99,6 +114,7 @@ public class Sale {
             sale.setPaymentMethod(paymentMethod);
             sale.setStatus(status);
             sale.setNotes(notes);
+            sale.setTenantId(tenantId);
             return sale;
         }
     }

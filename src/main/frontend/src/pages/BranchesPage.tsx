@@ -17,6 +17,7 @@ const branchSchema = z.object({
   address: z.string().min(5, 'Alamat minimal 5 karakter'),
   phone: z.string().min(10, 'Nomor telepon minimal 10 karakter'),
   active: z.boolean().default(true),
+  type: z.string().default('RETAIL'),
 });
 
 type BranchFormValues = z.infer<typeof branchSchema>;
@@ -27,6 +28,7 @@ interface Branch {
   address: string;
   phone: string;
   active: boolean;
+  type: string;
 }
 
 const BranchesPage: React.FC = () => {
@@ -90,7 +92,8 @@ const BranchesPage: React.FC = () => {
         name: branch.name,
         address: branch.address,
         phone: branch.phone,
-        active: branch.active
+        active: branch.active,
+        type: branch.type || 'RETAIL'
       });
     } else {
       setSelectedBranch(null);
@@ -98,7 +101,8 @@ const BranchesPage: React.FC = () => {
         name: '',
         address: '',
         phone: '',
-        active: true
+        active: true,
+        type: 'RETAIL'
       });
     }
     setIsModalOpen(true);
@@ -156,6 +160,7 @@ const BranchesPage: React.FC = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Nama Cabang</TableHead>
+              <TableHead>Tipe</TableHead>
               <TableHead>Alamat</TableHead>
               <TableHead>Telepon</TableHead>
               <TableHead>Status</TableHead>
@@ -165,13 +170,13 @@ const BranchesPage: React.FC = () => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-slate-400">
+                <TableCell colSpan={6} className="h-32 text-center text-slate-400">
                   Memuat data...
                 </TableCell>
               </TableRow>
             ) : filteredBranches?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-slate-400">
+                <TableCell colSpan={6} className="h-32 text-center text-slate-400">
                   Tidak ada data ditemukan.
                 </TableCell>
               </TableRow>
@@ -185,6 +190,16 @@ const BranchesPage: React.FC = () => {
                   className="group border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
                 >
                   <TableCell className="font-medium text-slate-800">{branch.name}</TableCell>
+                  <TableCell>
+                    <span className={cn(
+                      "px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider",
+                      branch.type === 'WAREHOUSE' 
+                        ? "bg-amber-50 text-amber-600 border border-amber-100" 
+                        : "bg-blue-50 text-blue-600 border border-blue-100"
+                    )}>
+                      {branch.type === 'WAREHOUSE' ? 'Gudang' : 'Retail'}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 text-slate-500">
                       <MapPin className="w-3.5 h-3.5" />
@@ -286,7 +301,18 @@ const BranchesPage: React.FC = () => {
             {errors.phone && <p className="text-xs text-red-500">{errors.phone.message}</p>}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Tipe Cabang</label>
+            <select 
+              {...register('type')}
+              className="block w-full px-3.5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 text-slate-900 text-sm font-medium outline-none transition-all"
+            >
+              <option value="RETAIL">Retail (Penjualan POS + Inventori)</option>
+              <option value="WAREHOUSE">Gudang Pusat (Hanya Kelola & Distribusi Stok)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
             <input 
               type="checkbox" 
               {...register('active')}

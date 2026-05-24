@@ -11,8 +11,14 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
+
 @Entity
 @Table(name = "users")
+@FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "tenantId", type = String.class))
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -42,6 +48,9 @@ public class User implements UserDetails {
     @Column(name = "branch_id")
     private Long branchId;
 
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -62,6 +71,8 @@ public class User implements UserDetails {
     public void setRole(Role role) { this.role = role; }
     public Long getBranchId() { return branchId; }
     public void setBranchId(Long branchId) { this.branchId = branchId; }
+    public String getTenantId() { return tenantId; }
+    public void setTenantId(String tenantId) { this.tenantId = tenantId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
@@ -76,12 +87,14 @@ public class User implements UserDetails {
         private String fullName;
         private Role role;
         private Long branchId;
+        private String tenantId;
         public UserBuilder username(String username) { this.username = username; return this; }
         public UserBuilder password(String password) { this.password = password; return this; }
         public UserBuilder email(String email) { this.email = email; return this; }
         public UserBuilder fullName(String fullName) { this.fullName = fullName; return this; }
         public UserBuilder role(Role role) { this.role = role; return this; }
         public UserBuilder branchId(Long branchId) { this.branchId = branchId; return this; }
+        public UserBuilder tenantId(String tenantId) { this.tenantId = tenantId; return this; }
         public User build() { 
             User user = new User();
             user.setUsername(username);
@@ -90,6 +103,7 @@ public class User implements UserDetails {
             user.setFullName(fullName);
             user.setRole(role);
             user.setBranchId(branchId);
+            user.setTenantId(tenantId);
             return user;
         }
     }
@@ -98,6 +112,9 @@ public class User implements UserDetails {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
     }
 
     @PreUpdate

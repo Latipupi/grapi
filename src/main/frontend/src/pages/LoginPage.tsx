@@ -222,7 +222,13 @@ const LoginPage: React.FC = () => {
           <div className="text-center pt-8">
             <p className="text-sm text-slate-500 font-medium">
               Belum punya akun?{' '}
-              <button className="text-emerald-600 font-bold hover:underline">Hubungi Admin</button>
+              <button 
+                type="button"
+                onClick={() => navigate('/register')} 
+                className="text-emerald-600 font-bold hover:underline"
+              >
+                Daftar Apotek Baru
+              </button>
             </p>
           </div>
         </div>

@@ -11,8 +11,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "stock_movements")
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -47,8 +50,18 @@ public class StockMovement {
     @Column(name = "purchase_price")
     private BigDecimal purchasePrice;
 
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
+    }
 
     public static StockMovementBuilder builder() { return new StockMovementBuilder(); }
 
@@ -62,6 +75,7 @@ public class StockMovement {
         private String referenceNumber;
         private String notes;
         private BigDecimal purchasePrice;
+        private String tenantId;
         public StockMovementBuilder branch(Branch branch) { this.branch = branch; return this; }
         public StockMovementBuilder product(Product product) { this.product = product; return this; }
         public StockMovementBuilder type(String type) { this.type = type; return this; }
@@ -71,6 +85,7 @@ public class StockMovement {
         public StockMovementBuilder referenceNumber(String ref) { this.referenceNumber = ref; return this; }
         public StockMovementBuilder notes(String notes) { this.notes = notes; return this; }
         public StockMovementBuilder purchasePrice(BigDecimal price) { this.purchasePrice = price; return this; }
+        public StockMovementBuilder tenantId(String tenantId) { this.tenantId = tenantId; return this; }
         public StockMovement build() {
             StockMovement m = new StockMovement();
             m.setBranch(branch);
@@ -82,6 +97,7 @@ public class StockMovement {
             m.setReferenceNumber(referenceNumber);
             m.setNotes(notes);
             m.setPurchasePrice(purchasePrice);
+            m.setTenantId(tenantId);
             return m;
         }
     }

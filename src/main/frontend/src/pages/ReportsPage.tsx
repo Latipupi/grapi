@@ -13,7 +13,6 @@ import {
   Calendar, 
   Filter,
   CreditCard,
-  User,
   ArrowRight,
   X,
   Printer,
@@ -32,7 +31,10 @@ import {
   Area,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  BarChart,
+  Bar,
+  Legend
 } from 'recharts';
 
 interface Sale {
@@ -73,7 +75,7 @@ const ReportsPage: React.FC = () => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 10;
 
   const { data: sales, isLoading } = useQuery<Sale[]>({
     queryKey: ['sales-report'],
@@ -84,6 +86,33 @@ const ReportsPage: React.FC = () => {
     queryKey: ['branches'],
     queryFn: () => api.get('/branches').then(res => res.data),
   });
+
+  const [activeTab, setActiveTab] = useState<'sales' | 'consolidation'>('sales');
+
+  const { data: branchComparison, isLoading: isComparisonLoading } = useQuery<any[]>({
+    queryKey: ['branch-comparison', appliedFilters.start, appliedFilters.end],
+    queryFn: () => api.get('/reports/branch-comparison', {
+      params: {
+        startDate: appliedFilters.start || undefined,
+        endDate: appliedFilters.end || undefined
+      }
+    }).then(res => res.data),
+  });
+
+  const consolidationMetrics = React.useMemo(() => {
+    if (!branchComparison || branchComparison.length === 0) {
+      return { totalSales: 0, totalProfit: 0, totalTransactions: 0 };
+    }
+    let totalSales = 0;
+    let totalProfit = 0;
+    let totalTransactions = 0;
+    branchComparison.forEach(b => {
+      totalSales += b.totalSales || 0;
+      totalProfit += b.grossProfit || 0;
+      totalTransactions += b.transactionCount || 0;
+    });
+    return { totalSales, totalProfit, totalTransactions };
+  }, [branchComparison]);
 
   // Reset pagination on filter or search changes
   useEffect(() => {
@@ -488,19 +517,51 @@ const ReportsPage: React.FC = () => {
           <p className="text-slate-500 text-sm">Analisa performa transaksi apotek Anda.</p>
         </div>
         <div className="flex items-center gap-3">
-           <Button onClick={() => setShowCharts(!showCharts)} variant="outline" className="flex items-center gap-2 border-slate-200">
-              <BarChart3 className="w-4 h-4 text-emerald-600" />
-              {showCharts ? 'Sembunyikan Grafik' : 'Tampilkan Grafik'}
-           </Button>
-           <Button onClick={handleExportExcel} variant="outline" className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              Export Excel
-           </Button>
-           <Button onClick={handlePrint} className="flex items-center gap-2 bg-slate-900">
-              <FileText className="w-4 h-4" />
-              Cetak Laporan
-           </Button>
+           {activeTab === 'sales' && (
+             <>
+               <Button onClick={() => setShowCharts(!showCharts)} variant="outline" className="flex items-center gap-2 border-slate-200">
+                  <BarChart3 className="w-4 h-4 text-emerald-600" />
+                  {showCharts ? 'Sembunyikan Grafik' : 'Tampilkan Grafik'}
+               </Button>
+               <Button onClick={handleExportExcel} variant="outline" className="flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Export Excel
+               </Button>
+               <Button onClick={handlePrint} className="flex items-center gap-2 bg-slate-900">
+                  <FileText className="w-4 h-4" />
+                  Cetak Laporan
+               </Button>
+             </>
+           )}
         </div>
+      </div>
+
+      {/* Premium Tab Bar */}
+      <div className="flex border-b border-slate-100">
+        <button
+          onClick={() => setActiveTab('sales')}
+          className={cn(
+            "px-6 py-3 text-sm font-extrabold border-b-2 transition-all flex items-center gap-2",
+            activeTab === 'sales'
+              ? "border-emerald-500 text-emerald-600"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          Transaksi Penjualan
+        </button>
+        <button
+          onClick={() => setActiveTab('consolidation')}
+          className={cn(
+            "px-6 py-3 text-sm font-extrabold border-b-2 transition-all flex items-center gap-2",
+            activeTab === 'consolidation'
+              ? "border-emerald-500 text-emerald-600"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <BarChart3 className="w-4 h-4" />
+          Laporan Konsolidasi Cabang
+        </button>
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-4 items-end">
@@ -516,339 +577,495 @@ const ReportsPage: React.FC = () => {
             </label>
             <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} />
          </div>
-         <div className="space-y-1.5 flex-1 min-w-[150px]">
-            <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-               <Filter className="w-3 h-3" /> Status
-            </label>
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            >
-               <option value="">Semua Status</option>
-               <option value="COMPLETED">Berhasil</option>
-               <option value="CANCELLED">Dibatalkan</option>
-            </select>
-         </div>
-         <div className="space-y-1.5 flex-1 min-w-[150px]">
-            <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-               <Filter className="w-3 h-3" /> Cabang
-            </label>
-            <select 
-              value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value)}
-              className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            >
-               <option value="">Semua Cabang</option>
-               {branches?.map(b => (
-                 <option key={b.id} value={b.id}>{b.name}</option>
-               ))}
-            </select>
-         </div>
+         
+         {activeTab === 'sales' && (
+           <>
+             <div className="space-y-1.5 flex-1 min-w-[150px]">
+                <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                   <Filter className="w-3 h-3" /> Status
+                </label>
+                <select 
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                   <option value="">Semua Status</option>
+                   <option value="COMPLETED">Berhasil</option>
+                   <option value="CANCELLED">Dibatalkan</option>
+                </select>
+             </div>
+             <div className="space-y-1.5 flex-1 min-w-[150px]">
+                <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                   <Filter className="w-3 h-3" /> Cabang
+                </label>
+                <select 
+                  value={branchFilter}
+                  onChange={(e) => setBranchFilter(e.target.value)}
+                  className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                >
+                   <option value="">Semua Cabang</option>
+                   {branches?.map(b => (
+                     <option key={b.id} value={b.id}>{b.name}</option>
+                   ))}
+                </select>
+             </div>
+           </>
+         )}
+
          <div className="flex gap-2">
             <Button onClick={handleApplyFilters} className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700">Filter</Button>
-            {(appliedFilters.start || appliedFilters.end || appliedFilters.status || appliedFilters.branch) && (
+            {(appliedFilters.start || appliedFilters.end || (activeTab === 'sales' && (appliedFilters.status || appliedFilters.branch))) && (
               <Button onClick={handleResetFilters} variant="outline" className="h-10 px-4">Reset</Button>
             )}
          </div>
       </div>
 
-      {showCharts && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-          {/* Highlight Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-              <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan</p>
-                <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {metrics.totalRevenue.toLocaleString()}</h3>
-              </div>
-              <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-              <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
-                <ShoppingBag className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Rata-rata Transaksi</p>
-                <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {Math.round(metrics.avgTicket).toLocaleString()}</h3>
-              </div>
-              <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
-            </div>
-
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-              <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
-                <PackageCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Item Terjual</p>
-                <h3 className="text-xl font-black text-slate-800 mt-0.5">{metrics.totalItemsSold} Item</h3>
-              </div>
-              <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
-            </div>
-          </div>
-
-          {/* Charts Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Sales Daily Omset Trend */}
-            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-              <div>
-                <h3 className="font-extrabold text-slate-800">Tren Pendapatan Harian</h3>
-                <p className="text-xs text-slate-400">Total omset bersih harian dari filter aktif</p>
-              </div>
-              <div className="h-[260px] w-full">
-                {dailyTrendData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
-                    Belum ada data penjualan selesai untuk dirender.
+      {activeTab === 'sales' && (
+        <>
+          {showCharts && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+              {/* Highlight Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+                  <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
+                    <TrendingUp className="w-6 h-6" />
                   </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dailyTrendData}>
-                      <defs>
-                        <linearGradient id="colorOmset" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="date" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{fill: '#94a3b8', fontSize: 10}}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{fill: '#94a3b8', fontSize: 10}}
-                        tickFormatter={(val) => `Rp ${val >= 1000000 ? (val/1000000).toFixed(1) + 'Jt' : (val/1000).toFixed(0) + 'k'}`}
-                      />
-                      <ChartTooltip 
-                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                        formatter={(val: number) => [`Rp ${val.toLocaleString()}`, 'Omset Harian']}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="omset" 
-                        stroke="#10b981" 
-                        strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorOmset)" 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            {/* Payment Method Pie Chart */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-4">
-              <div>
-                <h3 className="font-extrabold text-slate-800">Distribusi Metode Pembayaran</h3>
-                <p className="text-xs text-slate-400">Proporsi metode bayar dari filter aktif</p>
-              </div>
-              
-              <div className="flex-1 min-h-[180px] w-full flex items-center justify-center relative">
-                {paymentMethodData.length === 0 ? (
-                  <div className="text-slate-400 text-xs italic">Tidak ada data.</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={paymentMethodData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {paymentMethodData.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip 
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 12px -2px rgb(0 0 0 / 0.1)' }}
-                        formatter={(val: number) => [`${val} Transaksi`, 'Jumlah']}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              {/* Legends list */}
-              <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 border-t border-slate-50 pt-3">
-                {paymentMethodData.map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center gap-1.5 truncate">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                    <span className="truncate">{item.name} ({item.value})</span>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan</p>
+                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {metrics.totalRevenue.toLocaleString()}</h3>
                   </div>
-                ))}
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+                  <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
+                    <ShoppingBag className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Rata-rata Transaksi</p>
+                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {Math.round(metrics.avgTicket).toLocaleString()}</h3>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+                  <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+                    <PackageCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Item Terjual</p>
+                    <h3 className="text-xl font-black text-slate-800 mt-0.5">{metrics.totalItemsSold} Item</h3>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
+                </div>
+              </div>
+
+              {/* Charts Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Sales Daily Omset Trend */}
+                <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Tren Pendapatan Harian</h3>
+                    <p className="text-xs text-slate-400">Total omset bersih harian dari filter aktif</p>
+                  </div>
+                  <div className="h-[260px] w-full">
+                    {dailyTrendData.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
+                        Belum ada data penjualan selesai untuk dirender.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={dailyTrendData}>
+                          <defs>
+                            <linearGradient id="colorOmset" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/>
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="date" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fill: '#94a3b8', fontSize: 10}}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{fill: '#94a3b8', fontSize: 10}}
+                            tickFormatter={(val) => `Rp ${val >= 1000000 ? (val/1000000).toFixed(1) + 'Jt' : (val/1000).toFixed(0) + 'k'}`}
+                          />
+                          <ChartTooltip 
+                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                            formatter={(val: number) => [`Rp ${val.toLocaleString()}`, 'Omset Harian']}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="omset" 
+                            stroke="#10b981" 
+                            strokeWidth={3}
+                            fillOpacity={1} 
+                            fill="url(#colorOmset)" 
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                {/* Payment Method Pie Chart */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between space-y-4">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Distribusi Metode Pembayaran</h3>
+                    <p className="text-xs text-slate-400">Proporsi metode bayar dari filter aktif</p>
+                  </div>
+                  
+                  <div className="flex-1 min-h-[180px] w-full flex items-center justify-center relative">
+                    {paymentMethodData.length === 0 ? (
+                      <div className="text-slate-400 text-xs italic">Tidak ada data.</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={paymentMethodData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={70}
+                            paddingAngle={4}
+                            dataKey="value"
+                          >
+                            {paymentMethodData.map((entry: any, index: number) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip 
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 12px -2px rgb(0 0 0 / 0.1)' }}
+                            formatter={(val: number) => [`${val} Transaksi`, 'Jumlah']}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+
+                  {/* Legends list */}
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 border-t border-slate-50 pt-3">
+                    {paymentMethodData.map((item: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-1.5 shrink-0 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                        <span className="truncate">{item.name} ({item.value})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
+          )}
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+               <div className="relative w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input 
+                    placeholder="Cari ID, Customer atau Kasir..." 
+                    className="pl-10 h-9" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+               </div>
+               <div className="text-sm font-medium text-slate-500">
+                  Menampilkan <span className="text-slate-800 font-bold">{totalItems}</span> Transaksi
+               </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/50">
+                    <TableHead className="font-bold text-slate-500">ID Penjualan</TableHead>
+                    <TableHead className="font-bold text-slate-500">Tanggal</TableHead>
+                    <TableHead className="font-bold text-slate-500">Cabang</TableHead>
+                    <TableHead className="font-bold text-slate-500">Kasir</TableHead>
+                    <TableHead className="font-bold text-slate-500">Pelanggan</TableHead>
+                    <TableHead className="font-bold text-slate-500">Metode</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-right">Total Transaksi</TableHead>
+                    <TableHead className="font-bold text-slate-500 text-center">Status</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="h-40 text-center">
+                        <div className="flex flex-col items-center justify-center space-y-2">
+                          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-slate-400 text-xs font-bold">Memuat data laporan...</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : paginatedSales.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="h-40 text-center text-slate-400 text-xs italic">
+                        Tidak ada transaksi penjualan yang cocok dengan kriteria filter.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedSales.map((sale) => (
+                      <TableRow key={sale.id} className="hover:bg-slate-50/40 cursor-pointer" onClick={() => setSelectedSale(sale)}>
+                        <TableCell className="font-mono font-bold text-slate-800">#SAL-{sale.id}</TableCell>
+                        <TableCell className="text-slate-500 text-xs">
+                          {new Date(sale.saleDate).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-100">
+                            {sale.branch?.name || 'Cabang Utama'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-slate-700 font-bold text-xs">{sale.user?.fullName || 'Sistem'}</TableCell>
+                        <TableCell className="text-slate-600 text-xs font-semibold">{sale.customer?.name || 'Umum'}</TableCell>
+                        <TableCell>
+                          <span className="text-[10px] font-extrabold uppercase text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                            {sale.paymentMethod}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-black text-slate-800">Rp {sale.totalAmount.toLocaleString()}</TableCell>
+                        <TableCell className="text-center">
+                          <span className={cn(
+                            "inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide border",
+                            sale.status === 'COMPLETED' 
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
+                              : "bg-rose-50 text-rose-700 border-rose-100"
+                          )}>
+                            {sale.status === 'COMPLETED' ? 'LUNAS' : 'DIBATAL'}
+                          </span>
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="sm" className="w-8 h-8 p-0 hover:bg-slate-100 rounded-full" onClick={() => setSelectedSale(sale)}>
+                            <ArrowRight className="w-4 h-4 text-slate-400" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-slate-50 bg-slate-50/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                 <div className="text-xs font-bold text-slate-400">
+                    Menampilkan {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalItems)} dari {totalItems} Transaksi
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 h-8 text-xs font-bold"
+                    >
+                       Sebelumnya
+                    </Button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      const isNear = Math.abs(currentPage - page) <= 1 || page === 1 || page === totalPages;
+                      const showEllipsis = (page === 2 && currentPage > 3) || (page === totalPages - 1 && currentPage < totalPages - 2);
+
+                      if (!isNear && !showEllipsis) return null;
+
+                      return (
+                        <React.Fragment key={page}>
+                           {showEllipsis && <span className="px-2 text-slate-400 text-xs">...</span>}
+                           <Button
+                             variant={currentPage === page ? 'primary' : 'outline'}
+                             size="sm"
+                             onClick={() => setCurrentPage(page)}
+                             className={cn(
+                               "w-8 h-8 p-0 text-xs font-bold",
+                               currentPage === page 
+                                 ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                 : ""
+                             )}
+                           >
+                              {page}
+                           </Button>
+                        </React.Fragment>
+                      );
+                    })}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 h-8 text-xs font-bold"
+                    >
+                       Berikutnya
+                    </Button>
+                 </div>
+              </div>
+            )}
           </div>
-        </div>
+        </>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-           <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input 
-                placeholder="Cari ID, Customer atau Kasir..." 
-                className="pl-10 h-9" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-           </div>
-           <div className="text-sm font-medium text-slate-500">
-              Menampilkan <span className="text-slate-800 font-bold">{totalItems}</span> Transaksi
-           </div>
-        </div>
+      {activeTab === 'consolidation' && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          {isComparisonLoading ? (
+            <div className="flex h-64 items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-slate-500 text-sm font-bold">Memuat laporan konsolidasi...</p>
+              </div>
+            </div>
+          ) : !branchComparison || branchComparison.length === 0 ? (
+            <div className="flex h-64 items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
+              <p className="text-slate-400 text-sm italic">Belum ada data transaksi untuk konsolidasi cabang.</p>
+            </div>
+          ) : (
+            <>
+              {/* Highlight Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+                  <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
+                    <TrendingUp className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan Konsolidasi</p>
+                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {consolidationMetrics.totalSales.toLocaleString()}</h3>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
+                </div>
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID / Tanggal</TableHead>
-                <TableHead>Cabang</TableHead>
-                <TableHead>Customer & Kasir</TableHead>
-                <TableHead>Metode Bayar</TableHead>
-                <TableHead className="text-right">Total Transaksi</TableHead>
-                <TableHead className="text-center">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="h-32 text-center text-slate-400">Memuat data...</TableCell></TableRow>
-              ) : paginatedSales?.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="h-32 text-center text-slate-400">Tidak ada transaksi ditemukan.</TableCell></TableRow>
-              ) : (
-                paginatedSales?.map((sale, index) => (
-                  <motion.tr 
-                    key={sale.id}
-                    onClick={() => setSelectedSale(sale)}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="group hover:bg-slate-50/50 border-b border-slate-50 last:border-0 cursor-pointer"
-                  >
-                    <TableCell>
-                       <div className="min-w-[140px]">
-                          <p className="font-mono text-xs font-bold text-emerald-600 uppercase tracking-tighter">#SAL-{sale.id}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                             {new Date(sale.saleDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                       </div>
-                    </TableCell>
-                    <TableCell>
-                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100">
-                          {sale.branch?.name || 'Cabang Utama'}
-                       </span>
-                    </TableCell>
-                    <TableCell>
-                       <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800">
-                             <User className="w-3.5 h-3.5 text-slate-400" />
-                             {sale.customer?.name || 'Umum'}
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+                  <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
+                    <BarChart3 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Profit Kotor</p>
+                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {consolidationMetrics.totalProfit.toLocaleString()}</h3>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
+                  <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+                    <PackageCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Transaksi Gabungan</p>
+                    <h3 className="text-xl font-black text-slate-800 mt-0.5">{consolidationMetrics.totalTransactions} Transaksi</h3>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
+                </div>
+              </div>
+
+              {/* Chart Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Perbandingan Kinerja Cabang</h3>
+                    <p className="text-xs text-slate-400">Komparasi visual pendapatan vs profit kotor antar cabang aktif</p>
+                  </div>
+                  <div className="h-[320px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={branchComparison} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis 
+                          dataKey="branchName" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{fill: '#94a3b8', fontSize: 10}}
+                        />
+                        <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{fill: '#94a3b8', fontSize: 10}}
+                          tickFormatter={(val) => `Rp ${val >= 1000000 ? (val/1000000).toFixed(1) + 'Jt' : (val/1000).toFixed(0) + 'k'}`}
+                        />
+                        <ChartTooltip 
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                          formatter={(val: number) => [`Rp ${val.toLocaleString()}`]}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
+                        <Bar dataKey="totalSales" name="Pendapatan" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="grossProfit" name="Profit Kotor" fill="#0284c7" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col space-y-4">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Ringkasan Margin Cabang</h3>
+                    <p className="text-xs text-slate-400">Efisiensi operasional dan profit margin per cabang</p>
+                  </div>
+                  <div className="flex-1 overflow-auto">
+                    <div className="space-y-4">
+                      {branchComparison.map((branch: any) => {
+                        const margin = branch.totalSales > 0 ? (branch.grossProfit / branch.totalSales) * 100 : 0;
+                        return (
+                          <div key={branch.branchId} className="p-3 bg-slate-50/50 border border-slate-100 rounded-2xl flex justify-between items-center">
+                            <div>
+                              <p className="text-xs font-bold text-slate-700">{branch.branchName}</p>
+                              <p className="text-[10px] text-slate-400 font-semibold">{branch.transactionCount} Transaksi</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-100/50">
+                                Margin: {margin.toFixed(1)}%
+                              </span>
+                              <p className="text-xs font-black text-slate-800 mt-1">Rp {branch.grossProfit.toLocaleString()}</p>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-slate-400 uppercase font-black">Kasir: {sale.user?.fullName || 'Sistem'}</p>
-                       </div>
-                    </TableCell>
-                    <TableCell>
-                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold">
-                          <CreditCard className="w-3.5 h-3.5" />
-                          {sale.paymentMethod}
-                       </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                       <p className="text-sm font-black text-slate-800">Rp {sale.totalAmount.toLocaleString()}</p>
-                    </TableCell>
-                    <TableCell className="text-center">
-                       <Button variant="ghost" size="sm" className="w-8 h-8 p-0 rounded-full group-hover:bg-white group-hover:shadow-sm">
-                          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600" />
-                       </Button>
-                    </TableCell>
-                  </motion.tr>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detailed Consolidation Table */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/20">
+                  <h3 className="font-extrabold text-slate-800">Detail Kontribusi Cabang</h3>
+                  <p className="text-xs text-slate-400">Laporan tabulasi komprehensif performa per cabang</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/30">
+                        <TableHead className="font-bold text-slate-500">Nama Cabang</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Total Pendapatan</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Profit Kotor</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Margin Profit</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-center">Jumlah Transaksi</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Rata-rata Tiket</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {branchComparison.map((branch: any) => {
+                        const margin = branch.totalSales > 0 ? (branch.grossProfit / branch.totalSales) * 100 : 0;
+                        const avgTicket = branch.transactionCount > 0 ? branch.totalSales / branch.transactionCount : 0;
+                        return (
+                          <TableRow key={branch.branchId} className="hover:bg-slate-50/50 transition-colors">
+                            <TableCell className="font-bold text-slate-700">{branch.branchName}</TableCell>
+                            <TableCell className="text-right font-bold text-slate-800">Rp {branch.totalSales.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-bold text-emerald-600">Rp {branch.grossProfit.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-black text-slate-700">{margin.toFixed(2)}%</TableCell>
+                            <TableCell className="text-center font-bold text-slate-600">{branch.transactionCount}</TableCell>
+                            <TableCell className="text-right font-bold text-slate-800">Rp {Math.round(avgTicket).toLocaleString()}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-slate-100 bg-slate-50/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-             <div className="flex items-center gap-2 text-sm text-slate-500">
-                <span>Tampilkan</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="px-2 py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-slate-700"
-                >
-                   <option value={10}>10</option>
-                   <option value={25}>25</option>
-                   <option value={50}>50</option>
-                   <option value={100}>100</option>
-                </select>
-                <span>entri</span>
-             </div>
-
-             <div className="text-xs font-semibold text-slate-500">
-                Menampilkan <span className="text-slate-800">{startIndex + 1}</span> - <span className="text-slate-800">{Math.min(startIndex + pageSize, totalItems)}</span> dari <span className="text-slate-800">{totalItems}</span> entri
-             </div>
-
-             <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 h-8 text-xs font-bold"
-                >
-                   Sebelumnya
-                </Button>
-                
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
-                  .map((page, idx, arr) => {
-                     const showEllipsis = idx > 0 && page - arr[idx - 1] > 1;
-                     return (
-                       <React.Fragment key={page}>
-                          {showEllipsis && <span className="px-2 text-slate-400 text-xs">...</span>}
-                          <Button
-                            variant={currentPage === page ? 'primary' : 'outline'}
-                            size="sm"
-                            onClick={() => setCurrentPage(page)}
-                            className={cn(
-                              "w-8 h-8 p-0 text-xs font-bold",
-                              currentPage === page 
-                                ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                                : ""
-                            )}
-                          >
-                             {page}
-                          </Button>
-                       </React.Fragment>
-                     );
-                  })}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 h-8 text-xs font-bold"
-                >
-                   Berikutnya
-                </Button>
-             </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Modal Detail Transaksi */}
       <AnimatePresence>

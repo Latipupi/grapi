@@ -3,7 +3,9 @@ import { useSelector } from 'react-redux';
 import type { RootState } from './store';
 import MainLayout from './components/layout/MainLayout';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import LandingPage from './pages/LandingPage';
+import SuperAdminDashboardPage from './pages/SuperAdminDashboardPage';
 
 import BranchesPage from './pages/BranchesPage';
 import CategoriesPage from './pages/CategoriesPage';
@@ -25,6 +27,7 @@ import ExpensesPage from './pages/ExpensesPage';
 import DebtsPage from './pages/DebtsPage';
 import ShiftsReportPage from './pages/ShiftsReportPage';
 import StockOpnamePage from './pages/StockOpnamePage';
+import StockTransferPage from './pages/StockTransferPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -40,6 +43,17 @@ const RoleProtectedRoute = ({ children, allowedRoles }: { children: JSX.Element,
   return children;
 };
 
+const SuperAdminProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const { isAuthenticated, role, tenantId } = useSelector((state: RootState) => state.auth);
+  
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (tenantId !== 'SYSTEM' || !['ADMIN', 'OWNER'].includes(role || '')) {
+    return <Navigate to="/dashboard" />;
+  }
+  
+  return children;
+};
+
 function App() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
@@ -47,6 +61,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
         
         {/* Landing Page as the entry point */}
         <Route path="/home" element={<LandingPage />} />
@@ -121,6 +136,11 @@ function App() {
               <StockMovementsPage />
             </RoleProtectedRoute>
           } />
+          <Route path="inventory/transfer" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+              <StockTransferPage />
+            </RoleProtectedRoute>
+          } />
           <Route path="reports" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
               <ReportsPage />
@@ -150,6 +170,11 @@ function App() {
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER']}>
               <SettingsPage />
             </RoleProtectedRoute>
+          } />
+          <Route path="super-admin" element={
+            <SuperAdminProtectedRoute>
+              <SuperAdminDashboardPage />
+            </SuperAdminProtectedRoute>
           } />
         </Route>
       </Routes>

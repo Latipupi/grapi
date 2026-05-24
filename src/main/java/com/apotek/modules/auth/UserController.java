@@ -15,6 +15,7 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TenantRepository tenantRepository;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
@@ -24,9 +25,24 @@ public class UserController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
-    public User create(@RequestBody User user) {
+    public ResponseEntity<?> create(@RequestBody User user) {
+        String tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
+        if (tenant != null) {
+            long currentUsers = userRepository.count();
+            if (currentUsers >= tenant.getMaxUsers()) {
+                return ResponseEntity.badRequest().body(new ErrorResponse("Batas jumlah pengguna untuk paket langganan Apotek Anda telah tercapai (maksimal " + tenant.getMaxUsers() + " user). Silakan upgrade paket."));
+            }
+        }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        return ResponseEntity.ok(savedUser);
+    }
+
+    @lombok.Data
+    @RequiredArgsConstructor
+    public static class ErrorResponse {
+        private final String message;
     }
 
     @GetMapping("/{id}")

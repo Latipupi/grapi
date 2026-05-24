@@ -12,8 +12,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "inventory_batches")
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -45,6 +48,9 @@ public class InventoryBatch {
     @Column(name = "purchase_price")
     private BigDecimal purchasePrice;
 
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -53,6 +59,13 @@ public class InventoryBatch {
 
     @Version
     private Long version;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
+    }
 
     public static InventoryBatchBuilder builder() { return new InventoryBatchBuilder(); }
 
@@ -63,12 +76,14 @@ public class InventoryBatch {
         private LocalDate expiryDate;
         private BigDecimal currentQuantity;
         private BigDecimal purchasePrice;
+        private String tenantId;
         public InventoryBatchBuilder branch(Branch branch) { this.branch = branch; return this; }
         public InventoryBatchBuilder product(Product product) { this.product = product; return this; }
         public InventoryBatchBuilder batchNumber(String batchNumber) { this.batchNumber = batchNumber; return this; }
         public InventoryBatchBuilder expiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; return this; }
         public InventoryBatchBuilder currentQuantity(BigDecimal qty) { this.currentQuantity = qty; return this; }
         public InventoryBatchBuilder purchasePrice(BigDecimal price) { this.purchasePrice = price; return this; }
+        public InventoryBatchBuilder tenantId(String tenantId) { this.tenantId = tenantId; return this; }
         public InventoryBatch build() {
             InventoryBatch batch = new InventoryBatch();
             batch.setBranch(branch);
@@ -77,6 +92,7 @@ public class InventoryBatch {
             batch.setExpiryDate(expiryDate);
             batch.setCurrentQuantity(currentQuantity);
             batch.setPurchasePrice(purchasePrice);
+            batch.setTenantId(tenantId);
             return batch;
         }
     }

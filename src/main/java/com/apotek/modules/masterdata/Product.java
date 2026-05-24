@@ -9,8 +9,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.Filter;
+
 @Entity
 @Table(name = "products")
+@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
@@ -50,6 +53,9 @@ public class Product {
     @Column(name = "is_active")
     private boolean active = true;
 
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ProductUnit> units = new ArrayList<>();
 
@@ -85,6 +91,9 @@ public class Product {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (this.tenantId == null) {
+            this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
     }
 
     @PreUpdate

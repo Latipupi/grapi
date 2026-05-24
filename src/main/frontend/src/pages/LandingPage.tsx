@@ -304,6 +304,183 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Pricing Comparison Section */}
+      <section id="pricing" className="py-32 bg-slate-50/50 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-20 space-y-4">
+            <h2 className="text-emerald-600 font-bold uppercase tracking-widest text-sm">Paket Harga</h2>
+            <h3 className="text-4xl font-extrabold text-slate-900">Pilihan Paket Langganan Sesuai Kebutuhan Apotek Anda</h3>
+            <p className="text-slate-600">Investasi hemat dengan fitur terlengkap untuk membantu digitalisasi operasional apotek Anda.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 items-stretch">
+            {/* Basic Plan */}
+            <motion.div 
+              whileHover={{ y: -8 }}
+              className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between relative overflow-hidden group"
+            >
+              <div className="space-y-6">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">Apotek Mandiri</span>
+                  <h4 className="text-2xl font-black text-slate-800 mt-1">Paket BASIC</h4>
+                  <p className="text-xs text-slate-400 mt-1">Cocok untuk apotek tunggal skala kecil/menengah.</p>
+                </div>
+                
+                <div className="flex items-baseline gap-1 text-slate-800">
+                  <span className="text-sm font-extrabold">Rp</span>
+                  <span className="text-4xl font-black">180.000</span>
+                  <span className="text-xs text-slate-400 font-semibold">/ bulan</span>
+                </div>
+
+                <div className="border-t border-slate-50 pt-6 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-slate-700">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Maksimal 1 Cabang</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-slate-700">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Maksimal 2 User (Owner + Kasir)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>POS Kasir Retail Standar</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Inventori & Stok Dasar</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Laporan Penjualan Dasar</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-8">
+                <Button 
+                  onClick={() => navigate('/login')}
+                  className="w-full h-12 bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold rounded-xl transition-all"
+                >
+                  Coba Gratis 14 Hari
+                </Button>
+              </div>
+            </motion.div>
+
+            {/* Professional Plan (Popular Option) */}
+            <motion.div 
+              whileHover={{ y: -8 }}
+              className="bg-white p-8 rounded-[2rem] border-2 border-emerald-500 shadow-xl shadow-emerald-500/5 flex flex-col justify-between relative overflow-hidden group"
+            >
+              <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl">
+                Terpopuler ⭐
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-600">Apotek + Gudang</span>
+                  <h4 className="text-2xl font-black text-slate-800 mt-1">Paket PROFESSIONAL</h4>
+                  <p className="text-xs text-slate-400 mt-1">Sangat direkomendasikan untuk apotek dengan satu gudang terpisah.</p>
+                </div>
+                
+                <div className="flex items-baseline gap-1 text-emerald-600">
+                  <span className="text-sm font-extrabold">Rp</span>
+                  <span className="text-4xl font-black">300.000</span>
+                  <span className="text-xs text-emerald-500/80 font-semibold">/ bulan</span>
+                </div>
+
+                <div className="border-t border-slate-50 pt-6 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-slate-700">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Maksimal 2 Cabang (Apotek + Gudang Pusat)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-slate-700">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Maksimal 5 User (Owner, Kasir, Gudang, Admin)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Transfer Stok Antar Cabang (Atomik)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Laporan Komparasi Cabang Visual</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Sistem Shift Kasir Komplet</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Semua Fitur Paket Basic</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-8">
+                <Button 
+                  onClick={() => navigate('/login')}
+                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-200/50 transition-all"
+                >
+                  Mulai Langganan
+                </Button>
+              </div>
+            </motion.div>
+
+            {/* Enterprise Plan */}
+            <motion.div 
+              whileHover={{ y: -8 }}
+              className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between relative overflow-hidden group"
+            >
+              <div className="space-y-6">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">Jaringan Apotek</span>
+                  <h4 className="text-2xl font-black text-slate-800 mt-1">Paket ENTERPRISE</h4>
+                  <p className="text-xs text-slate-400 mt-1">Untuk apotek skala besar dengan banyak cabang.</p>
+                </div>
+                
+                <div className="flex items-baseline gap-1 text-slate-800">
+                  <span className="text-sm font-extrabold">Rp</span>
+                  <span className="text-4xl font-black">500.000</span>
+                  <span className="text-xs text-slate-400 font-semibold">/ bulan</span>
+                </div>
+
+                <div className="border-t border-slate-50 pt-6 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-600">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Unlimited Cabang (Tanpa Batas)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-emerald-600">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Unlimited User (Tanpa Batas)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Laporan Analisis Laba Rugi Komprehensif</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Dukungan Prioritas WhatsApp 24/7</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Semua Fitur Paket Professional</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-8">
+                <Button 
+                  onClick={() => navigate('/login')}
+                  className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl transition-all"
+                >
+                  Hubungi Penjualan
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Footer Section */}
       <section className="py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
