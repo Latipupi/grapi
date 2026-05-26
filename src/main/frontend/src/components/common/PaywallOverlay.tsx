@@ -21,7 +21,7 @@ const PaywallOverlay: React.FC = () => {
 
   const getPlanName = (plan: string | null) => {
     if (!plan) return 'FREE_TRIAL (Masa Percobaan)';
-    if (plan === 'FREE_TRIAL') return 'FREE TRIAL (Uji Coba 30 Hari)';
+    if (plan === 'FREE_TRIAL') return 'FREE TRIAL (Uji Coba 14 Hari)';
     if (plan === 'BASIC_180K') return 'BASIC (Apotek Tunggal Rp 180k/bln)';
     if (plan === 'PRO_300K') return 'PROFESSIONAL (Apotek + Gudang Rp 300k/bln)';
     if (plan === 'PRO_UNLIMITED') return 'ENTERPRISE (Multi-Cabang Rp 500k/bln)';

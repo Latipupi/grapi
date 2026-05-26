@@ -76,7 +76,7 @@ public class Tenant {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (expiredAt == null) {
-            expiredAt = LocalDateTime.now().plusDays(30);
+            expiredAt = LocalDateTime.now().plusDays(14);
         }
     }
 

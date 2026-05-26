@@ -394,7 +394,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                 }
               }}
             >
-              <option value="FREE_TRIAL">FREE TRIAL (Uji Coba 30 Hari)</option>
+              <option value="FREE_TRIAL">FREE TRIAL (Uji Coba 14 Hari)</option>
               <option value="BASIC_180K">BASIC (Apotek Tunggal Rp 180k/bln)</option>
               <option value="PRO_300K">PROFESSIONAL (Apotek + Gudang Rp 300k/bln)</option>
               <option value="PRO_UNLIMITED">ENTERPRISE (Multi-Cabang Rp 500k/bln)</option>
