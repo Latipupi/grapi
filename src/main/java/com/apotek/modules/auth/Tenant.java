@@ -53,6 +53,18 @@ public class Tenant {
     @Builder.Default
     private String whatsappNumber = "628123456789";
 
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "npwp")
+    private String npwp;
+
+    @Column(name = "address")
+    private String address;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

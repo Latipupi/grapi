@@ -51,6 +51,9 @@ public class User implements UserDetails {
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
 
+    @Column(name = "phone")
+    private String phone;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -73,6 +76,8 @@ public class User implements UserDetails {
     public void setBranchId(Long branchId) { this.branchId = branchId; }
     public String getTenantId() { return tenantId; }
     public void setTenantId(String tenantId) { this.tenantId = tenantId; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
@@ -88,6 +93,7 @@ public class User implements UserDetails {
         private Role role;
         private Long branchId;
         private String tenantId;
+        private String phone;
         public UserBuilder username(String username) { this.username = username; return this; }
         public UserBuilder password(String password) { this.password = password; return this; }
         public UserBuilder email(String email) { this.email = email; return this; }
@@ -95,6 +101,7 @@ public class User implements UserDetails {
         public UserBuilder role(Role role) { this.role = role; return this; }
         public UserBuilder branchId(Long branchId) { this.branchId = branchId; return this; }
         public UserBuilder tenantId(String tenantId) { this.tenantId = tenantId; return this; }
+        public UserBuilder phone(String phone) { this.phone = phone; return this; }
         public User build() { 
             User user = new User();
             user.setUsername(username);
@@ -104,6 +111,7 @@ public class User implements UserDetails {
             user.setRole(role);
             user.setBranchId(branchId);
             user.setTenantId(tenantId);
+            user.setPhone(phone);
             return user;
         }
     }

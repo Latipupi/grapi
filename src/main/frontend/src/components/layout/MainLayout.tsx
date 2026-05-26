@@ -20,7 +20,8 @@ import {
   ChevronDown,
   ShoppingBag,
   CreditCard,
-  ShieldAlert
+  ShieldAlert,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import PaywallOverlay from '../common/PaywallOverlay';
@@ -137,7 +138,7 @@ const MainLayout: React.FC = () => {
       children: [
         { label: 'Ringkasan Laporan', to: '/dashboard/reports', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Shift Kasir', to: '/dashboard/reports/shifts', roles: ['ADMIN', 'OWNER'] },
-        { label: 'Biaya Operasional', to: '/dashboard/finance/expenses', roles: ['ADMIN', 'OWNER'] },
+        { label: 'Biaya Operasional', to: '/dashboard/finance/expenses', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
         { label: 'Laba Rugi', to: '/dashboard/reports/profit-loss', roles: ['ADMIN', 'OWNER'] },
       ]
     },
@@ -148,6 +149,7 @@ const MainLayout: React.FC = () => {
       roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']
     },
     { label: 'Pengaturan', icon: Settings, to: '/dashboard/settings', roles: ['ADMIN', 'OWNER'] },
+    { label: 'Pusat Bantuan', icon: HelpCircle, to: '/dashboard/help', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
   ];
 
   const filteredMenuItems = menuItems.filter(item => {

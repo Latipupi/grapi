@@ -28,6 +28,7 @@ import DebtsPage from './pages/DebtsPage';
 import ShiftsReportPage from './pages/ShiftsReportPage';
 import StockOpnamePage from './pages/StockOpnamePage';
 import StockTransferPage from './pages/StockTransferPage';
+import HelpPage from './pages/HelpPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -157,7 +158,7 @@ function App() {
             </RoleProtectedRoute>
           } />
           <Route path="finance/expenses" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <ExpensesPage />
             </RoleProtectedRoute>
           } />
@@ -171,6 +172,7 @@ function App() {
               <SettingsPage />
             </RoleProtectedRoute>
           } />
+          <Route path="help" element={<HelpPage />} />
           <Route path="super-admin" element={
             <SuperAdminProtectedRoute>
               <SuperAdminDashboardPage />

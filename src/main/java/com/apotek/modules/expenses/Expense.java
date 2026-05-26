@@ -37,6 +37,10 @@ public class Expense {
     @Column(nullable = false)
     private String category; // e.g. GAJI, LISTRIK, SEWA, MARKETING, LAIN-LAIN
 
+    @Column(name = "expense_type", nullable = false)
+    @Builder.Default
+    private String expenseType = "OPERASIONAL"; // e.g. HARIAN, OPERASIONAL
+
     @Column(nullable = false)
     private BigDecimal amount;
 

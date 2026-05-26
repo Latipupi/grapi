@@ -12,7 +12,9 @@ import {
   LayoutDashboard, 
   ArrowLeft,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -20,6 +22,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -190,13 +193,20 @@ const LoginPage: React.FC = () => {
                     <Lock className="h-5 w-5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
                   </div>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full pl-12 pr-4 py-4 bg-slate-50 border-0 rounded-2xl ring-1 ring-slate-200 focus:ring-2 focus:ring-emerald-500 text-slate-900 font-medium transition-all outline-none"
+                    className="block w-full pl-12 pr-12 py-4 bg-slate-50 border-0 rounded-2xl ring-1 ring-slate-200 focus:ring-2 focus:ring-emerald-500 text-slate-900 font-medium transition-all outline-none"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-emerald-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
             </div>

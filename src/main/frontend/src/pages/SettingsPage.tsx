@@ -20,7 +20,7 @@ const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const dispatch = useDispatch();
   const auth = useSelector((state: RootState) => state.auth);
-  const { fullName, role, username, tenantId, userId } = auth;
+  const { fullName, role, username, userId } = auth;
   
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -28,15 +28,15 @@ const SettingsPage: React.FC = () => {
 
   // General Tab States
   const [tenantName, setTenantName] = useState('');
-  const [emailBisnis, setEmailBisnis] = useState(() => localStorage.getItem(`settings_email_${tenantId}`) || 'contact@gapotek.id');
-  const [telepon, setTelepon] = useState(() => localStorage.getItem(`settings_phone_${tenantId}`) || '021-555-1234');
-  const [npwp, setNpwp] = useState(() => localStorage.getItem(`settings_npwp_${tenantId}`) || '12.345.678.9-012.000');
-  const [alamat, setAlamat] = useState(() => localStorage.getItem(`settings_address_${tenantId}`) || 'Jl. Kesehatan No. 88, Kebayoran Baru, Jakarta Selatan');
+  const [emailBisnis, setEmailBisnis] = useState('');
+  const [telepon, setTelepon] = useState('');
+  const [npwp, setNpwp] = useState('');
+  const [alamat, setAlamat] = useState('');
 
   // Profile Tab States
   const [userFullName, setUserFullName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [userPhone, setUserPhone] = useState(() => localStorage.getItem(`settings_userphone_${userId}`) || '081234567890');
+  const [userPhone, setUserPhone] = useState('');
 
   // Security Tab States
   const [currentPassword, setCurrentPassword] = useState('');
@@ -45,10 +45,14 @@ const SettingsPage: React.FC = () => {
 
   // Fetch settings from API
   useEffect(() => {
-    // Fetch tenant current name
+    // Fetch tenant current info
     api.get('/tenants/current')
       .then(res => {
-        setTenantName(res.data.name);
+        setTenantName(res.data.name || '');
+        setEmailBisnis(res.data.email || '');
+        setTelepon(res.data.phone || '');
+        setNpwp(res.data.npwp || '');
+        setAlamat(res.data.address || '');
       })
       .catch(err => console.error("Gagal memuat info tenant: ", err));
 
@@ -58,6 +62,7 @@ const SettingsPage: React.FC = () => {
         .then(res => {
           setUserFullName(res.data.fullName || '');
           setUserEmail(res.data.email || '');
+          setUserPhone(res.data.phone || '');
         })
         .catch(err => console.error("Gagal memuat profil user: ", err));
     }
@@ -68,15 +73,19 @@ const SettingsPage: React.FC = () => {
     setErrorMsg('');
     try {
       if (activeTab === 'general') {
-        // Save tenant name to database
-        const res = await api.put('/tenants/current', { name: tenantName });
-        setTenantName(res.data.name);
-        
-        // Save mock business info locally
-        localStorage.setItem(`settings_email_${tenantId}`, emailBisnis);
-        localStorage.setItem(`settings_phone_${tenantId}`, telepon);
-        localStorage.setItem(`settings_npwp_${tenantId}`, npwp);
-        localStorage.setItem(`settings_address_${tenantId}`, alamat);
+        // Save tenant details to database
+        const res = await api.put('/tenants/current', { 
+          name: tenantName,
+          email: emailBisnis,
+          phone: telepon,
+          npwp: npwp,
+          address: alamat
+        });
+        setTenantName(res.data.name || '');
+        setEmailBisnis(res.data.email || '');
+        setTelepon(res.data.phone || '');
+        setNpwp(res.data.npwp || '');
+        setAlamat(res.data.address || '');
         
         // Update local Redux so context is updated if needed
         dispatch(setCredentials({
@@ -97,11 +106,13 @@ const SettingsPage: React.FC = () => {
           email: userEmail,
           fullName: userFullName,
           role,
-          branchId: auth.branchId
+          branchId: auth.branchId,
+          phone: userPhone
         });
         
-        setUserFullName(res.data.fullName);
-        setUserEmail(res.data.email);
+        setUserFullName(res.data.fullName || '');
+        setUserEmail(res.data.email || '');
+        setUserPhone(res.data.phone || '');
 
         // Update Redux state to display the new full name in Layout header immediately
         dispatch(setCredentials({
@@ -114,8 +125,6 @@ const SettingsPage: React.FC = () => {
           branchId: auth.branchId || 0,
           tenantId: auth.tenantId || '',
         }));
-
-        localStorage.setItem(`settings_userphone_${userId}`, userPhone);
 
       } else if (activeTab === 'security') {
         if (!currentPassword) {
@@ -135,7 +144,8 @@ const SettingsPage: React.FC = () => {
           fullName: userFullName,
           role,
           branchId: auth.branchId,
-          password: newPassword
+          password: newPassword,
+          phone: userPhone
         });
 
         setCurrentPassword('');

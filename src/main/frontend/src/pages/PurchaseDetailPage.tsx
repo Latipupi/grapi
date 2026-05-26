@@ -1,5 +1,5 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
@@ -38,6 +38,7 @@ interface Purchase {
   invoiceNumber: string;
   totalAmount: number;
   status: string;
+  paymentMethod?: string;
   notes: string;
   details: PurchaseDetailItem[];
 }
@@ -46,6 +47,22 @@ const PurchaseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const printFrameRef = React.useRef<HTMLIFrameElement>(null);
+  
+  const queryClient = useQueryClient();
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = React.useState(false);
+  const [invoiceNumber, setInvoiceNumber] = React.useState('');
+  const [paymentMethod, setPaymentMethod] = React.useState('CASH');
+  const [notes, setNotes] = React.useState('');
+  const [receivedDetails, setReceivedDetails] = React.useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const { data: purchase, isLoading, isError } = useQuery<Purchase>({
+    queryKey: ['purchase', id],
+    queryFn: async () => {
+      const res = await api.get(`/purchases/${id}`);
+      return res.data;
+    },
+  });
 
   const handlePrintSuratPesanan = () => {
     if (!purchase) return;
@@ -240,13 +257,90 @@ const PurchaseDetailPage: React.FC = () => {
     }
   };
 
-  const { data: purchase, isLoading, isError } = useQuery<Purchase>({
-    queryKey: ['purchase', id],
-    queryFn: async () => {
-      const res = await api.get(`/purchases/${id}`);
-      return res.data;
-    },
-  });
+
+
+  React.useEffect(() => {
+    if (purchase && purchase.details) {
+      setReceivedDetails(
+        purchase.details.map(item => ({
+          id: item.id,
+          product: item.product,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          batchNumber: item.batchNumber || '',
+          expiryDate: item.expiryDate || '',
+          subtotal: item.subtotal
+        }))
+      );
+      setInvoiceNumber(purchase.invoiceNumber || '');
+      setPaymentMethod(purchase.paymentMethod || 'CASH');
+      setNotes(purchase.notes || '');
+    }
+  }, [purchase]);
+
+  const handleDetailChange = (index: number, field: string, value: any) => {
+    setReceivedDetails(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        [field]: value
+      };
+      if (field === 'quantity' || field === 'unitPrice') {
+        next[index].subtotal = next[index].quantity * next[index].unitPrice;
+      }
+      return next;
+    });
+  };
+
+  const calculateGrandTotal = () => {
+    return receivedDetails.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+  };
+
+  const handleSubmitReceive = async () => {
+    if (!invoiceNumber.trim()) {
+      alert('Silakan isi Nomor Faktur terlebih dahulu!');
+      return;
+    }
+
+    for (const item of receivedDetails) {
+      if (!item.batchNumber.trim()) {
+        alert(`Nomor Batch untuk produk "${item.product?.name}" wajib diisi!`);
+        return;
+      }
+      if (!item.expiryDate) {
+        alert(`Tanggal Kedaluwarsa untuk produk "${item.product?.name}" wajib diisi!`);
+        return;
+      }
+    }
+
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        invoiceNumber: invoiceNumber.trim(),
+        paymentMethod,
+        notes: notes.trim(),
+        details: receivedDetails.map(item => ({
+          id: item.id,
+          product: { id: item.product.id },
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          batchNumber: item.batchNumber.trim().toUpperCase(),
+          expiryDate: item.expiryDate
+        }))
+      };
+
+      await api.put(`/purchases/${id}/receive`, payload);
+      alert('Barang berhasil diterima! Stok obat dan catatan hutang/pembayaran telah diperbarui secara otomatis.');
+      setIsReceiveModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['purchase', id] });
+      queryClient.invalidateQueries({ queryKey: ['purchases'] });
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal memproses penerimaan barang: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -282,6 +376,14 @@ const PurchaseDetailPage: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {purchase.status === 'DRAFT' && (
+            <Button
+              onClick={() => setIsReceiveModalOpen(true)}
+              className="flex items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 font-bold h-10 px-4 rounded-xl shadow-md shadow-emerald-500/10 transition-all duration-200"
+            >
+              <Package className="w-4 h-4" /> Terima Barang
+            </Button>
+          )}
           <Button 
             onClick={handlePrintSuratPesanan} 
             className="flex items-center gap-2 bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50 font-bold h-10 px-4 rounded-xl shadow-sm"
@@ -291,7 +393,9 @@ const PurchaseDetailPage: React.FC = () => {
           <span className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase border ${
             purchase.status === 'RECEIVED' 
               ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-              : 'bg-amber-50 text-amber-600 border-amber-100'
+              : purchase.status === 'DRAFT'
+                ? 'bg-amber-50 text-amber-600 border-amber-100'
+                : 'bg-rose-50 text-rose-600 border-rose-100'
           }`}>
             {purchase.status}
           </span>
@@ -420,6 +524,171 @@ const PurchaseDetailPage: React.FC = () => {
         </div>
       </div>
       <iframe ref={printFrameRef} style={{ display: 'none' }} title="Print Surat Pesanan" />
+
+      {/* Modal Terima Barang */}
+      {isReceiveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-emerald-600" />
+                  Konfirmasi Penerimaan Barang
+                </h2>
+                <p className="text-slate-500 text-sm">Lengkapi detail faktur, nomor batch, dan tanggal kedaluwarsa fisik obat.</p>
+              </div>
+              <button 
+                onClick={() => setIsReceiveModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors text-2xl font-bold font-mono px-2"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Info Faktur */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Nomor Faktur / Invoice <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: FAK-99212"
+                    value={invoiceNumber}
+                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition-all bg-white font-medium"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Metode Pembayaran</label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition-all bg-white font-medium"
+                  >
+                    <option value="CASH">CASH</option>
+                    <option value="TRANSFER">TRANSFER</option>
+                    <option value="HUTANG">HUTANG (Tempo 30 Hari)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Catatan Penerimaan</label>
+                  <input
+                    type="text"
+                    placeholder="Catatan tambahan..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition-all bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Tabel Items */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                  <ShoppingCart className="w-4 h-4 text-emerald-600" />
+                  Konfirmasi Detail Obat
+                </h3>
+                <div className="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-left text-sm text-slate-500">
+                      <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-100">
+                        <tr>
+                          <th className="px-4 py-3">Nama Produk</th>
+                          <th className="px-4 py-3 text-right" style={{ width: '90px' }}>Qty</th>
+                          <th className="px-4 py-3 text-right" style={{ width: '130px' }}>Harga Satuan</th>
+                          <th className="px-4 py-3" style={{ width: '160px' }}>No. Batch *</th>
+                          <th className="px-4 py-3" style={{ width: '170px' }}>Exp. Date *</th>
+                          <th className="px-4 py-3 text-right">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {receivedDetails.map((item, index) => (
+                          <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-4 py-3 font-semibold text-slate-800">
+                              {item.product?.name}
+                              <span className="block text-xs font-normal text-slate-400 font-mono mt-0.5">{item.product?.sku || '-'}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => handleDetailChange(index, 'quantity', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 text-right border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="relative flex items-center">
+                                <span className="absolute left-2 text-xs font-semibold text-slate-400">Rp</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.unitPrice}
+                                  onChange={(e) => handleDetailChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                                  className="w-full pl-7 pr-2 py-1 text-right border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold"
+                                />
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="text"
+                                required
+                                placeholder="No Batch"
+                                value={item.batchNumber}
+                                onChange={(e) => handleDetailChange(index, 'batchNumber', e.target.value)}
+                                className="w-full px-2.5 py-1 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-mono text-xs uppercase"
+                              />
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="date"
+                                required
+                                value={item.expiryDate}
+                                onChange={(e) => handleDetailChange(index, 'expiryDate', e.target.value)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-xs"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                              Rp {item.subtotal?.toLocaleString() || 0}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-slate-500">Estimasi Total Akhir:</span>
+                <span className="text-lg font-black text-emerald-600">Rp {calculateGrandTotal().toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsReceiveModalOpen(false)}
+                  className="h-10 px-4 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 font-bold"
+                >
+                  Batal
+                </Button>
+                <Button
+                  onClick={handleSubmitReceive}
+                  disabled={isSubmitting}
+                  className="h-10 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-500/10 flex items-center gap-2"
+                >
+                  {isSubmitting ? 'Memproses...' : 'Konfirmasi & Terima'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

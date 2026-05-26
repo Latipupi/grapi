@@ -28,6 +28,10 @@ public class TenantController {
         return tenantRepository.findById(tenantId)
                 .map(tenant -> {
                     tenant.setName(details.getName());
+                    tenant.setEmail(details.getEmail());
+                    tenant.setPhone(details.getPhone());
+                    tenant.setNpwp(details.getNpwp());
+                    tenant.setAddress(details.getAddress());
                     return ResponseEntity.ok(tenantRepository.save(tenant));
                 })
                 .orElse(ResponseEntity.notFound().build());

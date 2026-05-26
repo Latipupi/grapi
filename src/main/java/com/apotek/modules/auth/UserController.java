@@ -63,6 +63,7 @@ public class UserController {
                     user.setFullName(details.getFullName());
                     user.setRole(details.getRole());
                     user.setBranchId(details.getBranchId());
+                    user.setPhone(details.getPhone());
                     
                     if (details.getPassword() != null && !details.getPassword().isEmpty()) {
                         user.setPassword(passwordEncoder.encode(details.getPassword()));

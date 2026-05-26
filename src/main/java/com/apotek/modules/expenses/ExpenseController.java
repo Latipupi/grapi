@@ -30,7 +30,7 @@ public class ExpenseController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Expense> createExpense(@RequestBody Expense expense) {
         Expense created = expenseService.createExpense(expense);
         return new ResponseEntity<>(created, HttpStatus.CREATED);

@@ -31,4 +31,10 @@ public class PurchasingController {
     public Purchase create(@RequestBody Purchase purchase) {
         return purchasingService.createPurchase(purchase);
     }
+
+    @PutMapping("/{id}/receive")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
+    public Purchase receive(@PathVariable Long id, @RequestBody Purchase purchase) {
+        return purchasingService.receivePurchase(id, purchase);
+    }
 }
