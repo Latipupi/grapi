@@ -23,7 +23,7 @@ public class BranchController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<?> create(@RequestBody Branch branch) {
         String tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
         Tenant tenant = tenantRepository.findById(tenantId).orElse(null);
@@ -51,7 +51,7 @@ public class BranchController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<Branch> update(@PathVariable Long id, @RequestBody Branch branchDetails) {
         return branchRepository.findById(id)
                 .map(branch -> {
@@ -65,7 +65,7 @@ public class BranchController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         return branchRepository.findById(id)
                 .map(branch -> {

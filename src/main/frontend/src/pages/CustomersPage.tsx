@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -7,6 +7,7 @@ import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Edit2, Trash2, User, Phone, Mail, MapPin } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
@@ -35,6 +36,13 @@ const CustomersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
   
   const queryClient = useQueryClient();
 
@@ -122,10 +130,18 @@ const CustomersPage: React.FC = () => {
     }
   };
 
-  const filtered = customers?.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.phone?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = customers
+    ?.filter(c => 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.phone?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => b.id - a.id);
+
+  const totalEntries = filtered?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentEntries = filtered?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -181,7 +197,7 @@ const CustomersPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
                 ) : (
-                filtered?.map((customer, index) => (
+                currentEntries?.map((customer, index) => (
                   <motion.tr 
                     key={customer.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -259,6 +275,15 @@ const CustomersPage: React.FC = () => {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="Pelanggan"
+        />
       </div>
 
       <Dialog

@@ -6,7 +6,10 @@ export interface CartItem {
   unitName: string;
   name: string;
   sku: string;
-  price: number;
+  price: number; // Active price
+  pricePerUnit: number; // Base price
+  additionalPrices: { priceLabel: string; price: number }[];
+  selectedPriceLabel: string; // e.g., 'Utama', 'Medis', 'Grosir'
   quantity: number;
   availableStock: number;
   conversionToBase: number;
@@ -37,6 +40,9 @@ const posSlice = createSlice({
         const totalBaseQty = (existing.quantity + action.payload.quantity) * existing.conversionToBase;
         if (totalBaseQty <= existing.availableStock) {
            existing.quantity += action.payload.quantity;
+           // If they add the same unit again, we can also sync the price option to the latest added one
+           existing.price = action.payload.price;
+           existing.selectedPriceLabel = action.payload.selectedPriceLabel;
         }
       } else {
         state.cart.push(action.payload);
@@ -51,6 +57,16 @@ const posSlice = createSlice({
         if (action.payload.quantity * item.conversionToBase <= item.availableStock) {
           item.quantity = action.payload.quantity;
         }
+      }
+    },
+    updateItemPrice: (state, action: PayloadAction<{ productId: number; unitId: number; priceLabel: string; price: number }>) => {
+      const item = state.cart.find(item => 
+        item.productId === action.payload.productId && 
+        item.unitId === action.payload.unitId
+      );
+      if (item) {
+        item.selectedPriceLabel = action.payload.priceLabel;
+        item.price = action.payload.price;
       }
     },
     removeFromCart: (state, action: PayloadAction<{ productId: number; unitId: number }>) => {
@@ -75,6 +91,7 @@ const posSlice = createSlice({
 export const { 
   addToCart, 
   updateQuantity, 
+  updateItemPrice,
   removeFromCart, 
   clearCart, 
   setCustomer, 

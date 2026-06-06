@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
+import { Pagination } from '../components/ui/Pagination';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Plus, Search, Edit2, Trash2, Truck, Phone, Mail, User } from 'lucide-react';
 import { Input } from '../components/ui/Input';
@@ -39,6 +40,13 @@ const SuppliersPage: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   
   const queryClient = useQueryClient();
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
@@ -126,10 +134,18 @@ const SuppliersPage: React.FC = () => {
     }
   };
 
-  const filtered = suppliers?.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.pic?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = suppliers
+    ?.filter(s => 
+      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.pic?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => b.id - a.id);
+
+  const totalEntries = filtered?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentSuppliers = filtered?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -186,7 +202,7 @@ const SuppliersPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
                 ) : (
-                filtered?.map((supplier, index) => (
+                currentSuppliers?.map((supplier, index) => (
                   <motion.tr 
                     key={supplier.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -267,6 +283,15 @@ const SuppliersPage: React.FC = () => {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="supplier"
+        />
       </div>
 
       <Dialog

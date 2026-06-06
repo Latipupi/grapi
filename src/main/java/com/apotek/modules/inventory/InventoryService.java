@@ -49,34 +49,33 @@ public class InventoryService {
         inventoryRepository.save(inventory);
 
         // 2. Update Inventory Batch (Detailed)
-        if (batchNumber != null && !batchNumber.isEmpty()) {
-            InventoryBatch batch = inventoryBatchRepository.findByBranchIdAndProductIdAndBatchNumber(branchId, productId, batchNumber)
-                    .orElse(InventoryBatch.builder()
-                            .branch(branch)
-                            .product(product)
-                            .batchNumber(batchNumber)
-                            .expiryDate(expiryDate != null ? expiryDate : LocalDate.now().plusYears(1))
-                            .currentQuantity(BigDecimal.ZERO)
-                            .purchasePrice(purchasePrice != null ? purchasePrice : BigDecimal.ZERO)
-                            .build());
+        String effectiveBatchNumber = (batchNumber != null && !batchNumber.trim().isEmpty()) ? batchNumber.trim() : "INITIAL";
+        InventoryBatch batch = inventoryBatchRepository.findByBranchIdAndProductIdAndBatchNumber(branchId, productId, effectiveBatchNumber)
+                .orElse(InventoryBatch.builder()
+                        .branch(branch)
+                        .product(product)
+                        .batchNumber(effectiveBatchNumber)
+                        .expiryDate(expiryDate != null ? expiryDate : LocalDate.now().plusYears(1))
+                        .currentQuantity(BigDecimal.ZERO)
+                        .purchasePrice(purchasePrice != null ? purchasePrice : BigDecimal.ZERO)
+                        .build());
 
-            if ("IN".equalsIgnoreCase(type) || "ADJUSTMENT".equalsIgnoreCase(type)) {
-                batch.setCurrentQuantity(batch.getCurrentQuantity().add(quantity));
-                // Update purchase price if it's an IN movement and we have a price
-                if (purchasePrice != null) {
-                    batch.setPurchasePrice(purchasePrice);
-                }
-            } else if ("OUT".equalsIgnoreCase(type)) {
-                batch.setCurrentQuantity(batch.getCurrentQuantity().subtract(quantity));
+        if ("IN".equalsIgnoreCase(type) || "ADJUSTMENT".equalsIgnoreCase(type)) {
+            batch.setCurrentQuantity(batch.getCurrentQuantity().add(quantity));
+            // Update purchase price if it's an IN movement and we have a price
+            if (purchasePrice != null) {
+                batch.setPurchasePrice(purchasePrice);
             }
-            
-            // If we are updating an existing batch but provided a new expiry date, update it
-            if (expiryDate != null) {
-                batch.setExpiryDate(expiryDate);
-            }
-            
-            inventoryBatchRepository.save(batch);
+        } else if ("OUT".equalsIgnoreCase(type)) {
+            batch.setCurrentQuantity(batch.getCurrentQuantity().subtract(quantity));
         }
+        
+        // If we are updating an existing batch but provided a new expiry date, update it
+        if (expiryDate != null) {
+            batch.setExpiryDate(expiryDate);
+        }
+        
+        inventoryBatchRepository.save(batch);
 
         // 3. Record Stock Movement Log
         StockMovement movement = StockMovement.builder()

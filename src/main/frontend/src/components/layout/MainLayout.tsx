@@ -61,7 +61,7 @@ const SidebarItem = ({
 );
 
 const MainLayout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['Master Data', 'Inventory']); // Default open Master Data & Inventory
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const { fullName, role, tenantId, billingStatus } = useSelector((state: RootState) => state.auth);
@@ -69,9 +69,17 @@ const MainLayout: React.FC = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  React.useEffect(() => {
+    const handleResize = () => {
+      setSidebarOpen(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleNavigation = (to: string) => {
     navigate(to);
-    if (window.innerWidth < 768) {
+    if (window.innerWidth < 1024) {
       setSidebarOpen(false);
     }
   };
@@ -167,10 +175,10 @@ const MainLayout: React.FC = () => {
         <PaywallOverlay />
       )}
 
-      {/* Sidebar Overlay for Mobile */}
+      {/* Sidebar Overlay for Mobile/Tablet */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden animate-in fade-in duration-300" 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden animate-in fade-in duration-300" 
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -178,8 +186,8 @@ const MainLayout: React.FC = () => {
       {/* Sidebar */}
       <aside 
         className={cn(
-          "fixed md:sticky top-0 h-screen bg-white border-r border-slate-100 z-50 transition-all duration-300 ease-in-out",
-          sidebarOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full md:w-20 md:translate-x-0"
+          "fixed lg:sticky top-0 h-screen bg-white border-r border-slate-100 z-50 transition-all duration-300 ease-in-out",
+          sidebarOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full lg:w-20 lg:translate-x-0"
         )}
       >
         <div className="h-full flex flex-col p-4 overflow-hidden">
@@ -187,7 +195,7 @@ const MainLayout: React.FC = () => {
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-100 shrink-0">
               <Store className="text-white w-6 h-6" />
             </div>
-            {(sidebarOpen || window.innerWidth < 768) && (
+            {(sidebarOpen || window.innerWidth < 1024) && (
               <span className="text-xl font-bold text-slate-800 whitespace-nowrap">G-Apotek v2</span>
             )}
           </div>
@@ -225,7 +233,7 @@ const MainLayout: React.FC = () => {
                         <Link
                           key={child.to}
                           to={child.to}
-                          onClick={() => window.innerWidth < 768 && setSidebarOpen(false)}
+                          onClick={() => window.innerWidth < 1024 && setSidebarOpen(false)}
                           className={cn(
                             "block py-2 text-sm transition-colors relative",
                             location.pathname === child.to 

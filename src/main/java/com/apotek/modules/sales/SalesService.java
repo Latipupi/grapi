@@ -41,17 +41,10 @@ public class SalesService {
                 ? customerRepository.findById(request.getCustomerId()).orElse(null) 
                 : null;
 
-        // Validasi shift aktif - kasir WAJIB membuka shift sebelum bertransaksi
-        CashierShift activeShift = shiftRepository.findFirstByUserIdAndStatusOrderByStartTimeDesc(user.getId(), "OPEN")
+        // Validasi shift aktif - kasir WAJIB membuka shift sebelum bertransaksi di cabang ini
+        CashierShift activeShift = shiftRepository.findFirstByUserIdAndBranchIdAndStatusOrderByStartTimeDesc(user.getId(), branch.getId(), "OPEN")
                 .orElseThrow(() -> new IllegalStateException(
-                        "Shift belum dibuka! Silakan buka shift terlebih dahulu sebelum melakukan transaksi."));
-
-        if (!activeShift.getBranch().getId().equals(branch.getId())) {
-            throw new IllegalStateException(
-                    "Shift kasir Anda saat ini aktif di cabang " + activeShift.getBranch().getName() + 
-                    ", sedangkan transaksi ini dibuat untuk cabang " + branch.getName() + 
-                    "! Harap tutup shift di cabang sebelumnya terlebih dahulu.");
-        }
+                        "Shift belum dibuka! Silakan buka shift terlebih dahulu sebelum melakukan transaksi di cabang ini."));
 
         Sale sale = Sale.builder()
                 .branch(branch)

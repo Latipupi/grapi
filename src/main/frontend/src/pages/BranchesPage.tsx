@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -7,6 +7,7 @@ import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Edit2, Trash2, MapPin, Phone } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
@@ -35,6 +36,13 @@ const BranchesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
   
   const queryClient = useQueryClient();
 
@@ -122,10 +130,18 @@ const BranchesPage: React.FC = () => {
     }
   };
 
-  const filteredBranches = branches?.filter(b => 
-    b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.address.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBranches = branches
+    ?.filter(b => 
+      b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      b.address.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => b.id - a.id);
+
+  const totalEntries = filteredBranches?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentEntries = filteredBranches?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -181,7 +197,7 @@ const BranchesPage: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredBranches?.map((branch, index) => (
+              currentEntries?.map((branch, index) => (
                 <motion.tr 
                   key={branch.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -251,6 +267,15 @@ const BranchesPage: React.FC = () => {
             )}
           </TableBody>
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="Cabang"
+        />
       </div>
 
       <Dialog

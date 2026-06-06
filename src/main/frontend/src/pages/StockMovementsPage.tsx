@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api/api';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { Search, Package, ArrowLeft, ArrowDownRight, ArrowUpRight, AlertCircle } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -40,6 +41,13 @@ const StockMovementsPage: React.FC = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<string>(initialBranchId || '');
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedBranchId]);
+
   const { data: branches } = useQuery<Branch[]>({
     queryKey: ['branches'],
     queryFn: async () => {
@@ -64,11 +72,19 @@ const StockMovementsPage: React.FC = () => {
     enabled: !!selectedBranchId,
   });
 
-  const filteredMovements = movements?.filter(mov => 
-    mov.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mov.product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (mov.referenceNumber && mov.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredMovements = movements
+    ?.filter(mov => 
+      mov.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mov.product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (mov.referenceNumber && mov.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => b.id - a.id);
+
+  const totalEntries = filteredMovements?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentEntries = filteredMovements?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   const getMovementIcon = (type: string) => {
     if (type === 'IN') return <ArrowDownRight className="w-4 h-4 text-emerald-600" />;
@@ -148,7 +164,7 @@ const StockMovementsPage: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredMovements?.map((mov, index) => (
+              currentEntries?.map((mov, index) => (
                 <motion.tr 
                   key={mov.id}
                   initial={{ opacity: 0, y: 10 }}
@@ -199,6 +215,15 @@ const StockMovementsPage: React.FC = () => {
             )}
           </TableBody>
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="Mutasi"
+        />
       </div>
     </div>
   );

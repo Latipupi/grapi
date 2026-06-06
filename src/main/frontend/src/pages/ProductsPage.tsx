@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -7,16 +7,25 @@ import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Edit2, Trash2, Package, Barcode, Trash, Upload, Download, FileSpreadsheet } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
 import { Dialog } from '../components/ui/Dialog';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
+
+const productUnitPriceSchema = z.object({
+  priceLabel: z.string().min(1, 'Label wajib diisi'),
+  price: z.number().min(0, 'Harga minimal 0'),
+});
 
 const productUnitSchema = z.object({
   unitName: z.string().min(1, 'Satuan wajib diisi'),
   conversionToBase: z.number().min(1, 'Minimal 1'),
   baseUnit: z.boolean(),
   pricePerUnit: z.number().min(0, 'Harga minimal 0'),
+  additionalPrices: z.array(productUnitPriceSchema).default([]),
 });
 
 const productSchema = z.object({
@@ -26,9 +35,18 @@ const productSchema = z.object({
   categoryId: z.string().optional(),
   active: z.boolean().default(true),
   units: z.array(productUnitSchema).min(1, 'Minimal 1 satuan'),
+  stockBranchId: z.string().optional(),
+  initialStock: z.number().min(0, 'Minimal 0').optional(),
+  initialPurchasePrice: z.number().min(0, 'Harga minimal 0').optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
+
+interface ProductUnitPrice {
+  id?: number;
+  priceLabel: string;
+  price: number;
+}
 
 interface ProductUnit {
   id?: number;
@@ -36,6 +54,7 @@ interface ProductUnit {
   conversionToBase: number;
   baseUnit: boolean;
   pricePerUnit: number;
+  additionalPrices?: ProductUnitPrice[];
 }
 
 interface Product {
@@ -54,6 +73,7 @@ interface Category {
 }
 
 const ProductsPage: React.FC = () => {
+  const { branchId, role } = useSelector((state: RootState) => state.auth);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -62,6 +82,20 @@ const ProductsPage: React.FC = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [viewBranchId, setViewBranchId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, viewBranchId]);
+
+  useEffect(() => {
+    if (branchId) {
+      setViewBranchId(branchId.toString());
+      setSelectedBranchId(branchId.toString());
+    }
+  }, [branchId]);
 
   const queryClient = useQueryClient();
 
@@ -81,7 +115,10 @@ const ProductsPage: React.FC = () => {
     resolver: zodResolver(productSchema),
     defaultValues: {
       active: true,
-      units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0 }]
+      units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0, additionalPrices: [] }],
+      stockBranchId: '',
+      initialStock: 0,
+      initialPurchasePrice: 0,
     }
   });
 
@@ -127,7 +164,8 @@ const ProductsPage: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: (data: ProductFormValues) => api.post('/products', {
       ...data,
-      categoryId: data.categoryId ? parseInt(data.categoryId) : null
+      categoryId: data.categoryId ? parseInt(data.categoryId) : null,
+      stockBranchId: data.stockBranchId ? parseInt(data.stockBranchId) : null,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -159,7 +197,11 @@ const ProductsPage: React.FC = () => {
     mutationFn: (id: number) => api.delete(`/products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      alert('Produk berhasil dihapus');
     },
+    onError: (error: any) => {
+      alert('Gagal menghapus produk: ' + (error.response?.data?.message || error.response?.data || error.message));
+    }
   });
 
   const bulkCreateMutation = useMutation({
@@ -191,8 +233,15 @@ const ProductsPage: React.FC = () => {
           unitName: u.unitName,
           conversionToBase: u.conversionToBase,
           baseUnit: u.baseUnit,
-          pricePerUnit: u.pricePerUnit
-        }))
+          pricePerUnit: u.pricePerUnit,
+          additionalPrices: u.additionalPrices?.map(ap => ({
+            priceLabel: ap.priceLabel,
+            price: ap.price
+          })) || []
+        })),
+        stockBranchId: '',
+        initialStock: 0,
+        initialPurchasePrice: 0,
       });
     } else {
       setSelectedProduct(null);
@@ -202,7 +251,10 @@ const ProductsPage: React.FC = () => {
         barcode: '',
         categoryId: '',
         active: true,
-        units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0 }]
+        units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0, additionalPrices: [] }],
+        stockBranchId: '',
+        initialStock: 0,
+        initialPurchasePrice: 0,
       });
     }
     setIsModalOpen(true);
@@ -223,10 +275,25 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const filtered = products?.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = products?.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+
+    // Filter by branch if a branch is selected
+    if (viewBranchId) {
+      const hasInventory = inventory?.some(inv => inv.product.id === p.id);
+      return !!hasInventory;
+    }
+
+    return true;
+  }).sort((a, b) => b.id - a.id);
+
+  const totalEntries = filtered?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentEntries = filtered?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -267,13 +334,14 @@ const ProductsPage: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Lihat Stok:</label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filter Cabang:</label>
             <select
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none min-w-[180px]"
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none min-w-[180px] disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-slate-50"
               value={viewBranchId}
               onChange={(e) => setViewBranchId(e.target.value)}
+              disabled={role !== 'ADMIN' && role !== 'OWNER' && !!branchId}
             >
-              <option value="">Semua Cabang (Tanpa Stok)</option>
+              {(role === 'ADMIN' || role === 'OWNER' || !branchId) && <option value="">Semua Cabang (Tanpa Filter)</option>}
               {branches?.map(branch => (
                 <option key={branch.id} value={branch.id.toString()}>{branch.name}</option>
               ))}
@@ -303,12 +371,12 @@ const ProductsPage: React.FC = () => {
                 </TableRow>
               ) : filtered?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-slate-400">
+                  <TableCell colSpan={viewBranchId ? 7 : 6} className="h-32 text-center text-slate-400">
                     Tidak ada data ditemukan.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered?.map((product, index) => {
+                currentEntries?.map((product, index) => {
                   const baseUnit = product?.units?.find(u => u.baseUnit);
                   return (
                     <motion.tr 
@@ -409,6 +477,15 @@ const ProductsPage: React.FC = () => {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="Produk"
+        />
       </div>
 
       <Dialog
@@ -474,6 +551,49 @@ const ProductsPage: React.FC = () => {
                 />
                 <label className="text-sm text-slate-700 font-medium">Produk Aktif</label>
               </div>
+
+              {!selectedProduct && (
+                <div className="space-y-4 pt-4 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
+                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider">
+                    <Package className="w-4 h-4 text-emerald-600" />
+                    Stok Awal & Alokasi (Opsional)
+                  </h3>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Cabang Alokasi</label>
+                    <select
+                      {...register('stockBranchId')}
+                      className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                      <option value="">-- Pilih Cabang --</option>
+                      {branches?.map(b => (
+                        <option key={b.id} value={b.id.toString()}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Jumlah Stok</label>
+                      <Input
+                        type="number"
+                        {...register('initialStock', { valueAsNumber: true })}
+                        placeholder="0"
+                        className="h-10 bg-slate-50 focus:bg-white focus:ring-emerald-500 font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Harga Beli Dasar</label>
+                      <Input
+                        type="number"
+                        {...register('initialPurchasePrice', { valueAsNumber: true })}
+                        placeholder="Rp"
+                        className="h-10 bg-slate-50 focus:bg-white focus:ring-emerald-500 font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4 border-l border-slate-100 pl-0 md:pl-6">
@@ -484,72 +604,118 @@ const ProductsPage: React.FC = () => {
                   variant="outline"
                   size="sm"
                   className="h-8"
-                  onClick={() => append({ unitName: '', conversionToBase: 1, baseUnit: false, pricePerUnit: 0 })}
+                  onClick={() => append({ unitName: '', conversionToBase: 1, baseUnit: false, pricePerUnit: 0, additionalPrices: [] })}
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   Tambah Satuan
                 </Button>
               </div>
 
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <Input
-                        {...register(`units.${index}.unitName` as const)}
-                        placeholder="Satuan (Pcs, Box, Strip)"
-                        className="h-8"
-                      />
-                      {fields.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => remove(index)}
-                          className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition-colors"
-                        >
-                          <Trash className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">Harga Jual</label>
+              <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                {fields.map((field, index) => {
+                  const additionalPrices = watch(`units.${index}.additionalPrices`) || [];
+                  return (
+                    <div key={field.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
                         <Input
-                          type="number"
-                          {...register(`units.${index}.pricePerUnit` as const, { valueAsNumber: true })}
-                          placeholder="Rp"
+                          {...register(`units.${index}.unitName` as const)}
+                          placeholder="Satuan (Pcs, Box, Strip)"
                           className="h-8"
                         />
+                        {fields.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => remove(index)}
+                            className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-md transition-colors"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] uppercase font-bold text-slate-400">Konversi ke Base</label>
-                        <Input
-                          type="number"
-                          {...register(`units.${index}.conversionToBase` as const, { valueAsNumber: true })}
-                          placeholder="1"
-                          className="h-8"
-                          disabled={watch(`units.${index}.baseUnit`)}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase font-bold text-slate-400">Harga Jual Utama</label>
+                          <Input
+                            type="number"
+                            {...register(`units.${index}.pricePerUnit` as const, { valueAsNumber: true })}
+                            placeholder="Rp"
+                            className="h-8 font-semibold text-emerald-600 bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] uppercase font-bold text-slate-400">Konversi ke Base</label>
+                          <Input
+                            type="number"
+                            {...register(`units.${index}.conversionToBase` as const, { valueAsNumber: true })}
+                            placeholder="1"
+                            className="h-8"
+                            disabled={watch(`units.${index}.baseUnit`)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          {...register(`units.${index}.baseUnit` as const)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              // Ensure only one base unit
+                              fields.forEach((_, i) => {
+                                if (i !== index) setValue(`units.${i}.baseUnit`, false);
+                              });
+                              setValue(`units.${index}.conversionToBase`, 1);
+                            }
+                          }}
+                          className="w-3 h-3 rounded text-emerald-600 focus:ring-emerald-500"
                         />
+                        <label className="text-[11px] text-slate-600 font-medium">Jadikan Satuan Dasar</label>
+                      </div>
+
+                      {/* Additional Price Tiers Section */}
+                      <div className="space-y-2 pt-2 border-t border-slate-200/60">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block">Variasi Harga Lainnya (Medis, Grosir, dll.)</label>
+                        <div className="space-y-2">
+                          {additionalPrices.map((_: any, pIndex: number) => (
+                            <div key={pIndex} className="flex gap-2 items-center">
+                              <Input
+                                placeholder="Contoh: Medis"
+                                className="h-8 flex-1 text-xs"
+                                {...register(`units.${index}.additionalPrices.${pIndex}.priceLabel` as const)}
+                              />
+                              <Input
+                                type="number"
+                                placeholder="Rp"
+                                className="h-8 w-28 text-xs font-bold text-slate-700"
+                                {...register(`units.${index}.additionalPrices.${pIndex}.price` as const, { valueAsNumber: true })}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentPrices = [...additionalPrices];
+                                  currentPrices.splice(pIndex, 1);
+                                  setValue(`units.${index}.additionalPrices`, currentPrices);
+                                }}
+                                className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded transition-colors"
+                              >
+                                <Trash className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors pl-1"
+                            onClick={() => {
+                              setValue(`units.${index}.additionalPrices`, [...additionalPrices, { priceLabel: '', price: 0 }]);
+                            }}
+                          >
+                            <Plus className="w-3 h-3" />
+                            Tambah Variasi Harga
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        {...register(`units.${index}.baseUnit` as const)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            // Ensure only one base unit
-                            fields.forEach((_, i) => {
-                              if (i !== index) setValue(`units.${i}.baseUnit`, false);
-                            });
-                            setValue(`units.${index}.conversionToBase`, 1);
-                          }
-                        }}
-                        className="w-3 h-3 rounded text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <label className="text-[11px] text-slate-600 font-medium">Jadikan Satuan Dasar</label>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {errors.units && <p className="text-xs text-red-500">{errors.units.message}</p>}
             </div>
@@ -570,6 +736,31 @@ const ProductsPage: React.FC = () => {
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
               disabled={bulkCreateMutation.isPending}
               onClick={() => {
+                 const parsePriceString = (priceStr: string) => {
+                    if (!priceStr) return { pricePerUnit: 0, additionalPrices: [] };
+                    const cleanStr = priceStr.trim();
+                    if (cleanStr.includes('|')) {
+                       const parts = cleanStr.split('|');
+                       const pricePerUnit = parseFloat(parts[0]) || 0;
+                       const additionalPrices: { priceLabel: string; price: number }[] = [];
+                       for (let i = 1; i < parts.length; i++) {
+                          const part = parts[i].trim();
+                          if (part.includes(':')) {
+                             const [label, priceVal] = part.split(':');
+                             const price = parseFloat(priceVal) || 0;
+                             if (label && label.trim() && price > 0) {
+                                additionalPrices.push({
+                                   priceLabel: label.trim(),
+                                   price: price
+                                });
+                             }
+                          }
+                       }
+                       return { pricePerUnit, additionalPrices };
+                    }
+                    return { pricePerUnit: parseFloat(cleanStr) || 0, additionalPrices: [] };
+                 };
+
                  // Simple CSV parser logic for demo
                  const lines = importData.trim().split('\n');
                  const data = lines.map(line => {
@@ -583,18 +774,22 @@ const ProductsPage: React.FC = () => {
                     
                     const units = [];
                     // 1. Satuan Dasar
+                    const parsedBase = parsePriceString(basePrice);
                     units.push({
                        unitName: baseUnit?.trim() || 'PCS',
-                       pricePerUnit: parseFloat(basePrice) || 0,
+                       pricePerUnit: parsedBase.pricePerUnit,
+                       additionalPrices: parsedBase.additionalPrices,
                        conversionToBase: 1,
                        baseUnit: true
                     });
 
                     // 2. Satuan Tengah (Strip)
                     if (midUnit && midUnit.trim()) {
+                       const parsedMid = parsePriceString(midPrice);
                        units.push({
                           unitName: midUnit.trim(),
-                          pricePerUnit: parseFloat(midPrice) || 0,
+                          pricePerUnit: parsedMid.pricePerUnit,
+                          additionalPrices: parsedMid.additionalPrices,
                           conversionToBase: parseInt(midConv) || 1,
                           baseUnit: false
                        });
@@ -602,9 +797,11 @@ const ProductsPage: React.FC = () => {
 
                     // 3. Satuan Besar (Box)
                     if (largeUnit && largeUnit.trim()) {
+                       const parsedLarge = parsePriceString(largePrice);
                        units.push({
                           unitName: largeUnit.trim(),
-                          pricePerUnit: parseFloat(largePrice) || 0,
+                          pricePerUnit: parsedLarge.pricePerUnit,
+                          additionalPrices: parsedLarge.additionalPrices,
                           conversionToBase: parseInt(largeConv) || 1,
                           baseUnit: false
                        });
@@ -629,28 +826,35 @@ const ProductsPage: React.FC = () => {
         }
       >
         <div className="space-y-6">
-           <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-700 text-sm">
-              <Download className="w-5 h-5 shrink-0" />
-              <div>
-                 <p className="font-bold text-base mb-1">Panduan Import (14 Kolom)</p>
-                 <p className="opacity-80 leading-relaxed text-[11px]">
-                    Format: <b>Nama, SKU, Kategori, Barcode, Sat1, Harga1, Sat2, Harga2, Isi2, Sat3, Harga3, Isi3, Stok, Supplier</b>
-                 </p>
-                 <div className="mt-3 p-3 bg-white/60 rounded-xl border border-amber-200 text-[11px] space-y-1">
-                    <p><b>Contoh:</b> Amoxicillin, AMX01, Obat, 89912345, Tablet, 1500, Strip, 14000, 10, Box, 135000, 100, 50, PT. Sehat</p>
-                    <p className="text-amber-600 font-medium">*Kolom Stok & Supplier bersifat opsional.</p>
-                 </div>
-              </div>
-           </div>
+            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-700 text-sm animate-in fade-in duration-200">
+               <Download className="w-5 h-5 shrink-0" />
+               <div className="space-y-1">
+                  <p className="font-bold text-base mb-1">Panduan Import (14 Kolom)</p>
+                  <p className="opacity-80 leading-relaxed text-[11px]">
+                     Format: <b>Nama, SKU, Kategori, Barcode, Sat1, Harga1, Sat2, Harga2, Isi2, Sat3, Harga3, Isi3, Stok, Supplier</b>
+                  </p>
+                  <div className="mt-2 p-3 bg-white/60 rounded-xl border border-amber-200 text-[11px] space-y-1">
+                     <p><b>Contoh:</b> Amoxicillin, AMX01, Obat, 89912345, Tablet, 1500, Strip, 14000, 10, Box, 135000, 100, 50, PT. Sehat</p>
+                     <p className="text-emerald-700 font-bold mt-1.5 flex items-center gap-1">🔥 Fitur Multi-Harga Dinamis (Format Kolom Harga):</p>
+                     <p className="text-slate-600 pl-1 leading-relaxed">
+                        Gunakan simbol <b>|</b> dan <b>:</b> untuk menambah variasi harga dinamis.<br />
+                        Format: <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono font-bold text-slate-800 text-[10px]">HargaUtama|NamaHarga1:NominalHarga1|NamaHarga2:NominalHarga2</code><br />
+                        Contoh: <code className="bg-white/80 px-1.5 py-0.5 rounded font-mono font-bold text-emerald-800 text-[10px]">1500|Medis:1300|Grosir:1200</code>
+                     </p>
+                     <p className="text-amber-600 font-medium pt-1">*Kolom Stok & Supplier bersifat opsional.</p>
+                  </div>
+               </div>
+            </div>
 
            <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Pilih Cabang (Untuk Alokasi Stok):</label>
               <select
-                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-slate-50"
                 value={selectedBranchId}
                 onChange={(e) => setSelectedBranchId(e.target.value)}
+                disabled={role !== 'ADMIN' && role !== 'OWNER' && !!branchId}
               >
-                <option value="">-- Pilih Cabang --</option>
+                {(role === 'ADMIN' || role === 'OWNER' || !branchId) && <option value="">-- Pilih Cabang --</option>}
                 {branches?.map(branch => (
                   <option key={branch.id} value={branch.id.toString()}>{branch.name}</option>
                 ))}

@@ -9,6 +9,7 @@ import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Package, History, ChevronDown, ChevronRight, Calendar, AlertCircle } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
@@ -239,6 +240,13 @@ const InventoryPage: React.FC = () => {
     return searchParams.get('filter') === 'low-stock' ? 'LOW_STOCK' : 'ALL';
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, stockFilter, selectedBranchId]);
+
   const handleFilterChange = (filter: 'ALL' | 'LOW_STOCK') => {
     setStockFilter(filter);
     if (filter === 'LOW_STOCK') {
@@ -338,7 +346,13 @@ const InventoryPage: React.FC = () => {
     }
 
     return true;
-  });
+  }).sort((a, b) => b.id - a.id);
+
+  const totalEntries = filteredInventory?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentEntries = filteredInventory?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -442,12 +456,12 @@ const InventoryPage: React.FC = () => {
                 </TableRow>
               ) : filteredInventory?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-slate-400">
+                  <TableCell colSpan={7} className="h-32 text-center text-slate-400">
                     Tidak ada data inventori.
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInventory?.map((inv) => (
+                currentEntries?.map((inv) => (
                   <InventoryRow
                     key={inv.id}
                     inv={inv}
@@ -459,6 +473,15 @@ const InventoryPage: React.FC = () => {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="Inventori"
+        />
       </div>
 
       <Dialog

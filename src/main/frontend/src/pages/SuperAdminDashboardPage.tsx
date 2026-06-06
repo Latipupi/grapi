@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Dialog } from '../components/ui/Dialog';
+import { Pagination } from '../components/ui/Pagination';
 import { 
   ShieldAlert, 
   Search, 
@@ -42,6 +43,13 @@ const SuperAdminDashboardPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // Form states for billing edit
   const [editPlan, setEditPlan] = useState('');
@@ -141,6 +149,12 @@ const SuperAdminDashboardPage: React.FC = () => {
         t.name.toLowerCase().includes(search)
       );
     });
+
+  const totalEntries = filteredTenants?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentTenants = filteredTenants?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   const getPlanBadge = (plan: string) => {
     if (plan === 'FREE_TRIAL') return 'bg-slate-100 text-slate-700 border-slate-200';
@@ -261,7 +275,7 @@ const SuperAdminDashboardPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredTenants?.map((tenant) => {
+                currentTenants?.map((tenant) => {
                   const isExpired = new Date(tenant.expiredAt) < new Date();
                   return (
                     <TableRow key={tenant.id} className="hover:bg-slate-50/50 transition-colors">
@@ -335,6 +349,15 @@ const SuperAdminDashboardPage: React.FC = () => {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="tenant"
+        />
       </div>
 
       {/* Edit Billing Modal Dialog */}

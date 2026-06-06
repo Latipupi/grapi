@@ -45,7 +45,7 @@ public class CategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         return categoryRepository.findById(id)
                 .map(category -> {

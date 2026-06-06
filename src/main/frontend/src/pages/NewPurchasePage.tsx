@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Trash, Plus, ShoppingCart, ArrowLeft, Save, Package } from 'lucide-react';
+import { Trash, Plus, ShoppingCart, ArrowLeft, Save, Package, Search, ChevronDown, X } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
 
 const detailSchema = z.object({
@@ -29,6 +30,122 @@ const purchaseSchema = z.object({
 });
 
 type PurchaseFormValues = z.infer<typeof purchaseSchema>;
+
+interface ProductSearchSelectProps {
+  products: any[];
+  value: string;
+  onChange: (value: string) => void;
+}
+
+const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({ products, value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync selected value with search term display
+  useEffect(() => {
+    const selectedProduct = products.find(p => p.id.toString() === value);
+    if (selectedProduct) {
+      setSearchTerm(selectedProduct.name);
+    } else {
+      setSearchTerm('');
+    }
+  }, [value, products]);
+
+  // Handle outside click to close dropdown and reset search input to current value name
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        const selectedProduct = products.find(p => p.id.toString() === value);
+        setSearchTerm(selectedProduct ? selectedProduct.name : '');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [value, products]);
+
+  // Filter products by name or SKU
+  const filteredProducts = products.filter(p => {
+    const term = searchTerm.toLowerCase();
+    return (
+      p.name?.toLowerCase().includes(term) ||
+      (p.sku && p.sku.toLowerCase().includes(term))
+    );
+  });
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <input
+          type="text"
+          className="w-full h-9 rounded-lg border border-slate-200 bg-white pl-8 pr-8 py-1 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder:text-slate-400 font-medium"
+          placeholder="Cari nama obat atau SKU..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {value && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange('');
+                setSearchTerm('');
+                setIsOpen(false);
+              }}
+              className="text-slate-400 hover:text-slate-600 focus:outline-none"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <ChevronDown className="w-4 h-4 text-slate-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto p-1">
+          {filteredProducts.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-400 italic text-center">
+              Obat tidak ditemukan
+            </div>
+          ) : (
+            filteredProducts.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors flex justify-between items-center ${
+                  value === p.id.toString()
+                    ? 'bg-emerald-50 text-emerald-700 font-bold'
+                    : 'hover:bg-slate-50 text-slate-700 font-semibold'
+                }`}
+                onClick={() => {
+                  onChange(p.id.toString());
+                  setSearchTerm(p.name);
+                  setIsOpen(false);
+                }}
+              >
+                <div className="flex flex-col">
+                  <span>{p.name}</span>
+                  {p.sku && <span className="text-[10px] text-slate-400 font-mono">SKU: {p.sku}</span>}
+                </div>
+                {p.baseUnit && (
+                  <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold shrink-0">
+                    {p.baseUnit}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const NewPurchasePage: React.FC = () => {
   const navigate = useNavigate();
@@ -199,13 +316,17 @@ const NewPurchasePage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="lg:col-span-2 space-y-1.5">
                       <label className="text-[10px] uppercase font-bold text-slate-400">Produk</label>
-                      <select 
-                        {...register(`details.${index}.productId` as const)}
-                        className="w-full h-9 rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                      >
-                        <option value="">Pilih Produk</option>
-                        {products?.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
+                      <Controller
+                        control={control}
+                        name={`details.${index}.productId` as const}
+                        render={({ field }) => (
+                          <ProductSearchSelect
+                            products={products || []}
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        )}
+                      />
                     </div>
 
                     <div className="space-y-1.5">

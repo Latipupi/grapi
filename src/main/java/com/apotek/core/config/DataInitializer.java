@@ -7,12 +7,18 @@ import com.apotek.modules.auth.User;
 import com.apotek.modules.auth.UserRepository;
 import com.apotek.modules.masterdata.Branch;
 import com.apotek.modules.masterdata.BranchRepository;
+import com.apotek.modules.inventory.Inventory;
+import com.apotek.modules.inventory.InventoryRepository;
+import com.apotek.modules.inventory.InventoryBatch;
+import com.apotek.modules.inventory.InventoryBatchRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -25,6 +31,8 @@ public class DataInitializer {
     private final PasswordEncoder passwordEncoder;
     private final BranchRepository branchRepository;
     private final TenantRepository tenantRepository;
+    private final InventoryRepository inventoryRepository;
+    private final InventoryBatchRepository inventoryBatchRepository;
 
     @Bean
     public CommandLineRunner initData() {
@@ -83,6 +91,56 @@ public class DataInitializer {
                 System.out.println("DIAGNOSTIC: User ID: " + u.getId() + ", Username: " + u.getUsername() + ", Role: "
                         + u.getRole() + ", Branch ID: " + u.getBranchId());
             }
+
+            // 3. Database Healing: Auto-synchronize inventory stockQuantity with detailed inventory_batches
+            System.out.println("==================================================");
+            System.out.println("HEALING ENGINE: Synchronizing inventory stock with batches...");
+            System.out.println("==================================================");
+            List<Inventory> allInventory = inventoryRepository.findAll();
+            for (Inventory inv : allInventory) {
+                List<InventoryBatch> batches = inventoryBatchRepository.findByBranchIdAndProductIdOrderByExpiryDateAsc(
+                        inv.getBranch().getId(), inv.getProduct().getId()
+                );
+                
+                BigDecimal batchSum = batches.stream()
+                        .map(InventoryBatch::getCurrentQuantity)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                
+                if (inv.getStockQuantity().compareTo(batchSum) != 0) {
+                    System.out.println("HEALING MISMATCH: Product: " + inv.getProduct().getName() + 
+                            " | Branch: " + inv.getBranch().getName() + 
+                            " | Inventory Stock: " + inv.getStockQuantity() + 
+                            " | Batches Sum: " + batchSum);
+                    
+                    BigDecimal diff = inv.getStockQuantity().subtract(batchSum);
+                    
+                    InventoryBatch initialBatch = batches.stream()
+                            .filter(b -> "INITIAL".equalsIgnoreCase(b.getBatchNumber()))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    if (initialBatch != null) {
+                        initialBatch.setCurrentQuantity(initialBatch.getCurrentQuantity().add(diff));
+                        inventoryBatchRepository.save(initialBatch);
+                        System.out.println("  -> Synchronized: Updated existing INITIAL batch quantity. New batch quantity: " + initialBatch.getCurrentQuantity());
+                    } else {
+                        InventoryBatch newBatch = InventoryBatch.builder()
+                                .branch(inv.getBranch())
+                                .product(inv.getProduct())
+                                .batchNumber("INITIAL")
+                                .expiryDate(LocalDate.now().plusYears(1))
+                                .currentQuantity(diff)
+                                .purchasePrice(BigDecimal.ZERO)
+                                .tenantId(inv.getTenantId())
+                                .build();
+                        inventoryBatchRepository.save(newBatch);
+                        System.out.println("  -> Synchronized: Created new INITIAL batch with quantity " + diff);
+                    }
+                }
+            }
+            System.out.println("==================================================");
+            System.out.println("HEALING ENGINE: Done checking all products.");
+            System.out.println("==================================================");
         };
     }
 }

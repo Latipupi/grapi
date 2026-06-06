@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { Plus, Trash2, Calendar, FileText, DollarSign, Tag, Filter, ShieldCheck } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { useSelector } from 'react-redux';
@@ -34,10 +35,17 @@ const ExpensesPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [branchId, setBranchId] = useState<string>('');
   
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
   // Filter Tab state
   const [filterType, setFilterType] = useState<'ALL' | 'HARIAN' | 'OPERASIONAL'>(
     isLimitedRole ? 'HARIAN' : 'ALL'
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, branchId]);
 
   const [formData, setFormData] = useState({
     branchId: '',
@@ -122,7 +130,13 @@ const ExpensesPage: React.FC = () => {
       return false;
     }
     return true;
-  }) || [];
+  }).sort((a, b) => b.id - a.id) || [];
+
+  const totalEntries = displayedExpenses.length;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentEntries = displayedExpenses.slice(indexOfFirstEntry, indexOfLastEntry);
 
   const getCategoryLabel = (cat: string) => {
     const labels: { [key: string]: string } = {
@@ -240,7 +254,7 @@ const ExpensesPage: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              displayedExpenses.map((expense) => (
+              currentEntries.map((expense) => (
                 <TableRow key={expense.id} className="group hover:bg-slate-50/50 transition-colors">
                   <TableCell className="font-semibold text-slate-700">
                     {new Date(expense.expenseDate).toLocaleDateString('id-ID', {
@@ -291,6 +305,15 @@ const ExpensesPage: React.FC = () => {
             )}
           </TableBody>
         </Table>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="Pengeluaran"
+        />
       </div>
 
       {/* Add Expense Modal */}

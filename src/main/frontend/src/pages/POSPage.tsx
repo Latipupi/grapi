@@ -5,6 +5,7 @@ import {
   addToCart, 
   removeFromCart, 
   updateQuantity, 
+  updateItemPrice,
   clearCart, 
   setCustomer, 
   setPaymentMethod 
@@ -36,12 +37,13 @@ const POSPage: React.FC = () => {
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
   const { cart, customerId, paymentMethod } = useSelector((state: RootState) => state.pos);
-  const { branchId, userId } = useSelector((state: RootState) => state.auth);
+  const { branchId, userId, role } = useSelector((state: RootState) => state.auth);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>(branchId?.toString() || '');
   const [successOrder, setSuccessOrder] = useState<any>(null);
   const [unitSelectionProduct, setUnitSelectionProduct] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'products' | 'cart'>('products');
 
   // Shift Management States
   const [startingCash, setStartingCash] = useState<string>('0');
@@ -79,9 +81,12 @@ const POSPage: React.FC = () => {
 
   // Close Shift Mutation
   const closeShiftMutation = useMutation({
-    mutationFn: (endingCashVal: number) => api.post(`/shifts/close?userId=${userId}`, {
-      endingCash: endingCashVal
-    }),
+    mutationFn: (endingCashVal: number) => {
+      const activeBranch = selectedBranchId || branchId?.toString() || '';
+      return api.post(`/shifts/close?userId=${userId}${activeBranch ? `&branchId=${activeBranch}` : ''}`, {
+        endingCash: endingCashVal
+      });
+    },
     onSuccess: (res) => {
       setClosedShiftSummary(res.data);
       queryClient.invalidateQueries({ queryKey: ['activeShift'] });
@@ -133,6 +138,10 @@ const POSPage: React.FC = () => {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    if (cart.some(item => item.quantity <= 0)) {
+      alert("Kuantitas produk dalam keranjang harus lebih besar dari 0!");
+      return;
+    }
     if (paymentMethod === 'HUTANG' && !customerId) {
       alert("Pelanggan (Customer) wajib dipilih untuk transaksi dengan metode Hutang Tempo!");
       return;
@@ -293,14 +302,46 @@ const POSPage: React.FC = () => {
   const isShiftActive = !!activeShift;
 
   return (
-    <div className="relative h-[calc(100vh-100px)] overflow-hidden">
+    <div className="relative h-[calc(100vh-100px)] flex flex-col overflow-hidden">
+      {/* Mobile Tab Switcher */}
+      <div className="flex lg:hidden mb-4 bg-slate-100 p-1.5 rounded-2xl shrink-0">
+        <button
+          onClick={() => setActiveTab('products')}
+          className={cn(
+            "flex-1 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2",
+            activeTab === 'products' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          <Package className="w-4 h-4" />
+          Pilih Produk
+        </button>
+        <button
+          onClick={() => setActiveTab('cart')}
+          className={cn(
+            "flex-1 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 relative",
+            activeTab === 'cart' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          <ShoppingCart className="w-4 h-4" />
+          Keranjang
+          {cart.length > 0 && (
+            <span className="absolute top-1 right-2 bg-rose-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+              {cart.reduce((sum, item) => sum + item.quantity, 0)}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Background POS UI (Blurred when locked) */}
       <div className={cn(
-        "flex h-full gap-6 transition-all duration-500",
+        "flex-1 flex flex-col lg:flex-row gap-6 min-h-0 transition-all duration-500",
         !isShiftActive && "blur-md pointer-events-none select-none opacity-50"
       )}>
         {/* Product Selection Side */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className={cn(
+          "flex-1 flex flex-col min-w-0 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden",
+          activeTab === 'products' ? 'flex' : 'hidden lg:flex'
+        )}>
           <div className="p-6 border-b border-slate-100 space-y-4">
             <div className="flex items-center justify-between">
               <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -329,7 +370,7 @@ const POSPage: React.FC = () => {
                   </div>
                 )}
 
-                {!branchId ? (
+                {role === 'ADMIN' || role === 'OWNER' || !branchId ? (
                   <select
                     className="h-8 px-2 bg-slate-100 border-none rounded-lg text-xs font-bold text-slate-600 focus:ring-0 cursor-pointer"
                     value={selectedBranchId}
@@ -397,7 +438,10 @@ const POSPage: React.FC = () => {
         </div>
 
         {/* Cart & Checkout Side */}
-        <div className="w-[400px] flex flex-col bg-slate-900 rounded-3xl shadow-2xl overflow-hidden text-white shrink-0">
+        <div className={cn(
+          "w-full lg:w-[400px] flex-1 lg:flex-none flex flex-col bg-slate-900 rounded-3xl shadow-2xl overflow-hidden text-white lg:shrink-0 min-h-0",
+          activeTab === 'cart' ? 'flex' : 'hidden lg:flex'
+        )}>
           <div className="p-6 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
                <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
@@ -424,10 +468,41 @@ const POSPage: React.FC = () => {
                   className="p-3 bg-white/5 rounded-2xl border border-white/5 flex flex-col gap-3"
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h4 className="text-sm font-semibold text-white truncate">{item.name}</h4>
-                      <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">{item.unitName}</p>
-                      <p className="text-[10px] text-white/40">Rp {item.price.toLocaleString()}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                         <span className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">{item.unitName}</span>
+                         {item.additionalPrices && item.additionalPrices.length > 0 ? (
+                            <select
+                              value={item.selectedPriceLabel}
+                              onChange={(e) => {
+                                 const label = e.target.value;
+                                 const selectedOption = label === 'Utama'
+                                    ? { priceLabel: 'Utama', price: item.pricePerUnit }
+                                    : item.additionalPrices.find(ap => ap.priceLabel === label);
+                                 if (selectedOption) {
+                                    dispatch(updateItemPrice({
+                                       productId: item.productId,
+                                       unitId: item.unitId,
+                                       priceLabel: selectedOption.priceLabel,
+                                       price: selectedOption.price
+                                    }));
+                                 }
+                              }}
+                              className="bg-white/10 text-white border-none rounded-md px-1 py-0.5 text-[9px] font-bold focus:ring-0 cursor-pointer h-5 outline-none hover:bg-white/20 transition-all uppercase tracking-wide"
+                            >
+                               <option value="Utama" className="text-slate-900">Utama (Rp {item.pricePerUnit.toLocaleString()})</option>
+                               {item.additionalPrices.map((ap) => (
+                                  <option key={ap.priceLabel} value={ap.priceLabel} className="text-slate-900">
+                                     {ap.priceLabel} (Rp {ap.price.toLocaleString()})
+                                  </option>
+                               ))}
+                            </select>
+                         ) : (
+                            <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">(Utama)</span>
+                         )}
+                      </div>
+                      <p className="text-[10px] text-white/40 mt-1">Rp {item.price.toLocaleString()}</p>
                     </div>
                     <button 
                       onClick={() => dispatch(removeFromCart({ productId: item.productId, unitId: item.unitId }))}
@@ -441,14 +516,39 @@ const POSPage: React.FC = () => {
                     <div className="flex items-center bg-white/10 rounded-lg p-0.5">
                       <button 
                         className="p-1 hover:bg-white/10 rounded-md transition-colors"
-                        onClick={() => dispatch(updateQuantity({ productId: item.productId, unitId: item.unitId, quantity: Math.max(1, item.quantity - 1) }))}
+                        onClick={() => dispatch(updateQuantity({ 
+                          productId: item.productId, 
+                          unitId: item.unitId, 
+                          quantity: Math.max(0.0001, Number((item.quantity - 1).toFixed(4))) 
+                        }))}
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="w-8 text-center text-xs font-bold">{item.quantity}</span>
+                      <input 
+                        type="number"
+                        step="any"
+                        min="0.0001"
+                        placeholder="0"
+                        className="w-12 bg-transparent text-center text-xs font-bold text-white border-none focus:ring-0 focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= 0) {
+                            dispatch(updateQuantity({ 
+                              productId: item.productId, 
+                              unitId: item.unitId, 
+                              quantity: val 
+                            }));
+                          }
+                        }}
+                      />
                       <button 
                         className="p-1 hover:bg-white/10 rounded-md transition-colors"
-                        onClick={() => dispatch(updateQuantity({ productId: item.productId, unitId: item.unitId, quantity: item.quantity + 1 }))}
+                        onClick={() => dispatch(updateQuantity({ 
+                          productId: item.productId, 
+                          unitId: item.unitId, 
+                          quantity: Number((item.quantity + 1).toFixed(4)) 
+                        }))}
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -520,7 +620,7 @@ const POSPage: React.FC = () => {
 
       {/* Lock Overlay / Starting Cash Dialog */}
       {!isShiftActive && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 animate-in fade-in duration-300">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -537,7 +637,7 @@ const POSPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {!branchId && (
+              {(role === 'ADMIN' || role === 'OWNER' || !branchId) && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Pilih Cabang</label>
                   <select
@@ -575,14 +675,16 @@ const POSPage: React.FC = () => {
                     alert("Masukkan nilai modal awal yang valid!");
                     return;
                   }
-                  const activeBranchId = branchId || parseInt(selectedBranchId);
+                  const activeBranchId = (role === 'ADMIN' || role === 'OWNER')
+                    ? parseInt(selectedBranchId)
+                    : (branchId || parseInt(selectedBranchId));
                   if (!activeBranchId) {
                     alert("Pilih cabang terlebih dahulu!");
                     return;
                   }
                   openShiftMutation.mutate(val);
                 }}
-                disabled={openShiftMutation.isPending || (!branchId && !selectedBranchId)}
+                disabled={openShiftMutation.isPending || ((role === 'ADMIN' || role === 'OWNER') ? !selectedBranchId : (!branchId && !selectedBranchId))}
                 className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg rounded-2xl shadow-xl shadow-emerald-500/20 active:scale-95 transition-all mt-2"
               >
                 {openShiftMutation.isPending ? "Membuka Shift..." : "Buka Shift & Sesi Baru"}
@@ -626,7 +728,7 @@ const POSPage: React.FC = () => {
       <Dialog
         isOpen={!!unitSelectionProduct}
         onClose={() => setUnitSelectionProduct(null)}
-        title="Pilih Satuan Jual"
+        title="Pilih Satuan & Harga Jual"
       >
         <div className="space-y-4">
            <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-3">
@@ -639,43 +741,82 @@ const POSPage: React.FC = () => {
               </div>
            </div>
 
-           <div className="grid grid-cols-1 gap-3">
+           <div className="grid grid-cols-1 gap-4">
               {unitSelectionProduct?.product.units.map((unit: any) => {
                  const isAffordable = unit.conversionToBase <= unitSelectionProduct.stockQuantity;
                  return (
-                    <button
-                      key={unit.id}
-                      disabled={!isAffordable}
-                      onClick={() => {
-                         dispatch(addToCart({
-                            productId: unitSelectionProduct.product.id,
-                            unitId: unit.id,
-                            unitName: unit.unitName,
-                            name: unitSelectionProduct.product.name,
-                            sku: unitSelectionProduct.product.sku,
-                            price: unit.pricePerUnit,
-                            quantity: 1,
-                            availableStock: unitSelectionProduct.stockQuantity,
-                            conversionToBase: unit.conversionToBase
-                         }));
-                         setUnitSelectionProduct(null);
-                      }}
+                    <div 
+                      key={unit.id} 
                       className={cn(
-                        "p-4 rounded-2xl border text-left transition-all flex items-center justify-between group",
-                        isAffordable 
-                          ? "border-slate-100 hover:border-emerald-500 hover:bg-emerald-50" 
-                          : "opacity-50 grayscale cursor-not-allowed bg-slate-50 border-transparent"
+                        "p-4 rounded-2xl border text-left transition-all bg-white shadow-sm space-y-3",
+                        isAffordable ? "border-slate-100" : "opacity-60 bg-slate-50/50"
                       )}
                     >
-                       <div className="space-y-1">
-                          <p className="font-black text-slate-800 group-hover:text-emerald-700">{unit.unitName}</p>
-                          <p className="text-xs text-slate-500">Isi: {unit.conversionToBase} Satuan Dasar</p>
+                       <div className="flex justify-between items-center">
+                          <div className="space-y-0.5">
+                             <p className="font-extrabold text-slate-800 text-base">{unit.unitName}</p>
+                             <p className="text-xs text-slate-400">Isi: {unit.conversionToBase} Satuan Dasar</p>
+                          </div>
+                          {!isAffordable && <span className="text-[10px] text-rose-500 font-bold bg-rose-50 px-2 py-0.5 rounded-full">Stok Tidak Cukup</span>}
                        </div>
-                       <div className="text-right">
-                          <p className="font-black text-emerald-600">Rp {unit.pricePerUnit.toLocaleString()}</p>
-                          {!isAffordable && <p className="text-[10px] text-rose-500 font-bold">Stok Tidak Cukup</p>}
+                       
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                          {/* 1. Base Price Option */}
+                          <button
+                             disabled={!isAffordable}
+                             onClick={() => {
+                                dispatch(addToCart({
+                                   productId: unitSelectionProduct.product.id,
+                                   unitId: unit.id,
+                                   unitName: unit.unitName,
+                                   name: unitSelectionProduct.product.name,
+                                   sku: unitSelectionProduct.product.sku,
+                                   price: unit.pricePerUnit,
+                                   pricePerUnit: unit.pricePerUnit,
+                                   additionalPrices: unit.additionalPrices || [],
+                                   selectedPriceLabel: 'Utama',
+                                   quantity: 1,
+                                   availableStock: unitSelectionProduct.stockQuantity,
+                                   conversionToBase: unit.conversionToBase
+                                }));
+                                setUnitSelectionProduct(null);
+                             }}
+                             className="p-2.5 rounded-xl border border-slate-100 hover:border-emerald-500 hover:bg-emerald-50/30 text-left transition-all flex justify-between items-center group/btn disabled:opacity-50"
+                          >
+                             <span className="text-xs font-semibold text-slate-500 group-hover/btn:text-emerald-600">Utama</span>
+                             <span className="font-extrabold text-sm text-emerald-600">Rp {unit.pricePerUnit.toLocaleString()}</span>
+                          </button>
+
+                          {/* 2. Additional Custom Prices */}
+                          {unit.additionalPrices?.map((ap: any) => (
+                             <button
+                                key={ap.id || ap.priceLabel}
+                                disabled={!isAffordable}
+                                onClick={() => {
+                                   dispatch(addToCart({
+                                      productId: unitSelectionProduct.product.id,
+                                      unitId: unit.id,
+                                      unitName: unit.unitName,
+                                      name: unitSelectionProduct.product.name,
+                                      sku: unitSelectionProduct.product.sku,
+                                      price: ap.price,
+                                      pricePerUnit: unit.pricePerUnit,
+                                      additionalPrices: unit.additionalPrices || [],
+                                      selectedPriceLabel: ap.priceLabel,
+                                      quantity: 1,
+                                      availableStock: unitSelectionProduct.stockQuantity,
+                                      conversionToBase: unit.conversionToBase
+                                   }));
+                                   setUnitSelectionProduct(null);
+                                }}
+                                className="p-2.5 rounded-xl border border-slate-100 hover:border-emerald-500 hover:bg-emerald-50/30 text-left transition-all flex justify-between items-center group/btn disabled:opacity-50"
+                             >
+                                <span className="text-xs font-semibold text-slate-500 group-hover/btn:text-emerald-600 truncate mr-2">{ap.priceLabel}</span>
+                                <span className="font-extrabold text-sm text-emerald-600">Rp {ap.price.toLocaleString()}</span>
+                             </button>
+                          ))}
                        </div>
-                    </button>
+                    </div>
                  );
               })}
            </div>

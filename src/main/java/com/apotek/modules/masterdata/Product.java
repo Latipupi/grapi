@@ -65,6 +65,18 @@ public class Product {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Transient
+    @JsonProperty
+    private java.math.BigDecimal initialStock;
+
+    @Transient
+    @JsonProperty
+    private Long stockBranchId;
+
+    @Transient
+    @JsonProperty
+    private java.math.BigDecimal initialPurchasePrice;
+
     // Virtual field for API convenience - Base Unit Name
     @JsonProperty("unit")
     public String getUnit() {
@@ -94,11 +106,49 @@ public class Product {
         if (this.tenantId == null) {
             this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
         }
+        ensureSkuAndBarcode();
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        ensureSkuAndBarcode();
+    }
+
+    private void ensureSkuAndBarcode() {
+        if (this.sku == null || this.sku.trim().isEmpty()) {
+            this.sku = generateUniqueSku();
+        } else {
+            this.sku = this.sku.trim();
+        }
+        
+        if (this.barcode == null || this.barcode.trim().isEmpty()) {
+            this.barcode = generateUniqueBarcode();
+        } else {
+            this.barcode = this.barcode.trim();
+        }
+    }
+
+    private String generateUniqueSku() {
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyMMdd");
+        String dateStr = java.time.LocalDate.now().format(formatter);
+        String randomStr = java.util.UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        return "SKU-" + dateStr + "-" + randomStr;
+    }
+
+    private String generateUniqueBarcode() {
+        long baseNum = System.currentTimeMillis() % 1000000000L;
+        String midStr = String.format("%09d", baseNum);
+        String barcodeWithoutChecksum = "999" + midStr;
+        
+        int sum = 0;
+        for (int i = 0; i < 12; i++) {
+            int digit = Character.getNumericValue(barcodeWithoutChecksum.charAt(i));
+            sum += (i % 2 == 0) ? digit : digit * 3;
+        }
+        int checksum = (10 - (sum % 10)) % 10;
+        
+        return barcodeWithoutChecksum + checksum;
     }
 
     public void addUnit(ProductUnit unit) {

@@ -79,7 +79,7 @@ const DebtsPage: React.FC = () => {
   
   // Filter active type
   const targetType = activeTab === 'receivable' ? 'HUTANG_PENJUALAN' : 'HUTANG_PEMBELIAN';
-  let filtered = allDebts.filter(d => d.type === targetType);
+  let filtered = allDebts.filter(d => d.type === targetType).sort((a, b) => b.id - a.id);
 
   // Search filter
   if (searchTerm) {

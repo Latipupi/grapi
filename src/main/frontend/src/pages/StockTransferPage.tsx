@@ -4,6 +4,7 @@ import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { 
   Truck, 
   ArrowRight, 
@@ -90,6 +91,13 @@ const StockTransferPage: React.FC = () => {
 
   // History states
   const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   // Queries
   const { data: branches } = useQuery<Branch[]>({
@@ -586,57 +594,82 @@ const StockTransferPage: React.FC = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    transferHistory.map((transfer) => (
-                      <TableRow 
-                        key={transfer.id} 
-                        className="hover:bg-slate-50/50 cursor-pointer"
-                        onClick={() => setSelectedTransfer(transfer)}
-                      >
-                        <TableCell className="font-mono font-bold text-slate-800">
-                          TRF-{String(transfer.id).padStart(6, '0')}
-                        </TableCell>
-                        <TableCell className="text-slate-500 text-xs">
-                          {new Date(transfer.transferDate || new Date()).toLocaleDateString('id-ID', {
-                            day: '2-digit',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-100">
-                            {transfer.sourceBranch.name}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-100">
-                            {transfer.destinationBranch.name}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-slate-700 font-bold text-xs">
-                          {transfer.user?.fullName || 'Sistem'}
-                        </TableCell>
-                        <TableCell className="text-right font-black text-slate-700">
-                          {transfer.details?.length || 0} Obat
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide border bg-emerald-50 text-emerald-700 border-emerald-100">
-                            SUKSES
-                          </span>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="w-8 h-8 p-0 hover:bg-slate-100 rounded-full"
-                            onClick={() => setSelectedTransfer(transfer)}
-                          >
-                            <ArrowRight className="w-4 h-4 text-slate-400" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    (() => {
+                      const sortedHistory = transferHistory ? [...transferHistory].sort((a, b) => b.id - a.id) : [];
+                      const totalEntries = sortedHistory.length;
+                      const totalPages = Math.ceil(totalEntries / entriesPerPage);
+                      const indexOfLastEntry = currentPage * entriesPerPage;
+                      const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+                      const currentEntries = sortedHistory.slice(indexOfFirstEntry, indexOfLastEntry);
+                      return (
+                        <>
+                          {currentEntries.map((transfer) => (
+                            <TableRow 
+                              key={transfer.id} 
+                              className="hover:bg-slate-50/50 cursor-pointer"
+                              onClick={() => setSelectedTransfer(transfer)}
+                            >
+                              <TableCell className="font-mono font-bold text-slate-800">
+                                TRF-{String(transfer.id).padStart(6, '0')}
+                              </TableCell>
+                              <TableCell className="text-slate-500 text-xs">
+                                {new Date(transfer.transferDate || new Date()).toLocaleDateString('id-ID', {
+                                  day: '2-digit',
+                                  month: 'long',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </TableCell>
+                              <TableCell>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-100">
+                                  {transfer.sourceBranch.name}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-100">
+                                  {transfer.destinationBranch.name}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-slate-700 font-bold text-xs">
+                                {transfer.user?.fullName || 'Sistem'}
+                              </TableCell>
+                              <TableCell className="text-right font-black text-slate-700">
+                                {transfer.details?.length || 0} Obat
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide border bg-emerald-50 text-emerald-700 border-emerald-100">
+                                  SUKSES
+                                </span>
+                              </TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="w-8 h-8 p-0 hover:bg-slate-100 rounded-full"
+                                  onClick={() => setSelectedTransfer(transfer)}
+                                >
+                                  <ArrowRight className="w-4 h-4 text-slate-400" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow className="hover:bg-transparent border-none">
+                            <TableCell colSpan={8} className="p-0 border-none">
+                              <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPageChange={setCurrentPage}
+                                totalEntries={totalEntries}
+                                indexOfFirstEntry={indexOfFirstEntry}
+                                indexOfLastEntry={indexOfLastEntry}
+                                label="Transfer"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        </>
+                      );
+                    })()
                   )}
                 </TableBody>
               </Table>

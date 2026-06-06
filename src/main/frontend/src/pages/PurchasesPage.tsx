@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { 
   Plus, 
   ShoppingBag, 
@@ -57,6 +58,13 @@ const PurchasesPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedBranchId]);
   
   // Reorder states
   const [isReorderOpen, setIsReorderOpen] = useState(false);
@@ -144,16 +152,25 @@ const PurchasesPage: React.FC = () => {
 
   const filteredPurchases = useMemo(() => {
     if (!purchases) return [];
-    if (!searchQuery) return purchases;
-    const query = searchQuery.toLowerCase();
-    return purchases.filter(p => {
-      const invoiceMatch = p.invoiceNumber?.toLowerCase().includes(query);
-      const idMatch = p.id.toString().includes(query) || `po-${p.id}`.includes(query) || `sp-${p.id}`.includes(query);
-      const supplierMatch = p.supplier?.name?.toLowerCase().includes(query);
-      const branchMatch = p.branch?.name?.toLowerCase().includes(query);
-      return invoiceMatch || idMatch || supplierMatch || branchMatch;
-    });
+    let items = purchases;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      items = purchases.filter(p => {
+        const invoiceMatch = p.invoiceNumber?.toLowerCase().includes(query);
+        const idMatch = p.id.toString().includes(query) || `po-${p.id}`.includes(query) || `sp-${p.id}`.includes(query);
+        const supplierMatch = p.supplier?.name?.toLowerCase().includes(query);
+        const branchMatch = p.branch?.name?.toLowerCase().includes(query);
+        return invoiceMatch || idMatch || supplierMatch || branchMatch;
+      });
+    }
+    return [...items].sort((a, b) => b.id - a.id);
   }, [purchases, searchQuery]);
+
+  const totalEntries = filteredPurchases.length;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentEntries = filteredPurchases.slice(indexOfFirstEntry, indexOfLastEntry);
 
   const hasRecommendations = useMemo(() => {
     return localGroups && localGroups.some(g => g.supplierId > 0 && g.items.length > 0);
@@ -247,7 +264,7 @@ const PurchasesPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredPurchases.map((purchase, index) => (
+                currentEntries.map((purchase, index) => (
                   <motion.tr 
                     key={purchase.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -303,6 +320,15 @@ const PurchasesPage: React.FC = () => {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="Pembelian"
+        />
       </div>
 
       {/* dialog Rekomendasi Otomatis (Auto-PO) */}

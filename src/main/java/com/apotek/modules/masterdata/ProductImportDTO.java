@@ -21,5 +21,12 @@ public class ProductImportDTO {
         private BigDecimal pricePerUnit;
         private int conversionToBase;
         private boolean baseUnit;
+        private List<PriceDTO> additionalPrices;
+    }
+
+    @Data
+    public static class PriceDTO {
+        private String priceLabel;
+        private BigDecimal price;
     }
 }

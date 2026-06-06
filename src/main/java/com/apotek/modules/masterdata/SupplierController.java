@@ -49,7 +49,7 @@ public class SupplierController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         return supplierRepository.findById(id)
                 .map(supplier -> {

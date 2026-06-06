@@ -54,9 +54,12 @@ public class ShiftController {
      */
     @PostMapping("/close")
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER')")
-    public ResponseEntity<?> closeShift(@RequestParam Long userId, @RequestBody ShiftService.CloseShiftRequest request) {
+    public ResponseEntity<?> closeShift(
+            @RequestParam Long userId,
+            @RequestParam(required = false) Long branchId,
+            @RequestBody ShiftService.CloseShiftRequest request) {
         try {
-            CashierShift shift = shiftService.closeShift(userId, request);
+            CashierShift shift = shiftService.closeShift(userId, branchId, request);
             return ResponseEntity.ok(shift);
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(e.getMessage());

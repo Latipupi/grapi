@@ -46,8 +46,8 @@ public class ShiftService {
     public CashierShift openShift(OpenShiftRequest request) {
         Long userId = request.getUserId();
 
-        // Cek apakah ada shift yang sudah terbuka secara global
-        Optional<CashierShift> existingShift = getActiveShift(userId);
+        // Cek apakah ada shift yang sudah terbuka di cabang terkait
+        Optional<CashierShift> existingShift = getActiveShift(userId, request.getBranchId());
         if (existingShift.isPresent()) {
             throw new IllegalStateException("Kasir masih memiliki shift yang aktif di cabang " + 
                     existingShift.get().getBranch().getName() + " (Shift ID: " + existingShift.get().getId() + 
@@ -75,9 +75,9 @@ public class ShiftService {
      * Menutup shift yang aktif dan mencatat kas akhir serta menghitung varians.
      */
     @Transactional
-    public CashierShift closeShift(Long userId, CloseShiftRequest request) {
-        CashierShift shift = getActiveShift(userId)
-                .orElseThrow(() -> new IllegalStateException("Tidak ada shift aktif yang ditemukan untuk user ini."));
+    public CashierShift closeShift(Long userId, Long branchId, CloseShiftRequest request) {
+        CashierShift shift = getActiveShift(userId, branchId)
+                .orElseThrow(() -> new IllegalStateException("Tidak ada shift aktif yang ditemukan untuk user ini di cabang terkait."));
 
         // Hitung total penjualan tunai selama shift ini
         BigDecimal totalCashSales = saleRepository.sumCashSalesByShiftId(shift.getId());

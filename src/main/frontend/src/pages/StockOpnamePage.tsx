@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import api from '../api/api';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { 
@@ -64,6 +65,17 @@ const StockOpnamePage: React.FC = () => {
   const { branchId: authBranchId, userId, role } = useSelector((state: RootState) => state.auth);
   
   const [selectedBranchId, setSelectedBranchId] = useState<string>(authBranchId ? authBranchId.toString() : '');
+  
+  const [currentHistoryPage, setCurrentHistoryPage] = useState(1);
+  const historyEntriesPerPage = 10;
+
+  const [currentSheetPage, setCurrentSheetPage] = useState(1);
+  const sheetEntriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentHistoryPage(1);
+  }, [selectedBranchId]);
+
 
   const { data: branches } = useQuery<any[]>({
     queryKey: ['branches'],
@@ -83,6 +95,10 @@ const StockOpnamePage: React.FC = () => {
   // Screen state: 'LIST' or 'WORKBENCH'
   const [screen, setScreen] = useState<'LIST' | 'WORKBENCH'>('LIST');
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCurrentSheetPage(1);
+  }, [activeSessionId]);
   
   // Opname parameters
   const [opnameType, setOpnameType] = useState<'FULL' | 'PARTIAL'>('PARTIAL');
@@ -466,58 +482,80 @@ const StockOpnamePage: React.FC = () => {
                     ) : sessions?.length === 0 ? (
                       <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-400 italic">Belum ada sesi stock opname di cabang ini.</TableCell></TableRow>
                     ) : (
-                      sessions?.map((session) => (
-                        <TableRow 
-                          key={session.id} 
-                          className="hover:bg-slate-50/30 cursor-pointer"
-                          onClick={() => {
-                            setActiveSessionId(session.id);
-                            setOpnameType(session.details && session.details.length > 0 && session.status === 'DRAFT' ? 'FULL' : 'PARTIAL');
-                            setScreen('WORKBENCH');
-                          }}
-                        >
-                          <TableCell className="font-mono text-xs font-bold text-emerald-600">#SO-{session.id}</TableCell>
-                          <TableCell className="text-xs font-medium text-slate-500">
-                            {new Date(session.opnameDate).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </TableCell>
-                          <TableCell className="text-sm font-bold text-slate-700">{session.user?.fullName}</TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
-                              {session.details && session.details.length > 0 ? 'Full' : 'Parsial'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className={cn(
-                              "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold",
-                              session.status === 'COMPLETED'
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : "bg-amber-50 text-amber-700 border border-amber-100"
-                            )}>
-                              {session.status === 'COMPLETED' ? 'Selesai' : 'Draf (Sedang Dihitung)'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-400 max-w-[200px] truncate">{session.notes || '-'}</TableCell>
-                          <TableCell className="text-center">
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveSessionId(session.id);
-                                setOpnameType(session.details && session.details.length > 0 && session.status === 'DRAFT' ? 'FULL' : 'PARTIAL');
-                                setScreen('WORKBENCH');
-                              }}
-                              className="text-emerald-600 font-bold hover:bg-emerald-50"
-                            >
-                              Lihat Detail
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                      (() => {
+                        const sortedSessions = sessions ? [...sessions].sort((a, b) => b.id - a.id) : [];
+                        const indexHistoryLast = currentHistoryPage * historyEntriesPerPage;
+                        const indexHistoryFirst = indexHistoryLast - historyEntriesPerPage;
+                        const currentHistorySessions = sortedSessions.slice(indexHistoryFirst, indexHistoryLast);
+
+                        return (
+                          <>
+                            {currentHistorySessions.map((session) => (
+                              <TableRow 
+                                key={session.id} 
+                                className="hover:bg-slate-50/30 cursor-pointer"
+                                onClick={() => {
+                                  setActiveSessionId(session.id);
+                                  setOpnameType(session.details && session.details.length > 0 && session.status === 'DRAFT' ? 'FULL' : 'PARTIAL');
+                                  setScreen('WORKBENCH');
+                                }}
+                              >
+                                <TableCell className="font-mono text-xs font-bold text-emerald-600">#SO-{session.id}</TableCell>
+                                <TableCell className="text-xs font-medium text-slate-500">
+                                  {new Date(session.opnameDate).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </TableCell>
+                                <TableCell className="text-sm font-bold text-slate-700">{session.user?.fullName}</TableCell>
+                                <TableCell>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+                                    {session.details && session.details.length > 0 ? 'Full' : 'Parsial'}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <span className={cn(
+                                    "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold",
+                                    session.status === 'COMPLETED'
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                      : "bg-amber-50 text-amber-700 border border-amber-100"
+                                  )}>
+                                    {session.status === 'COMPLETED' ? 'Selesai' : 'Draf (Sedang Dihitung)'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-xs text-slate-400 max-w-[200px] truncate">{session.notes || '-'}</TableCell>
+                                <TableCell className="text-center">
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveSessionId(session.id);
+                                      setOpnameType(session.details && session.details.length > 0 && session.status === 'DRAFT' ? 'FULL' : 'PARTIAL');
+                                      setScreen('WORKBENCH');
+                                    }}
+                                    className="text-emerald-600 font-bold hover:bg-emerald-50"
+                                  >
+                                    Lihat Detail
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        );
+                      })()
                     )}
                   </TableBody>
                 </Table>
               </div>
+              {sessions && sessions.length > 0 && (
+                <Pagination
+                  currentPage={currentHistoryPage}
+                  totalPages={Math.ceil(sessions.length / historyEntriesPerPage)}
+                  onPageChange={setCurrentHistoryPage}
+                  totalEntries={sessions.length}
+                  indexOfFirstEntry={(currentHistoryPage - 1) * historyEntriesPerPage}
+                  indexOfLastEntry={currentHistoryPage * historyEntriesPerPage}
+                  label="Sesi"
+                />
+              )}
             </div>
           </motion.div>
         ) : (
@@ -715,86 +753,106 @@ const StockOpnamePage: React.FC = () => {
                             </td>
                           </tr>
                         ) : (
-                          activeSession.details.map((detail) => {
-                            const draft = detailDrafts[detail.id] || { physicalQty: detail.physicalQuantity, reason: detail.reason || '' };
-                            const diff = activeSession.status === 'DRAFT' 
-                              ? draft.physicalQty - detail.systemQuantity 
-                              : detail.difference;
-                            
+                          (() => {
+                            const indexOfLastEntry = currentSheetPage * sheetEntriesPerPage;
+                            const indexOfFirstEntry = indexOfLastEntry - sheetEntriesPerPage;
+                            const currentEntries = activeSession.details.slice(indexOfFirstEntry, indexOfLastEntry);
                             return (
-                              <tr key={detail.id} className="hover:bg-slate-50/20 transition-all">
-                                <td className="py-4 px-4">
-                                  <p className="font-bold text-slate-800">{detail.product.name}</p>
-                                  <p className="text-[10px] font-mono text-slate-400 uppercase tracking-tighter mt-0.5">SKU: {detail.product.sku}</p>
-                                </td>
-                                <td className="py-4 px-4 text-center">
-                                  <span className="inline-block px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-mono text-[10px] font-bold">
-                                    {detail.inventoryBatch.batchNumber}
-                                  </span>
-                                  <p className="text-[9px] text-slate-400 mt-1 flex items-center justify-center gap-1">
-                                    <Calendar className="w-3 h-3 text-slate-300" />
-                                    ED: {new Date(detail.inventoryBatch.expiryDate).toLocaleDateString('id-ID')}
-                                  </p>
-                                </td>
-                                <td className="py-4 px-4 text-right font-bold text-slate-600">
-                                  {detail.systemQuantity} {detail.product.baseUnit}
-                                </td>
-                                <td className="py-4 px-4 text-center">
-                                  {activeSession.status === 'DRAFT' ? (
-                                    <div className="flex items-center justify-center gap-2">
-                                      <Input 
-                                        type="number" 
-                                        step="any"
-                                        min="0"
-                                        className="w-24 h-9 text-center font-bold border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                                        value={draft.physicalQty}
-                                        onChange={(e) => handleUpdateDraftCount(detail.id, parseFloat(e.target.value))}
-                                      />
-                                      <span className="text-xs text-slate-400 font-bold">{detail.product.baseUnit}</span>
-                                    </div>
-                                  ) : (
-                                    <span className="font-bold text-slate-800">{detail.physicalQuantity} {detail.product.baseUnit}</span>
-                                  )}
-                                </td>
-                                <td className="py-4 px-4 text-center">
-                                  {diff === 0 ? (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">PAS</span>
-                                  ) : diff > 0 ? (
-                                    <span className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                      +{diff} {detail.product.baseUnit}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100 animate-pulse">
-                                      {diff} {detail.product.baseUnit}
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-4 px-4">
-                                  {activeSession.status === 'DRAFT' ? (
-                                    <select
-                                      value={draft.reason}
-                                      disabled={diff === 0}
-                                      onChange={(e) => handleUpdateDraftReason(detail.id, e.target.value)}
-                                      className="w-full h-9 px-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none disabled:opacity-50"
-                                    >
-                                      <option value="">-- Alasan Selisih --</option>
-                                      <option value="RUSAK">Barang Rusak</option>
-                                      <option value="HILANG">Barang Hilang</option>
-                                      <option value="LEBIH">Kelebihan Penerimaan</option>
-                                      <option value="KADALUARSA">Kadaluarsa (ED)</option>
-                                      <option value="SALAH_INPUT">Salah Input Data</option>
-                                    </select>
-                                  ) : (
-                                    <span className="text-xs font-bold text-slate-500">{detail.reason || '-'}</span>
-                                  )}
-                                </td>
-                              </tr>
+                              <>
+                                {currentEntries.map((detail) => {
+                                  const draft = detailDrafts[detail.id] || { physicalQty: detail.physicalQuantity, reason: detail.reason || '' };
+                                  const diff = activeSession.status === 'DRAFT' 
+                                    ? draft.physicalQty - detail.systemQuantity 
+                                    : detail.difference;
+                                  
+                                  return (
+                                    <tr key={detail.id} className="hover:bg-slate-50/20 transition-all">
+                                      <td className="py-4 px-4">
+                                        <p className="font-bold text-slate-800">{detail.product.name}</p>
+                                        <p className="text-[10px] font-mono text-slate-400 uppercase tracking-tighter mt-0.5">SKU: {detail.product.sku}</p>
+                                      </td>
+                                      <td className="py-4 px-4 text-center">
+                                        <span className="inline-block px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-mono text-[10px] font-bold">
+                                          {detail.inventoryBatch.batchNumber}
+                                        </span>
+                                        <p className="text-[9px] text-slate-400 mt-1 flex items-center justify-center gap-1">
+                                          <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                                          ED: {new Date(detail.inventoryBatch.expiryDate).toLocaleDateString('id-ID')}
+                                        </p>
+                                      </td>
+                                      <td className="py-4 px-4 text-right font-bold text-slate-600">
+                                        {detail.systemQuantity} {detail.product.baseUnit}
+                                      </td>
+                                      <td className="py-4 px-4 text-center">
+                                        {activeSession.status === 'DRAFT' ? (
+                                          <div className="flex items-center justify-center gap-2">
+                                            <Input 
+                                              type="number" 
+                                              step="any"
+                                              min="0"
+                                              className="w-24 h-9 text-center font-bold border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
+                                              value={draft.physicalQty}
+                                              onChange={(e) => handleUpdateDraftCount(detail.id, parseFloat(e.target.value))}
+                                            />
+                                            <span className="text-xs text-slate-400 font-bold">{detail.product.baseUnit}</span>
+                                          </div>
+                                        ) : (
+                                          <span className="font-bold text-slate-800">{detail.physicalQuantity} {detail.product.baseUnit}</span>
+                                        )}
+                                      </td>
+                                      <td className="py-4 px-4 text-center">
+                                        {diff === 0 ? (
+                                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">PAS</span>
+                                        ) : diff > 0 ? (
+                                          <span className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                            +{diff} {detail.product.baseUnit}
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-0.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100 animate-pulse">
+                                            {diff} {detail.product.baseUnit}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-4 px-4">
+                                        {activeSession.status === 'DRAFT' ? (
+                                          <select
+                                            value={draft.reason}
+                                            disabled={diff === 0}
+                                            onChange={(e) => handleUpdateDraftReason(detail.id, e.target.value)}
+                                            className="w-full h-9 px-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none disabled:opacity-50"
+                                          >
+                                            <option value="">-- Alasan Selisih --</option>
+                                            <option value="RUSAK">Barang Rusak</option>
+                                            <option value="HILANG">Barang Hilang</option>
+                                            <option value="LEBIH">Kelebihan Penerimaan</option>
+                                            <option value="KADALUARSA">Kadaluarsa (ED)</option>
+                                            <option value="SALAH_INPUT">Salah Input Data</option>
+                                          </select>
+                                        ) : (
+                                          <span className="text-xs font-bold text-slate-500">{detail.reason || '-'}</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </>
                             );
-                          })
+                          })()
                         )}
                       </tbody>
                     </table>
                   </div>
+                  {activeSession.details && activeSession.details.length > 0 && (
+                    <Pagination
+                      currentPage={currentSheetPage}
+                      totalPages={Math.ceil(activeSession.details.length / sheetEntriesPerPage)}
+                      onPageChange={setCurrentSheetPage}
+                      totalEntries={activeSession.details.length}
+                      indexOfFirstEntry={(currentSheetPage - 1) * sheetEntriesPerPage}
+                      indexOfLastEntry={currentSheetPage * sheetEntriesPerPage}
+                      label="Item"
+                    />
+                  )}
 
                   {/* 6. Opname Session Footer Notes */}
                   <div className="p-6 border-t border-slate-100 bg-slate-50/20 space-y-3">

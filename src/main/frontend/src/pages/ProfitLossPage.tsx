@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/api';
 import { Card } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { TrendingUp, TrendingDown, ShoppingCart, Percent, Calendar, Filter, AlertCircle } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 
@@ -24,6 +25,13 @@ const ProfitLossPage: React.FC = () => {
   const [branchId, setBranchId] = useState<string>('');
   const [startDate, setStartDate] = useState<string>(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [branchId, startDate, endDate]);
 
   const { data: branches } = useQuery<Branch[]>({
     queryKey: ['branches'],
@@ -213,13 +221,22 @@ const ProfitLossPage: React.FC = () => {
                   </TableHeader>
                   <TableBody>
                     {report.expenses && report.expenses.length > 0 ? (
-                      report.expenses.map((expense, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-medium text-slate-700">{expense.category}</TableCell>
-                          <TableCell className="text-slate-500 text-sm">{expense.notes || '-'}</TableCell>
-                          <TableCell className="text-right text-rose-600">{formatCurrency(expense.amount)}</TableCell>
-                        </TableRow>
-                      ))
+                      (() => {
+                        const indexOfLastEntry = currentPage * entriesPerPage;
+                        const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+                        const currentEntries = report.expenses.slice(indexOfFirstEntry, indexOfLastEntry);
+                        return (
+                          <>
+                            {currentEntries.map((expense, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell className="font-medium text-slate-700">{expense.category}</TableCell>
+                                <TableCell className="text-slate-500 text-sm">{expense.notes || '-'}</TableCell>
+                                <TableCell className="text-right text-rose-600">{formatCurrency(expense.amount)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        );
+                      })()
                     ) : (
                       <TableRow>
                         <TableCell colSpan={3} className="text-center py-4 text-slate-400 text-sm">Tidak ada pengeluaran pada periode ini.</TableCell>
@@ -227,6 +244,17 @@ const ProfitLossPage: React.FC = () => {
                     )}
                   </TableBody>
                 </Table>
+                {report.expenses && report.expenses.length > 0 && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(report.expenses.length / entriesPerPage)}
+                    onPageChange={setCurrentPage}
+                    totalEntries={report.expenses.length}
+                    indexOfFirstEntry={(currentPage - 1) * entriesPerPage}
+                    indexOfLastEntry={currentPage * entriesPerPage}
+                    label="Biaya"
+                  />
+                )}
               </div>
             </Card>
           </div>

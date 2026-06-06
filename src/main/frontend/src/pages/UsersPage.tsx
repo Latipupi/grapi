@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
+import { Pagination } from '../components/ui/Pagination';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Plus, Search, Edit2, Trash2, User as UserIcon, Shield, Building2, Key } from 'lucide-react';
 import { Input } from '../components/ui/Input';
@@ -43,6 +44,13 @@ const UsersPage: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   
   const queryClient = useQueryClient();
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -149,10 +157,18 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const filtered = users?.filter(u => 
-    u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = users
+    ?.filter(u => 
+      u.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => b.id - a.id);
+
+  const totalEntries = filtered?.length || 0;
+  const totalPages = Math.ceil(totalEntries / entriesPerPage);
+  const indexOfLastEntry = currentPage * entriesPerPage;
+  const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+  const currentUsers = filtered?.slice(indexOfFirstEntry, indexOfLastEntry) || [];
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -218,7 +234,7 @@ const UsersPage: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered?.map((user, index) => {
+                currentUsers?.map((user, index) => {
                   const branch = branches?.find(b => b.id === user.branchId);
                   return (
                     <motion.tr 
@@ -287,6 +303,15 @@ const UsersPage: React.FC = () => {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalEntries={totalEntries}
+          indexOfFirstEntry={indexOfFirstEntry}
+          indexOfLastEntry={indexOfLastEntry}
+          label="pengguna"
+        />
       </div>
 
       <Dialog

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Pagination } from '../components/ui/Pagination';
 import { ArrowLeft, ShoppingCart, Package, CreditCard, Truck, Calendar, Store, Printer } from 'lucide-react';
 
 interface PurchaseDetailItem {
@@ -55,6 +56,13 @@ const PurchaseDetailPage: React.FC = () => {
   const [notes, setNotes] = React.useState('');
   const [receivedDetails, setReceivedDetails] = React.useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 5;
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [id]);
 
   const { data: purchase, isLoading, isError } = useQuery<Purchase>({
     queryKey: ['purchase', id],
@@ -493,32 +501,52 @@ const PurchaseDetailPage: React.FC = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    purchase.details?.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="font-medium text-slate-800">{item.product?.name || `Product ID: ${item.product?.id}`}</div>
-                        </TableCell>
-                        <TableCell>
-                           <div className="text-sm">
-                             <span className="font-mono text-slate-600">{item.batchNumber || '-'}</span>
-                             <br />
-                             <span className="text-xs text-slate-400">Exp: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('id-ID') : '-'}</span>
-                           </div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {item.quantity}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          Rp {item.unitPrice?.toLocaleString() || 0}
-                        </TableCell>
-                        <TableCell className="text-right font-bold text-emerald-600">
-                          Rp {item.subtotal?.toLocaleString() || 0}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    (() => {
+                      const indexOfLastEntry = currentPage * entriesPerPage;
+                      const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+                      const currentEntries = purchase.details.slice(indexOfFirstEntry, indexOfLastEntry);
+                      return (
+                        <>
+                          {currentEntries.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>
+                                <div className="font-medium text-slate-800">{item.product?.name || `Product ID: ${item.product?.id}`}</div>
+                              </TableCell>
+                              <TableCell>
+                                 <div className="text-sm">
+                                   <span className="font-mono text-slate-600">{item.batchNumber || '-'}</span>
+                                   <br />
+                                   <span className="text-xs text-slate-400">Exp: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('id-ID') : '-'}</span>
+                                 </div>
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                {item.quantity}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                Rp {item.unitPrice?.toLocaleString() || 0}
+                              </TableCell>
+                              <TableCell className="text-right font-bold text-emerald-600">
+                                Rp {item.subtotal?.toLocaleString() || 0}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </>
+                      );
+                    })()
                   )}
                 </TableBody>
               </Table>
+              {purchase.details && purchase.details.length > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(purchase.details.length / entriesPerPage)}
+                  onPageChange={setCurrentPage}
+                  totalEntries={purchase.details.length}
+                  indexOfFirstEntry={(currentPage - 1) * entriesPerPage}
+                  indexOfLastEntry={currentPage * entriesPerPage}
+                  label="Item"
+                />
+              )}
             </div>
           </div>
         </div>

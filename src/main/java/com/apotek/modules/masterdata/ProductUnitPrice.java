@@ -8,37 +8,28 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "product_units")
+@Table(name = "product_unit_prices")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-public class ProductUnit {
+public class ProductUnitPrice {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "product_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_unit_id")
     @JsonIgnore
-    private Product product;
+    private ProductUnit productUnit;
 
-    @Column(name = "unit_name", nullable = false)
-    private String unitName;
+    @Column(name = "price_label", nullable = false)
+    private String priceLabel;
 
-    @Column(name = "conversion_to_base", nullable = false)
-    private int conversionToBase = 1;
-
-    @Column(name = "is_base_unit")
-    private boolean baseUnit = false;
-
-    @Column(name = "price_per_unit")
-    private BigDecimal pricePerUnit;
-
-    @OneToMany(mappedBy = "productUnit", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private java.util.List<ProductUnitPrice> additionalPrices = new java.util.ArrayList<>();
+    @Column(nullable = false)
+    private BigDecimal price;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -10,6 +10,7 @@ services:
       POSTGRES_DB: apotekdb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root_production_password # Ganti dengan password yang lebih kuat untuk keamanan produksi
+      TZ: Asia/Jakarta
     ports:
       - "5432:5432"
     volumes:
@@ -25,6 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ghcr.io/latipupi/grapi:latest
     container_name: grapi-app-service
     restart: always
     ports:
@@ -39,6 +41,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: gr4pi35790!
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: "true"
+      TZ: Asia/Jakarta
       # Anda bisa menambahkan JWT Secret key kustom di sini jika diperlukan
       # JWT_SECRET: your_secure_jwt_secret_key_here
 

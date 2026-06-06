@@ -60,6 +60,16 @@ public class ProductController {
                     unit.setPricePerUnit(unitDto.getPricePerUnit());
                     unit.setConversionToBase(unitDto.getConversionToBase());
                     unit.setBaseUnit(unitDto.isBaseUnit());
+                    
+                    if (unitDto.getAdditionalPrices() != null) {
+                        for (ProductImportDTO.PriceDTO apDto : unitDto.getAdditionalPrices()) {
+                            ProductUnitPrice ap = new ProductUnitPrice();
+                            ap.setPriceLabel(apDto.getPriceLabel());
+                            ap.setPrice(apDto.getPrice());
+                            ap.setProductUnit(unit);
+                            unit.getAdditionalPrices().add(ap);
+                        }
+                    }
                     product.addUnit(unit);
                 }
             }
@@ -107,9 +117,32 @@ public class ProductController {
         }
         
         if (product.getUnits() != null) {
-            product.getUnits().forEach(unit -> unit.setProduct(product));
+            product.getUnits().forEach(unit -> {
+                unit.setProduct(product);
+                if (unit.getAdditionalPrices() != null) {
+                    unit.getAdditionalPrices().forEach(price -> price.setProductUnit(unit));
+                }
+            });
         }
-        return productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+
+        // Record initial stock if provided
+        if (product.getStockBranchId() != null && product.getInitialStock() != null && product.getInitialStock().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            String refNo = "INIT-STOCK-" + savedProduct.getId();
+            inventoryService.recordMovement(
+                    product.getStockBranchId(),
+                    savedProduct.getId(),
+                    "ADJUSTMENT",
+                    product.getInitialStock(),
+                    "INITIAL",
+                    null, // No expiry date by default
+                    refNo,
+                    "Saldo awal saat tambah produk baru: " + savedProduct.getName(),
+                    product.getInitialPurchasePrice() != null ? product.getInitialPurchasePrice() : java.math.BigDecimal.ZERO
+            );
+        }
+
+        return savedProduct;
     }
 
     @GetMapping("/{id}")
@@ -141,6 +174,9 @@ public class ProductController {
                         product.getUnits().clear();
                         details.getUnits().forEach(unit -> {
                             unit.setProduct(product);
+                            if (unit.getAdditionalPrices() != null) {
+                                unit.getAdditionalPrices().forEach(price -> price.setProductUnit(unit));
+                            }
                             product.getUnits().add(unit);
                         });
                     }
@@ -151,12 +187,18 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
         return productRepository.findById(id)
                 .map(product -> {
-                    productRepository.delete(product);
-                    return ResponseEntity.ok().<Void>build();
+                    try {
+                        productRepository.delete(product);
+                        return ResponseEntity.ok().build();
+                    } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                        return ResponseEntity.badRequest().body(java.util.Map.of("message",
+                                "Produk ini tidak dapat dihapus secara permanen karena memiliki riwayat transaksi/stok (penjualan, pembelian, atau penyesuaian)! " +
+                                "Silakan ubah status produk menjadi 'Non-aktif' (Edit -> hilangkan centang 'Produk Aktif') sebagai gantinya."));
+                    }
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
