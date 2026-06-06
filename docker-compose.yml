@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: apotekdb
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: root_production_password # Ganti dengan password yang lebih kuat untuk keamanan produksi
+      POSTGRES_PASSWORD: gr4pi35790! # Ganti dengan password yang lebih kuat untuk keamanan produksi
       TZ: Asia/Jakarta
     ports:
       - "5432:5432"
@@ -45,4 +45,6 @@ services:
       # Anda bisa menambahkan JWT Secret key kustom di sini jika diperlukan
       # JWT_SECRET: your_secure_jwt_secret_key_here
 
-
+volumes:
+  postgres-data:
+    driver: local
