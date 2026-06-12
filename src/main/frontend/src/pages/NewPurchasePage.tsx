@@ -67,6 +67,7 @@ const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({ products, val
 
   // Filter products by name or SKU
   const filteredProducts = products.filter(p => {
+    if (p.active === false) return false;
     const term = searchTerm.toLowerCase();
     return (
       p.name?.toLowerCase().includes(term) ||
