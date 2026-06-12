@@ -21,6 +21,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Dialog } from '../components/ui/Dialog';
 
+const parseLocalDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
+  if (dateStr.includes('T')) return new Date(dateStr);
+  return new Date(dateStr + 'T00:00:00');
+};
+
 interface Purchase {
   id: number;
   supplier: { name: string };
@@ -293,7 +299,7 @@ const PurchasesPage: React.FC = () => {
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-sm text-slate-500">
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        {new Date(purchase.purchaseDate).toLocaleDateString('id-ID')}
+                        {parseLocalDate(purchase.purchaseDate).toLocaleDateString('id-ID')}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-slate-600">

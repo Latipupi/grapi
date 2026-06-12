@@ -44,6 +44,9 @@ const POSPage: React.FC = () => {
   const [successOrder, setSuccessOrder] = useState<any>(null);
   const [unitSelectionProduct, setUnitSelectionProduct] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'products' | 'cart'>('products');
+  const [receivedAmount, setReceivedAmount] = useState<string>('');
+  const [lastReceivedAmount, setLastReceivedAmount] = useState<number>(0);
+  const [changeAmount, setChangeAmount] = useState<number>(0);
 
   // Shift Management States
   const [startingCash, setStartingCash] = useState<string>('0');
@@ -120,6 +123,7 @@ const POSPage: React.FC = () => {
     onSuccess: (res) => {
       setSuccessOrder(res.data);
       dispatch(clearCart());
+      setReceivedAmount('');
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
     onError: (err: any) => {
@@ -147,6 +151,25 @@ const POSPage: React.FC = () => {
       alert("Pelanggan (Customer) wajib dipilih untuk transaksi dengan metode Hutang Tempo!");
       return;
     }
+
+    const paid = parseFloat(receivedAmount);
+    if (paymentMethod === 'CASH') {
+      if (receivedAmount !== '') {
+        if (isNaN(paid) || paid < total) {
+          alert("Uang pembayaran kurang dari total akhir!");
+          return;
+        }
+        setLastReceivedAmount(paid);
+        setChangeAmount(paid - total);
+      } else {
+        setLastReceivedAmount(total);
+        setChangeAmount(0);
+      }
+    } else {
+      setLastReceivedAmount(total);
+      setChangeAmount(0);
+    }
+
     const payload = {
       branchId: parseInt(selectedBranchId || branchId?.toString() || '0'),
       userId,
@@ -222,6 +245,16 @@ const POSPage: React.FC = () => {
               <span>TOTAL</span>
               <span>Rp ${sale.totalAmount.toLocaleString()}</span>
             </div>
+            ${sale.paymentMethod === 'CASH' ? `
+              <div class="total-row">
+                <span>Bayar</span>
+                <span>Rp ${lastReceivedAmount.toLocaleString()}</span>
+              </div>
+              <div class="total-row">
+                <span>Kembalian</span>
+                <span>Rp ${changeAmount.toLocaleString()}</span>
+              </div>
+            ` : ''}
             <div class="total-row">
               <span>Metode Bayar</span>
               <span>${sale.paymentMethod}</span>
@@ -597,6 +630,61 @@ const POSPage: React.FC = () => {
                </div>
             </div>
 
+            {paymentMethod === 'CASH' && total > 0 && (
+              <div className="space-y-3 pt-4 border-t border-white/10 animate-in slide-in-from-top-2 duration-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-white/40 uppercase">Uang Pembayaran</span>
+                  <div className="relative w-36">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40">Rp</span>
+                    <input
+                      type="text"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-2.5 py-1.5 text-right text-sm font-black text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      placeholder="0"
+                      value={receivedAmount}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setReceivedAmount(val ? parseInt(val).toString() : '');
+                      }}
+                    />
+                  </div>
+                </div>
+                {receivedAmount !== '' && (
+                  <div className="flex justify-between items-center animate-in fade-in duration-200">
+                    <span className="text-xs font-bold text-white/40 uppercase">Kembalian</span>
+                    <span className={`text-sm font-black ${parseInt(receivedAmount) - total >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {parseInt(receivedAmount) - total >= 0 
+                        ? `Rp ${(parseInt(receivedAmount) - total).toLocaleString()}` 
+                        : 'Uang Kurang'}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setReceivedAmount(total.toString())}
+                    className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-white transition-colors"
+                  >
+                    Uang Pas
+                  </button>
+                  {[10000, 20000, 50000, 100000].map((val) => {
+                    if (val >= total || (val < total && val === 50000 && total <= 50000)) {
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setReceivedAmount(val.toString())}
+                          className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-white transition-colors"
+                        >
+                          Rp {val.toLocaleString()}
+                        </button>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1">
               <div className="flex justify-between text-white/60 text-sm">
                 <span>Subtotal</span>
@@ -711,7 +799,7 @@ const POSPage: React.FC = () => {
           </div>
           <div className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center">
              <span className="text-slate-500 font-medium">Total Kembalian</span>
-             <span className="text-2xl font-black text-emerald-600">Rp 0</span>
+             <span className="text-2xl font-black text-emerald-600">Rp {changeAmount.toLocaleString()}</span>
           </div>
           <div className="flex gap-4">
              <Button variant="outline" className="flex-1 h-12" onClick={() => handlePrintReceipt(successOrder)}>

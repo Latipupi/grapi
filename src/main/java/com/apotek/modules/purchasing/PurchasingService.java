@@ -106,7 +106,11 @@ public class PurchasingService {
 
         existing.setTotalAmount(totalAmount);
         existing.setStatus("RECEIVED");
-        existing.setPurchaseDate(LocalDate.now()); // Date of physical receipt
+        if (receiveData.getPurchaseDate() != null) {
+            existing.setPurchaseDate(receiveData.getPurchaseDate());
+        } else {
+            existing.setPurchaseDate(LocalDate.now()); // Fallback to now
+        }
 
         Purchase saved = purchaseRepository.save(existing);
 

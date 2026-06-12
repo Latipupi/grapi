@@ -7,6 +7,12 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Pagination } from '../components/ui/Pagination';
 import { ArrowLeft, ShoppingCart, Package, CreditCard, Truck, Calendar, Store, Printer } from 'lucide-react';
 
+const parseLocalDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
+  if (dateStr.includes('T')) return new Date(dateStr);
+  return new Date(dateStr + 'T00:00:00');
+};
+
 interface PurchaseDetailItem {
   id: number;
   product: { 
@@ -54,6 +60,7 @@ const PurchaseDetailPage: React.FC = () => {
   const [invoiceNumber, setInvoiceNumber] = React.useState('');
   const [paymentMethod, setPaymentMethod] = React.useState('CASH');
   const [notes, setNotes] = React.useState('');
+  const [purchaseDate, setPurchaseDate] = React.useState('');
   const [receivedDetails, setReceivedDetails] = React.useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -75,8 +82,8 @@ const PurchaseDetailPage: React.FC = () => {
   const handlePrintSuratPesanan = () => {
     if (!purchase) return;
 
-    const spNumber = `SP/${new Date(purchase.purchaseDate).getFullYear()}/${purchase.id.toString().padStart(4, '0')}`;
-    const formattedDate = new Date(purchase.purchaseDate).toLocaleDateString('id-ID', {
+    const spNumber = `SP/${parseLocalDate(purchase.purchaseDate).getFullYear()}/${purchase.id.toString().padStart(4, '0')}`;
+    const formattedDate = parseLocalDate(purchase.purchaseDate).toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -283,6 +290,7 @@ const PurchaseDetailPage: React.FC = () => {
       setInvoiceNumber(purchase.invoiceNumber || '');
       setPaymentMethod(purchase.paymentMethod || 'CASH');
       setNotes(purchase.notes || '');
+      setPurchaseDate(purchase.purchaseDate || new Date().toISOString().split('T')[0]);
     }
   }, [purchase]);
 
@@ -327,6 +335,7 @@ const PurchaseDetailPage: React.FC = () => {
         invoiceNumber: invoiceNumber.trim(),
         paymentMethod,
         notes: notes.trim(),
+        purchaseDate,
         details: receivedDetails.map(item => ({
           id: item.id,
           product: { id: item.product.id },
@@ -447,7 +456,7 @@ const PurchaseDetailPage: React.FC = () => {
                 <div>
                   <p className="text-xs font-bold text-slate-400 uppercase">Tanggal Pembelian</p>
                   <p className="text-slate-800 font-medium">
-                    {new Date(purchase.purchaseDate).toLocaleDateString('id-ID', {
+                    {parseLocalDate(purchase.purchaseDate).toLocaleDateString('id-ID', {
                       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
                     })}
                   </p>
@@ -516,7 +525,7 @@ const PurchaseDetailPage: React.FC = () => {
                                  <div className="text-sm">
                                    <span className="font-mono text-slate-600">{item.batchNumber || '-'}</span>
                                    <br />
-                                   <span className="text-xs text-slate-400">Exp: {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString('id-ID') : '-'}</span>
+                                   <span className="text-xs text-slate-400">Exp: {item.expiryDate ? parseLocalDate(item.expiryDate).toLocaleDateString('id-ID') : '-'}</span>
                                  </div>
                               </TableCell>
                               <TableCell className="text-right font-medium">
@@ -577,7 +586,7 @@ const PurchaseDetailPage: React.FC = () => {
             {/* Modal Content */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               {/* Info Faktur */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase">Nomor Faktur / Invoice <span className="text-red-500">*</span></label>
                   <input
@@ -602,13 +611,23 @@ const PurchaseDetailPage: React.FC = () => {
                   </select>
                 </div>
                 <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Tanggal Pembelian <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    required
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition-all bg-white font-medium"
+                  />
+                </div>
+                <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 uppercase">Catatan Penerimaan</label>
                   <input
                     type="text"
                     placeholder="Catatan tambahan..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition-all bg-white"
+                    className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-sm transition-all bg-white font-medium"
                   />
                 </div>
               </div>
