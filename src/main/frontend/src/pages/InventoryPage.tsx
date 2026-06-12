@@ -38,6 +38,7 @@ interface Product {
   name: string;
   sku: string;
   sellingPrice: number;
+  active?: boolean;
   units: {
     id: number;
     unitName: string;
@@ -335,6 +336,7 @@ const InventoryPage: React.FC = () => {
 
   const filteredInventory = inventory?.filter(inv => {
     if (!inv.product) return false;
+    if (inv.product.active === false) return false;
     
     const search = searchTerm.toLowerCase();
     const nameMatch = inv.product.name?.toLowerCase().includes(search);
@@ -510,7 +512,7 @@ const InventoryPage: React.FC = () => {
               disabled={!!selectedProductId}
             >
               <option value="0" disabled>Pilih Produk</option>
-              {products?.map(p => (
+              {products?.filter(p => p.active !== false).map(p => (
                 <option key={p.id} value={p.id}>{p.sku} - {p.name}</option>
               ))}
             </select>
