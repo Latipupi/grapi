@@ -66,6 +66,6 @@ public class StockOpname {
     @OneToMany(mappedBy = "stockOpname", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonManagedReference
     @Builder.Default
-    private List<StockOpnameDetail> details = new ArrayList<>();
+    private java.util.Set<StockOpnameDetail> details = new java.util.LinkedHashSet<>();
 }
 

@@ -45,7 +45,7 @@ public class StockTransferService {
                 .user(currentUser)
                 .status("COMPLETED")
                 .notes(request.getNotes())
-                .details(new ArrayList<>())
+                .details(new java.util.LinkedHashSet<>())
                 .build();
 
         // 2. Save document first to generate ID for Reference

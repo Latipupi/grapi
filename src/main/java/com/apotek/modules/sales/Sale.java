@@ -65,7 +65,7 @@ public class Sale {
     private String tenantId;
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private List<SaleDetail> details = new ArrayList<>();
+    private java.util.Set<SaleDetail> details = new java.util.LinkedHashSet<>();
 
     @CreationTimestamp
     private LocalDateTime createdAt;

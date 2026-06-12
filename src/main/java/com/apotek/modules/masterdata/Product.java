@@ -57,7 +57,7 @@ public class Product {
     private String tenantId;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private List<ProductUnit> units = new ArrayList<>();
+    private java.util.Set<ProductUnit> units = new java.util.LinkedHashSet<>();
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -85,7 +85,7 @@ public class Product {
                 .filter(ProductUnit::isBaseUnit)
                 .map(ProductUnit::getUnitName)
                 .findFirst()
-                .orElse(units.get(0).getUnitName());
+                .orElse(units.iterator().next().getUnitName());
     }
 
     // Virtual field for API convenience - Base Unit Price
@@ -96,7 +96,7 @@ public class Product {
                 .filter(ProductUnit::isBaseUnit)
                 .map(ProductUnit::getPricePerUnit)
                 .findFirst()
-                .orElse(units.get(0).getPricePerUnit());
+                .orElse(units.iterator().next().getPricePerUnit());
     }
 
     @PrePersist

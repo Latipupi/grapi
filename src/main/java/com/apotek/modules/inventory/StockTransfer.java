@@ -55,7 +55,7 @@ public class StockTransfer {
     @OneToMany(mappedBy = "stockTransfer", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonManagedReference
     @Builder.Default
-    private List<StockTransferDetail> details = new ArrayList<>();
+    private java.util.Set<StockTransferDetail> details = new java.util.LinkedHashSet<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

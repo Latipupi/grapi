@@ -38,7 +38,7 @@ public class ProductUnit {
     private BigDecimal pricePerUnit;
 
     @OneToMany(mappedBy = "productUnit", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    private java.util.List<ProductUnitPrice> additionalPrices = new java.util.ArrayList<>();
+    private java.util.Set<ProductUnitPrice> additionalPrices = new java.util.LinkedHashSet<>();
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
