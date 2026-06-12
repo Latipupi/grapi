@@ -128,6 +128,7 @@ const POSPage: React.FC = () => {
   });
 
   const filteredProducts = inventory?.filter((inv: any) => {
+    if (inv.product?.active === false) return false;
     const search = searchTerm.toLowerCase();
     const name = inv.product?.name?.toLowerCase() || '';
     const sku = inv.product?.sku?.toLowerCase() || '';

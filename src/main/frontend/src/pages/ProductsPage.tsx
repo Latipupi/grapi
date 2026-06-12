@@ -81,6 +81,7 @@ const ProductsPage: React.FC = () => {
   const [importData, setImportData] = useState<string>('');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [viewBranchId, setViewBranchId] = useState<string>('');
+  const [showInactive, setShowInactive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -88,7 +89,7 @@ const ProductsPage: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, viewBranchId]);
+  }, [searchTerm, viewBranchId, showInactive]);
 
   useEffect(() => {
     if (branchId) {
@@ -276,6 +277,8 @@ const ProductsPage: React.FC = () => {
   };
 
   const filtered = products?.filter(p => {
+    if (!showInactive && !p.active) return false;
+
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
@@ -320,32 +323,46 @@ const ProductsPage: React.FC = () => {
           </Button>
         </div>
       </div>
-
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              placeholder="Cari nama, SKU, atau barcode..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-1">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Cari nama, SKU, atau barcode..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Filter Cabang:</label>
+              <select
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none min-w-[180px] disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-slate-50"
+                value={viewBranchId}
+                onChange={(e) => setViewBranchId(e.target.value)}
+                disabled={role !== 'ADMIN' && role !== 'OWNER' && !!branchId}
+              >
+                {(role === 'ADMIN' || role === 'OWNER' || !branchId) && <option value="">Semua Cabang (Tanpa Filter)</option>}
+                {branches?.map(branch => (
+                  <option key={branch.id} value={branch.id.toString()}>{branch.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filter Cabang:</label>
-            <select
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none min-w-[180px] disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-slate-50"
-              value={viewBranchId}
-              onChange={(e) => setViewBranchId(e.target.value)}
-              disabled={role !== 'ADMIN' && role !== 'OWNER' && !!branchId}
-            >
-              {(role === 'ADMIN' || role === 'OWNER' || !branchId) && <option value="">Semua Cabang (Tanpa Filter)</option>}
-              {branches?.map(branch => (
-                <option key={branch.id} value={branch.id.toString()}>{branch.name}</option>
-              ))}
-            </select>
+
+          <div className="flex items-center gap-2 self-start md:self-auto shrink-0 bg-slate-50 px-3 py-2 rounded-xl border border-slate-150 hover:bg-slate-100/75 transition-colors">
+            <input
+              type="checkbox"
+              id="show-inactive-checkbox"
+              className="w-4 h-4 text-emerald-600 border-slate-350 rounded focus:ring-emerald-500 cursor-pointer accent-emerald-600"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+            />
+            <label htmlFor="show-inactive-checkbox" className="text-xs text-slate-700 font-bold uppercase tracking-wide cursor-pointer select-none">
+              Tampilkan Produk Non-aktif
+            </label>
           </div>
         </div>
 
