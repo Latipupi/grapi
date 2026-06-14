@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import type { RootState } from '../store';
 import { 
@@ -40,6 +40,61 @@ const POSPage: React.FC = () => {
   const { branchId, userId, role } = useSelector((state: RootState) => state.auth);
   
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Resizable Cart States & Handlers
+  const [cartWidth, setCartWidth] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pos-cart-width');
+      return saved ? parseInt(saved, 10) : 400;
+    }
+    return 400;
+  });
+
+  const [isLargeScreen, setIsLargeScreen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const handleMouseDown = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    const startWidth = cartWidth;
+    const startX = mouseDownEvent.clientX;
+    let currentWidth = startWidth;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const deltaX = startX - mouseMoveEvent.clientX;
+      const newWidth = Math.max(320, Math.min(750, startWidth + deltaX));
+      currentWidth = newWidth;
+      setCartWidth(newWidth);
+    };
+
+    const stopDrag = () => {
+      localStorage.setItem('pos-cart-width', currentWidth.toString());
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    };
+
+    document.addEventListener('mousemove', doDrag);
+    document.addEventListener('mouseup', stopDrag);
+  }, [cartWidth]);
+
+  const handleDoubleClick = useCallback(() => {
+    setCartWidth(400);
+    localStorage.setItem('pos-cart-width', '400');
+  }, []);
+
   const [selectedBranchId, setSelectedBranchId] = useState<string>(branchId?.toString() || '');
   const [successOrder, setSuccessOrder] = useState<any>(null);
   const [unitSelectionProduct, setUnitSelectionProduct] = useState<any>(null);
@@ -51,7 +106,7 @@ const POSPage: React.FC = () => {
   // Shift Management States
   const [startingCash, setStartingCash] = useState<string>('0');
   const [closeShiftModalOpen, setCloseShiftModalOpen] = useState(false);
-  const [endingCashInput, setEndingCashInput] = useState<string>('0');
+  const [endingCashInput, setEndingCashInput] = useState<string>('');
   const [closedShiftSummary, setClosedShiftSummary] = useState<any>(null);
 
   // Query Active Shift
@@ -94,7 +149,7 @@ const POSPage: React.FC = () => {
       setClosedShiftSummary(res.data);
       queryClient.invalidateQueries({ queryKey: ['activeShift'] });
       setCloseShiftModalOpen(false);
-      setEndingCashInput('0');
+      setEndingCashInput('');
       dispatch(clearCart());
     },
     onError: (err: any) => {
@@ -368,7 +423,7 @@ const POSPage: React.FC = () => {
 
       {/* Background POS UI (Blurred when locked) */}
       <div className={cn(
-        "flex-1 flex flex-col lg:flex-row gap-6 min-h-0 transition-all duration-500",
+        "flex-1 flex flex-col lg:flex-row gap-4 lg:gap-0 min-h-0 transition-all duration-500",
         !isShiftActive && "blur-md pointer-events-none select-none opacity-50"
       )}>
         {/* Product Selection Side */}
@@ -393,7 +448,7 @@ const POSPage: React.FC = () => {
                     <Button 
                       variant="outline"
                       onClick={() => {
-                        setEndingCashInput('0');
+                        setEndingCashInput('');
                         setCloseShiftModalOpen(true);
                       }}
                       className="h-7 px-2 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 text-[9px] font-black gap-1.5 rounded-xl shadow-sm shrink-0 uppercase tracking-wider ml-1"
@@ -471,11 +526,27 @@ const POSPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Resizer Handle */}
+        {isLargeScreen && (
+          <div
+            className="hidden lg:flex items-center justify-center w-6 cursor-col-resize transition-all select-none self-stretch shrink-0 group"
+            onMouseDown={handleMouseDown}
+            onDoubleClick={handleDoubleClick}
+            title="Seret untuk mengubah ukuran keranjang, klik 2x untuk reset ke default (400px)"
+          >
+            <div className="w-1 h-16 bg-slate-200 rounded-full group-hover:bg-emerald-500 group-active:bg-emerald-600 group-hover:h-24 transition-all duration-200 shadow-sm"></div>
+          </div>
+        )}
+
         {/* Cart & Checkout Side */}
-        <div className={cn(
-          "w-full lg:w-[400px] flex-1 lg:flex-none flex flex-col bg-slate-900 rounded-3xl shadow-2xl overflow-hidden text-white lg:shrink-0 min-h-0",
-          activeTab === 'cart' ? 'flex' : 'hidden lg:flex'
-        )}>
+        <div 
+          className={cn(
+            "w-full flex-1 lg:flex-none flex flex-col bg-slate-900 rounded-3xl shadow-2xl overflow-hidden text-white lg:shrink-0 min-h-0",
+            activeTab === 'cart' ? 'flex' : 'hidden lg:flex',
+            !isLargeScreen && "lg:w-[400px]"
+          )}
+          style={isLargeScreen ? { width: `${cartWidth}px` } : undefined}
+        >
           <div className="p-6 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
                <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
@@ -1033,6 +1104,19 @@ const POSPage: React.FC = () => {
                 </div>
               </div>
 
+              {closedShiftSummary && (
+                <div className="grid grid-cols-2 gap-4 text-xs bg-slate-100/70 p-3 rounded-xl border border-slate-200/50">
+                  <div>
+                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">- Penjualan Tunai (Cash)</span>
+                    <p className="font-bold text-slate-700 mt-0.5">Rp {(closedShiftSummary.expectedEndingCash - closedShiftSummary.startingCash).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">- Penjualan Non-Tunai</span>
+                    <p className="font-bold text-slate-700 mt-0.5">Rp {(closedShiftSummary.totalSales - (closedShiftSummary.expectedEndingCash - closedShiftSummary.startingCash)).toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="h-px bg-slate-200/60 my-2"></div>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1122,6 +1206,14 @@ const POSPage: React.FC = () => {
                             <div class="row">
                               <span>Total Penjualan</span>
                               <span class="bold">Rp ${closedShiftSummary.totalSales?.toLocaleString()}</span>
+                            </div>
+                            <div class="row" style="padding-left: 10px; font-size: 11px; color: #555;">
+                              <span>* Tunai (Cash)</span>
+                              <span>Rp ${(closedShiftSummary.expectedEndingCash - closedShiftSummary.startingCash).toLocaleString()}</span>
+                            </div>
+                            <div class="row" style="padding-left: 10px; font-size: 11px; color: #555;">
+                              <span>* Non-Tunai</span>
+                              <span>Rp ${(closedShiftSummary.totalSales - (closedShiftSummary.expectedEndingCash - closedShiftSummary.startingCash)).toLocaleString()}</span>
                             </div>
                             <div class="row">
                               <span>Ekspektasi Kas</span>

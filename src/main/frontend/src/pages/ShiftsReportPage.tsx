@@ -103,6 +103,14 @@ const ShiftsReportPage: React.FC = () => {
               <span>Total Penjualan</span>
               <span class="bold">Rp ${s.totalSales?.toLocaleString() || 0}</span>
             </div>
+            <div class="row" style="padding-left: 10px; font-size: 11px; color: #555;">
+              <span>* Tunai (Cash)</span>
+              <span>Rp ${(s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0).toLocaleString()}</span>
+            </div>
+            <div class="row" style="padding-left: 10px; font-size: 11px; color: #555;">
+              <span>* Non-Tunai</span>
+              <span>Rp ${(s.totalSales ? (s.totalSales - (s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0)) : 0).toLocaleString()}</span>
+            </div>
             <div class="row">
               <span>Ekspektasi Kas</span>
               <span class="bold">Rp ${(s.expectedEndingCash || s.startingCash).toLocaleString()}</span>
@@ -298,6 +306,17 @@ const ShiftsReportPage: React.FC = () => {
                   <div className="space-y-0.5">
                     <span className="text-slate-400 font-bold text-[9px] uppercase tracking-wider">Kas Aktual</span>
                     <p className="font-extrabold text-slate-700">{s.endingCash !== null ? `Rp ${s.endingCash.toLocaleString()}` : '-'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-[10px] bg-slate-50 p-2.5 rounded-2xl border border-slate-100 text-slate-500">
+                  <div>
+                    <span className="font-semibold uppercase tracking-wider text-[9px]">Penjualan Tunai (Cash)</span>
+                    <p className="font-bold text-slate-700 mt-0.5">Rp {(s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <span className="font-semibold uppercase tracking-wider text-[9px]">Penjualan Non-Tunai</span>
+                    <p className="font-bold text-slate-700 mt-0.5">Rp {(s.totalSales ? (s.totalSales - (s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0)) : 0).toLocaleString()}</p>
                   </div>
                 </div>
 
