@@ -27,7 +27,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Lock,
-  LogOut
+  LogOut,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Dialog } from '../components/ui/Dialog';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -94,6 +96,8 @@ const POSPage: React.FC = () => {
     setCartWidth(400);
     localStorage.setItem('pos-cart-width', '400');
   }, []);
+
+  const [isPaymentExpanded, setIsPaymentExpanded] = useState<boolean>(false);
 
   const [selectedBranchId, setSelectedBranchId] = useState<string>(branchId?.toString() || '');
   const [successOrder, setSuccessOrder] = useState<any>(null);
@@ -198,6 +202,13 @@ const POSPage: React.FC = () => {
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
+    
+    // Smart Expand: jika area detail pembayaran terlipat, buka terlebih dahulu agar kasir bisa konfirmasi
+    if (!isPaymentExpanded) {
+      setIsPaymentExpanded(true);
+      return;
+    }
+
     if (cart.some(item => item.quantity <= 0)) {
       alert("Kuantitas produk dalam keranjang harus lebih besar dari 0!");
       return;
@@ -671,92 +682,120 @@ const POSPage: React.FC = () => {
             )}
           </div>
 
-          <div className="p-6 bg-white/5 border-t border-white/10 space-y-6">
-            <div className="space-y-3">
-               <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-white/40" />
-                  <select 
-                    className="flex-1 bg-transparent border-none text-sm focus:ring-0 cursor-pointer"
-                    value={customerId || ''}
-                    onChange={(e) => dispatch(setCustomer(e.target.value ? parseInt(e.target.value) : null))}
-                  >
-                    <option value="" className="text-slate-900">Umum / Walk-in Customer</option>
-                    {customers?.map((c: any) => (
-                      <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
-                    ))}
-                  </select>
-               </div>
-               <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-white/40" />
-                  <select 
-                    className="flex-1 bg-transparent border-none text-sm focus:ring-0 cursor-pointer"
-                    value={paymentMethod}
-                    onChange={(e) => dispatch(setPaymentMethod(e.target.value))}
-                  >
-                    <option value="CASH" className="text-slate-900">Tunai (Cash)</option>
-                    <option value="TRANSFER" className="text-slate-900">Transfer Bank</option>
-                    <option value="QRIS" className="text-slate-900">QRIS</option>
-                    <option value="HUTANG" className="text-slate-900">Hutang Tempo</option>
-                  </select>
-               </div>
-            </div>
+          <div className="p-6 bg-white/5 border-t border-white/10 space-y-4">
+            {/* Toggle Detail Pembayaran */}
+            <button
+              type="button"
+              onClick={() => setIsPaymentExpanded(!isPaymentExpanded)}
+              className="w-full flex items-center justify-between py-1 text-[11px] font-bold text-white/40 hover:text-white transition-colors uppercase tracking-wider select-none outline-none border-b border-white/5 pb-2"
+            >
+              <span>Detail Pembayaran</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] lowercase font-normal">
+                  {isPaymentExpanded ? 'sembunyikan' : 'tampilkan'}
+                </span>
+                {isPaymentExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+              </div>
+            </button>
 
-            {paymentMethod === 'CASH' && total > 0 && (
-              <div className="space-y-3 pt-4 border-t border-white/10 animate-in slide-in-from-top-2 duration-200">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-white/40 uppercase">Uang Pembayaran</span>
-                  <div className="relative w-36">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40">Rp</span>
-                    <input
-                      type="text"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-2.5 py-1.5 text-right text-sm font-black text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                      placeholder="0"
-                      value={receivedAmount}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '');
-                        setReceivedAmount(val ? parseInt(val).toString() : '');
-                      }}
-                    />
+            {/* Collapsible Content */}
+            <AnimatePresence initial={false}>
+              {isPaymentExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden space-y-4"
+                >
+                  <div className="space-y-3 pt-2">
+                     <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-white/40" />
+                        <select 
+                          className="flex-1 bg-transparent border-none text-sm focus:ring-0 cursor-pointer"
+                          value={customerId || ''}
+                          onChange={(e) => dispatch(setCustomer(e.target.value ? parseInt(e.target.value) : null))}
+                        >
+                          <option value="" className="text-slate-900">Umum / Walk-in Customer</option>
+                          {customers?.map((c: any) => (
+                            <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
+                          ))}
+                        </select>
+                     </div>
+                     <div className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-white/40" />
+                        <select 
+                          className="flex-1 bg-transparent border-none text-sm focus:ring-0 cursor-pointer"
+                          value={paymentMethod}
+                          onChange={(e) => dispatch(setPaymentMethod(e.target.value))}
+                        >
+                          <option value="CASH" className="text-slate-900">Tunai (Cash)</option>
+                          <option value="TRANSFER" className="text-slate-900">Transfer Bank</option>
+                          <option value="QRIS" className="text-slate-900">QRIS</option>
+                          <option value="HUTANG" className="text-slate-900">Hutang Tempo</option>
+                        </select>
+                     </div>
                   </div>
-                </div>
-                {receivedAmount !== '' && (
-                  <div className="flex justify-between items-center animate-in fade-in duration-200">
-                    <span className="text-xs font-bold text-white/40 uppercase">Kembalian</span>
-                    <span className={`text-sm font-black ${parseInt(receivedAmount) - total >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {parseInt(receivedAmount) - total >= 0 
-                        ? `Rp ${(parseInt(receivedAmount) - total).toLocaleString()}` 
-                        : 'Uang Kurang'}
-                    </span>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setReceivedAmount(total.toString())}
-                    className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-white transition-colors"
-                  >
-                    Uang Pas
-                  </button>
-                  {[10000, 20000, 50000, 100000].map((val) => {
-                    if (val >= total || (val < total && val === 50000 && total <= 50000)) {
-                      return (
+
+                  {paymentMethod === 'CASH' && total > 0 && (
+                    <div className="space-y-3 pt-4 border-t border-white/10 animate-in slide-in-from-top-2 duration-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-white/40 uppercase">Uang Pembayaran</span>
+                        <div className="relative w-36">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40">Rp</span>
+                          <input
+                            type="text"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-2.5 py-1.5 text-right text-sm font-black text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                            placeholder="0"
+                            value={receivedAmount}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              setReceivedAmount(val ? parseInt(val).toString() : '');
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {receivedAmount !== '' && (
+                        <div className="flex justify-between items-center animate-in fade-in duration-200">
+                          <span className="text-xs font-bold text-white/40 uppercase">Kembalian</span>
+                          <span className={`text-sm font-black ${parseInt(receivedAmount) - total >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {parseInt(receivedAmount) - total >= 0 
+                              ? `Rp ${(parseInt(receivedAmount) - total).toLocaleString()}` 
+                              : 'Uang Kurang'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
                         <button
-                          key={val}
                           type="button"
-                          onClick={() => setReceivedAmount(val.toString())}
+                          onClick={() => setReceivedAmount(total.toString())}
                           className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-white transition-colors"
                         >
-                          Rp {val.toLocaleString()}
+                          Uang Pas
                         </button>
-                      );
-                    }
-                    return null;
-                  })}
-                </div>
-              </div>
-            )}
+                        {[10000, 20000, 50000, 100000].map((val) => {
+                          if (val >= total || (val < total && val === 50000 && total <= 50000)) {
+                            return (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => setReceivedAmount(val.toString())}
+                                className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-white transition-colors"
+                              >
+                                Rp {val.toLocaleString()}
+                              </button>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            <div className="space-y-1">
+            <div className="space-y-1 pt-2 border-t border-white/5">
               <div className="flex justify-between text-white/60 text-sm">
                 <span>Subtotal</span>
                 <span>Rp {total.toLocaleString()}</span>
