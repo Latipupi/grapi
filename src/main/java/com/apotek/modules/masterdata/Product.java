@@ -33,6 +33,10 @@ public class Product {
     @JoinColumn(name = "supplier_id")
     private Supplier supplier;
 
+    @ManyToOne
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
+
     @Transient
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Long categoryId;
@@ -40,6 +44,10 @@ public class Product {
     @Transient
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Long supplierId;
+
+    @Transient
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Long branchId;
 
     @Column(nullable = false)
     private String name;

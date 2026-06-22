@@ -196,6 +196,12 @@ const NewPurchasePage: React.FC = () => {
     },
   });
 
+  const selectedBranchId = watch('branchId');
+  const filteredProductsByBranch = products?.filter((p: any) => {
+    if (!selectedBranchId) return true;
+    return !p.branch || p.branch.id.toString() === selectedBranchId;
+  }) || [];
+
   const detailsValues = watch('details');
   const totalAmount = detailsValues.reduce((acc, curr) => acc + (curr.quantity * curr.unitPrice || 0), 0);
 
@@ -322,7 +328,7 @@ const NewPurchasePage: React.FC = () => {
                         name={`details.${index}.productId` as const}
                         render={({ field }) => (
                           <ProductSearchSelect
-                            products={products || []}
+                            products={filteredProductsByBranch}
                             value={field.value}
                             onChange={field.onChange}
                           />

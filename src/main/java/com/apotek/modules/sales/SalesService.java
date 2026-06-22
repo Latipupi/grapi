@@ -128,7 +128,7 @@ public class SalesService {
 
         Sale finalSale = saleRepository.save(savedSale);
         debtService.createDebtFromSale(finalSale);
-        return finalSale;
+        return saleRepository.findById(finalSale.getId()).orElse(finalSale);
     }
 
     public static class CreateSaleRequest {

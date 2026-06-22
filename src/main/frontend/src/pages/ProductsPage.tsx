@@ -33,6 +33,7 @@ const productSchema = z.object({
   sku: z.string().optional(),
   barcode: z.string().optional(),
   categoryId: z.string().optional(),
+  branchId: z.string().optional(),
   active: z.boolean().default(true),
   units: z.array(productUnitSchema).min(1, 'Minimal 1 satuan'),
   stockBranchId: z.string().optional(),
@@ -63,6 +64,7 @@ interface Product {
   sku: string;
   barcode: string;
   category: { id: number; name: string } | null;
+  branch: { id: number; name: string } | null;
   active: boolean;
   units: ProductUnit[];
 }
@@ -167,6 +169,7 @@ const ProductsPage: React.FC = () => {
       ...data,
       categoryId: data.categoryId ? parseInt(data.categoryId) : null,
       stockBranchId: data.stockBranchId ? parseInt(data.stockBranchId) : null,
+      branchId: data.branchId ? parseInt(data.branchId) : null,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -182,7 +185,8 @@ const ProductsPage: React.FC = () => {
     mutationFn: (data: { id: number; values: ProductFormValues }) =>
       api.put(`/products/${data.id}`, {
         ...data.values,
-        categoryId: data.values.categoryId ? parseInt(data.values.categoryId) : null
+        categoryId: data.values.categoryId ? parseInt(data.values.categoryId) : null,
+        branchId: data.values.branchId ? parseInt(data.values.branchId) : null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -229,6 +233,7 @@ const ProductsPage: React.FC = () => {
         sku: product.sku,
         barcode: product.barcode,
         categoryId: product.category?.id.toString(),
+        branchId: product.branch?.id?.toString() || '',
         active: product.active,
         units: product.units.map(u => ({
           unitName: u.unitName,
@@ -251,6 +256,7 @@ const ProductsPage: React.FC = () => {
         sku: '',
         barcode: '',
         categoryId: '',
+        branchId: branchId?.toString() || '',
         active: true,
         units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0, additionalPrices: [] }],
         stockBranchId: '',
@@ -285,6 +291,8 @@ const ProductsPage: React.FC = () => {
 
     // Filter by branch if a branch is selected
     if (viewBranchId) {
+      const isForBranch = !p.branch || p.branch.id.toString() === viewBranchId;
+      if (!isForBranch) return false;
       const hasInventory = inventory?.some(inv => inv.product.id === p.id);
       return !!hasInventory;
     }
@@ -372,6 +380,7 @@ const ProductsPage: React.FC = () => {
               <TableRow>
                 <TableHead>Produk</TableHead>
                 <TableHead>Kategori</TableHead>
+                <TableHead>Cabang</TableHead>
                 <TableHead>SKU/Barcode</TableHead>
                 {viewBranchId && <TableHead>Stok</TableHead>}
                 <TableHead>Harga (Base)</TableHead>
@@ -382,13 +391,13 @@ const ProductsPage: React.FC = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-slate-400">
+                  <TableCell colSpan={viewBranchId ? 8 : 7} className="h-32 text-center text-slate-400">
                     Memuat data...
                   </TableCell>
                 </TableRow>
               ) : filtered?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={viewBranchId ? 7 : 6} className="h-32 text-center text-slate-400">
+                  <TableCell colSpan={viewBranchId ? 8 : 7} className="h-32 text-center text-slate-400">
                     Tidak ada data ditemukan.
                   </TableCell>
                 </TableRow>
@@ -426,6 +435,16 @@ const ProductsPage: React.FC = () => {
                       <TableCell>
                         <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md text-xs font-medium whitespace-nowrap">
                           {product.category?.name || 'Tanpa Kategori'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={cn(
+                          "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap",
+                          product.branch
+                            ? "bg-blue-50 text-blue-600 border border-blue-100"
+                            : "bg-slate-50 text-slate-500 border border-slate-200"
+                        )}>
+                          {product.branch?.name || 'Global'}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -558,6 +577,23 @@ const ProductsPage: React.FC = () => {
                     <option key={cat.id} value={cat.id.toString()}>{cat.name}</option>
                   ))}
                 </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Cabang Pemilik Produk</label>
+                <select
+                  {...register('branchId')}
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  disabled={role !== 'ADMIN' && role !== 'OWNER' && !!branchId}
+                >
+                  <option value="">Semua Cabang (Global)</option>
+                  {branches?.map(b => (
+                    <option key={b.id} value={b.id.toString()}>{b.name}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400">
+                  Pilih cabang spesifik jika produk ini hanya ada di cabang tersebut.
+                </p>
               </div>
 
               <div className="flex items-center gap-2">

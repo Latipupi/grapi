@@ -192,6 +192,10 @@ const POSPage: React.FC = () => {
 
   const filteredProducts = inventory?.filter((inv: any) => {
     if (inv.product?.active === false) return false;
+    // Filter out inventory records whose product belongs to a different branch
+    if (inv.product?.branch && inv.product.branch.id.toString() !== selectedBranchId) {
+      return false;
+    }
     const search = searchTerm.toLowerCase();
     const name = inv.product?.name?.toLowerCase() || '';
     const sku = inv.product?.sku?.toLowerCase() || '';

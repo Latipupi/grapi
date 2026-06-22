@@ -116,6 +116,10 @@ public class ProductController {
             categoryRepository.findById(product.getCategoryId()).ifPresent(product::setCategory);
         }
         
+        if (product.getBranchId() != null) {
+            branchRepository.findById(product.getBranchId()).ifPresent(product::setBranch);
+        }
+        
         if (product.getUnits() != null) {
             product.getUnits().forEach(unit -> {
                 unit.setProduct(product);
@@ -167,6 +171,12 @@ public class ProductController {
                         categoryRepository.findById(details.getCategoryId()).ifPresent(product::setCategory);
                     } else {
                         product.setCategory(null);
+                    }
+                    
+                    if (details.getBranchId() != null) {
+                        branchRepository.findById(details.getBranchId()).ifPresent(product::setBranch);
+                    } else {
+                        product.setBranch(null);
                     }
                     
                     // Update units - simple replacement for MVP
