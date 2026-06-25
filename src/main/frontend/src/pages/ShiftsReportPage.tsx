@@ -14,12 +14,17 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
+import { Skeleton } from '../components/ui/Skeleton';
 
 const ShiftsReportPage: React.FC = () => {
-  const { branchId } = useSelector((state: RootState) => state.auth);
+  const { branchId, role } = useSelector((state: RootState) => state.auth);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [selectedOperatorId, setSelectedOperatorId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
+
+  // Admins and Owners can see all branches, others are restricted to their profile's branch
+  const isManager = role === 'ADMIN' || role === 'OWNER';
+  const effectiveBranchId = isManager ? null : branchId;
 
   // Fetch all shifts
   const { data: shifts, isLoading } = useQuery<any[]>({
@@ -31,7 +36,7 @@ const ShiftsReportPage: React.FC = () => {
   const { data: branches } = useQuery<any[]>({
     queryKey: ['branches'],
     queryFn: () => api.get('/branches').then(res => res.data),
-    enabled: !branchId
+    enabled: !effectiveBranchId
   });
 
   // Unique list of operators from shifts
@@ -50,14 +55,14 @@ const ShiftsReportPage: React.FC = () => {
   const filteredShifts = React.useMemo(() => {
     if (!shifts) return [];
     return shifts.filter(s => {
-      const matchBranch = branchId 
-        ? s.branch?.id === branchId 
+      const matchBranch = effectiveBranchId 
+        ? s.branch?.id === effectiveBranchId 
         : (selectedBranchId ? s.branch?.id === parseInt(selectedBranchId) : true);
       const matchOperator = selectedOperatorId ? s.user?.id === parseInt(selectedOperatorId) : true;
       const matchStatus = selectedStatus ? s.status === selectedStatus : true;
       return matchBranch && matchOperator && matchStatus;
     }).sort((a, b) => b.id - a.id); // Sort by newest shift ID
-  }, [shifts, branchId, selectedBranchId, selectedOperatorId, selectedStatus]);
+  }, [shifts, effectiveBranchId, selectedBranchId, selectedOperatorId, selectedStatus]);
 
   const handlePrintReceipt = (s: any) => {
     if (!s) return;
@@ -160,7 +165,7 @@ const ShiftsReportPage: React.FC = () => {
 
       {/* Filters Card */}
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
-        {!branchId && (
+        {!effectiveBranchId && (
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cabang</label>
             <select
@@ -206,11 +211,46 @@ const ShiftsReportPage: React.FC = () => {
 
       {/* Shifts List Grid */}
       {isLoading ? (
-        <div className="flex h-[30vh] items-center justify-center bg-white rounded-3xl border border-slate-100 shadow-sm">
-          <div className="text-center space-y-4">
-            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-slate-500 text-sm font-bold">Memuat riwayat shift kasir...</p>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-3.5 w-24 rounded" />
+                  <Skeleton className="h-6 w-32 rounded" />
+                </div>
+                <Skeleton className="h-6 w-16 rounded-full" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+              </div>
+              <div className="bg-slate-50/50 p-3 rounded-2xl border border-slate-100/60 grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Skeleton className="h-2.5 w-10" />
+                  <Skeleton className="h-3.5 w-24" />
+                </div>
+                <div className="space-y-1">
+                  <Skeleton className="h-2.5 w-10" />
+                  <Skeleton className="h-3.5 w-24" />
+                </div>
+              </div>
+              <div className="border-t border-slate-100 pt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map(j => (
+                  <div key={j} className="space-y-1">
+                    <Skeleton className="h-2.5 w-12" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredShifts.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 bg-white rounded-3xl border border-slate-100 shadow-sm text-slate-400 gap-4">

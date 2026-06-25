@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/api';
 import { Card } from '../components/ui/Card';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Pagination } from '../components/ui/Pagination';
 import { TrendingUp, TrendingDown, ShoppingCart, Percent, Calendar, Filter, AlertCircle } from 'lucide-react';
@@ -102,11 +103,47 @@ const ProfitLossPage: React.FC = () => {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1,2,3,4].map(i => (
-            <Card key={i} className="h-32 animate-pulse bg-slate-50 border-none" />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map(i => (
+              <Card key={i} className="p-6 border-none shadow-sm bg-white space-y-3">
+                <div className="flex justify-between items-center">
+                  <Skeleton className="h-4 w-24 rounded" />
+                  <Skeleton className="w-5 h-5 rounded" />
+                </div>
+                <Skeleton className="h-8 w-32 rounded" />
+                <Skeleton className="h-3 w-16 rounded" />
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="overflow-hidden border-none shadow-sm bg-white p-6 space-y-4">
+              <Skeleton className="h-6 w-32 rounded" />
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50">
+                    <Skeleton className="h-5 w-48 rounded" />
+                    <Skeleton className="h-5 w-24 rounded" />
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="overflow-hidden border-none shadow-sm bg-white p-6 space-y-4">
+              <Skeleton className="h-6 w-48 rounded" />
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50">
+                    <Skeleton className="h-5 w-24 rounded" />
+                    <Skeleton className="h-5 w-32 rounded" />
+                    <Skeleton className="h-5 w-20 rounded" />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </>
       ) : report ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

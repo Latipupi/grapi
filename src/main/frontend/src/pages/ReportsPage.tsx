@@ -5,6 +5,7 @@ import api from '../api/api';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Skeleton } from '../components/ui/Skeleton';
 import { cn } from '../lib/utils';
 import { 
   FileText, 
@@ -795,14 +796,19 @@ const ReportsPage: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="h-40 text-center">
-                        <div className="flex flex-col items-center justify-center space-y-2">
-                          <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                          <span className="text-slate-400 text-xs font-bold">Memuat data laporan...</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    [1, 2, 3, 4, 5].map(i => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-20 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-28 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16 rounded" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-5 w-20 ml-auto rounded" /></TableCell>
+                        <TableCell className="text-center"><Skeleton className="h-6 w-16 mx-auto rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-8 rounded-full" /></TableCell>
+                      </TableRow>
+                    ))
                   ) : paginatedSales.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="h-40 text-center text-slate-400 text-xs italic">

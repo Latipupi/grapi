@@ -24,6 +24,7 @@ import {
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
+import { Skeleton } from '../components/ui/Skeleton';
 
 const DashboardPage: React.FC = () => {
   const { fullName, branchId } = useSelector((state: RootState) => state.auth);
@@ -138,7 +139,11 @@ const DashboardPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">{stat.label}</p>
-              <h3 className="text-2xl font-black text-slate-800">{statsLoading ? '...' : stat.value}</h3>
+              {statsLoading ? (
+                <Skeleton className="h-8 w-28 mt-1" />
+              ) : (
+                <h3 className="text-2xl font-black text-slate-800">{stat.value}</h3>
+              )}
             </div>
             <div className={cn("absolute bottom-0 left-0 h-1 w-full opacity-10", stat.color.replace('text-', 'bg-'))} />
           </Link>
@@ -161,7 +166,16 @@ const DashboardPage: React.FC = () => {
           </div>
           <div className="h-[300px] w-full">
             {trendLoading ? (
-               <div className="h-full flex items-center justify-center text-slate-400">Memuat grafik...</div>
+               <div className="h-full w-full flex flex-col gap-4">
+                 <Skeleton className="h-[240px] w-full rounded-2xl" />
+                 <div className="flex justify-between w-full px-2">
+                   <Skeleton className="h-4 w-12" />
+                   <Skeleton className="h-4 w-12" />
+                   <Skeleton className="h-4 w-12" />
+                   <Skeleton className="h-4 w-12" />
+                   <Skeleton className="h-4 w-12" />
+                 </div>
+               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trend}>
@@ -208,7 +222,17 @@ const DashboardPage: React.FC = () => {
           <h2 className="text-xl font-bold text-slate-800 mb-6">Aktivitas Terakhir</h2>
           <div className="flex-1 space-y-6 overflow-y-auto pr-2 no-scrollbar">
              {activitiesLoading ? (
-                <div className="text-slate-400 text-sm">Memuat aktivitas...</div>
+                <div className="space-y-6">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="flex gap-4 items-start">
+                      <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-3/4 rounded" />
+                        <Skeleton className="h-3 w-1/2 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
              ) : activities?.length === 0 ? (
                 <div className="text-slate-400 text-sm italic">Belum ada aktivitas.</div>
              ) : (
@@ -245,75 +269,120 @@ const DashboardPage: React.FC = () => {
       </div>
       
       {/* Smart Alerts Section */}
-      {!alertsLoading && alerts && (alerts.expiringBatches?.length > 0 || alerts.lowStockItems?.length > 0) && (
+      {alertsLoading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Low Stock Alerts */}
-          {alerts.lowStockItems?.length > 0 && (
-            <div className="bg-amber-50/50 p-8 rounded-3xl shadow-sm border border-amber-100">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">Peringatan Stok Menipis</h2>
-                  <p className="text-sm text-slate-500">Produk yang berada di bawah minimum stok</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {alerts.lowStockItems.slice(0, 5).map((item: any) => (
-                  <div key={item.id} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-amber-50">
-                    <div>
-                      <p className="font-bold text-slate-700">{item.product?.name}</p>
-                      <p className="text-xs text-slate-400">Min Stok: {item.minimumStock}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-black text-amber-600">{item.stockQuantity} {item.product?.baseUnit}</p>
-                    </div>
-                  </div>
-                ))}
-                {alerts.lowStockItems.length > 5 && (
-                  <Link to="/dashboard/inventory" className="block text-center text-sm font-bold text-amber-600 hover:text-amber-700 mt-4">
-                    Lihat {alerts.lowStockItems.length - 5} produk lainnya...
-                  </Link>
-                )}
+          <div className="bg-slate-50/50 p-8 rounded-3xl border border-slate-100 space-y-6">
+            <div className="flex items-center gap-3">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-5 w-40 rounded" />
+                <Skeleton className="h-3.5 w-60 rounded" />
               </div>
             </div>
-          )}
-
-          {/* Expiring Alerts */}
-          {alerts.expiringBatches?.length > 0 && (
-            <div className="bg-rose-50/50 p-8 rounded-3xl shadow-sm border border-rose-100">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">Peringatan Kadaluarsa</h2>
-                  <p className="text-sm text-slate-500">Produk kadaluarsa dalam 90 hari</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {alerts.expiringBatches.slice(0, 5).map((batch: any) => (
-                  <div key={batch.id} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-rose-50">
-                    <div>
-                      <p className="font-bold text-slate-700">{batch.inventory?.product?.name}</p>
-                      <p className="text-xs text-slate-400">Batch: {batch.batchNumber}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-black text-rose-600">{new Date(batch.expiryDate).toLocaleDateString('id-ID')}</p>
-                      <p className="text-xs text-rose-400">{batch.currentQuantity} {batch.inventory?.product?.baseUnit}</p>
-                    </div>
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100">
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-3 w-1/4" />
                   </div>
-                ))}
-                {alerts.expiringBatches.length > 5 && (
-                  <Link to="/dashboard/inventory" className="block text-center text-sm font-bold text-rose-600 hover:text-rose-700 mt-4">
-                    Lihat {alerts.expiringBatches.length - 5} batch lainnya...
-                  </Link>
-                )}
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-slate-50/50 p-8 rounded-3xl border border-slate-100 space-y-6">
+            <div className="flex items-center gap-3">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-5 w-40 rounded" />
+                <Skeleton className="h-3.5 w-60 rounded" />
               </div>
             </div>
-          )}
+            <div className="space-y-3">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100">
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-3 w-1/4" />
+                  </div>
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+      ) : (
+        alerts && (alerts.expiringBatches?.length > 0 || alerts.lowStockItems?.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Low Stock Alerts */}
+            {alerts.lowStockItems?.length > 0 && (
+              <div className="bg-amber-50/50 p-8 rounded-3xl shadow-sm border border-amber-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800">Peringatan Stok Menipis</h2>
+                    <p className="text-sm text-slate-500">Produk yang berada di bawah minimum stok</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {alerts.lowStockItems.slice(0, 5).map((item: any) => (
+                    <div key={item.id} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-amber-50">
+                      <div>
+                        <p className="font-bold text-slate-700">{item.product?.name}</p>
+                        <p className="text-xs text-slate-400">Min Stok: {item.minimumStock}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-amber-600">{item.stockQuantity} {item.product?.baseUnit}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {alerts.lowStockItems.length > 5 && (
+                    <Link to="/dashboard/inventory" className="block text-center text-sm font-bold text-amber-600 hover:text-amber-700 mt-4">
+                      Lihat {alerts.lowStockItems.length - 5} produk lainnya...
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Expiring Alerts */}
+            {alerts.expiringBatches?.length > 0 && (
+              <div className="bg-rose-50/50 p-8 rounded-3xl shadow-sm border border-rose-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800">Peringatan Kadaluarsa</h2>
+                    <p className="text-sm text-slate-500">Produk kadaluarsa dalam 90 hari</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {alerts.expiringBatches.slice(0, 5).map((batch: any) => (
+                    <div key={batch.id} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-rose-50">
+                      <div>
+                        <p className="font-bold text-slate-700">{batch.inventory?.product?.name}</p>
+                        <p className="text-xs text-slate-400">Batch: {batch.batchNumber}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-black text-rose-600">{new Date(batch.expiryDate).toLocaleDateString('id-ID')}</p>
+                        <p className="text-xs text-rose-400">{batch.currentQuantity} {batch.inventory?.product?.baseUnit}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {alerts.expiringBatches.length > 5 && (
+                    <Link to="/dashboard/inventory" className="block text-center text-sm font-bold text-rose-600 hover:text-rose-700 mt-4">
+                      Lihat {alerts.expiringBatches.length - 5} batch lainnya...
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )
       )}
     </div>
   );
