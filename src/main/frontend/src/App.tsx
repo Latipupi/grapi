@@ -96,16 +96,20 @@ function App() {
             </RoleProtectedRoute>
           } />
           <Route path="master/products" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <ProductsPage />
             </RoleProtectedRoute>
           } />
           <Route path="master/suppliers" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <SuppliersPage />
             </RoleProtectedRoute>
           } />
-          <Route path="master/customers" element={<CustomersPage />} />
+          <Route path="master/customers" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
+              <CustomersPage />
+            </RoleProtectedRoute>
+          } />
           <Route path="master/users" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER']}>
               <UsersPage />
@@ -117,7 +121,7 @@ function App() {
             </RoleProtectedRoute>
           } />
           <Route path="purchasing/new" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <NewPurchasePage />
             </RoleProtectedRoute>
           } />
@@ -126,19 +130,23 @@ function App() {
               <PurchaseDetailPage />
             </RoleProtectedRoute>
           } />
-          <Route path="inventory" element={<InventoryPage />} />
-          <Route path="inventory/opname" element={
+          <Route path="inventory" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+              <InventoryPage />
+            </RoleProtectedRoute>
+          } />
+          <Route path="inventory/opname" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <StockOpnamePage />
             </RoleProtectedRoute>
           } />
           <Route path="inventory/movements" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <StockMovementsPage />
             </RoleProtectedRoute>
           } />
           <Route path="inventory/transfer" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <StockTransferPage />
             </RoleProtectedRoute>
           } />
@@ -158,12 +166,12 @@ function App() {
             </RoleProtectedRoute>
           } />
           <Route path="finance/expenses" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
               <ExpensesPage />
             </RoleProtectedRoute>
           } />
           <Route path="debts" element={
-            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
               <DebtsPage />
             </RoleProtectedRoute>
           } />
@@ -172,7 +180,11 @@ function App() {
               <SettingsPage />
             </RoleProtectedRoute>
           } />
-          <Route path="help" element={<HelpPage />} />
+          <Route path="help" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+              <HelpPage />
+            </RoleProtectedRoute>
+          } />
           <Route path="super-admin" element={
             <SuperAdminProtectedRoute>
               <SuperAdminDashboardPage />

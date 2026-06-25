@@ -108,20 +108,20 @@ const MainLayout: React.FC = () => {
       to: '/dashboard/inventory',
       roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'],
       children: [
-        { label: 'Stok Barang', to: '/dashboard/inventory', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
-        { label: 'Stock Opname', to: '/dashboard/inventory/opname', roles: ['ADMIN', 'OWNER', 'STAFF'] },
-        { label: 'Transfer Stok', to: '/dashboard/inventory/transfer', roles: ['ADMIN', 'OWNER', 'STAFF'] },
-        { label: 'Riwayat Mutasi', to: '/dashboard/inventory/movements', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Stok Barang', to: '/dashboard/inventory', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Stock Opname', to: '/dashboard/inventory/opname', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Transfer Stok', to: '/dashboard/inventory/transfer', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Riwayat Mutasi', to: '/dashboard/inventory/movements', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
       ]
     },
     { 
       label: 'Pembelian', 
       icon: ShoppingBag, 
       to: '/dashboard/purchasing',
-      roles: ['ADMIN', 'OWNER', 'STAFF'],
+      roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'],
       children: [
         { label: 'Riwayat Pembelian', to: '/dashboard/purchasing', roles: ['ADMIN', 'OWNER', 'STAFF'] },
-        { label: 'Input Baru', to: '/dashboard/purchasing/new', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Input Baru', to: '/dashboard/purchasing/new', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
       ]
     },
     { 
@@ -132,8 +132,8 @@ const MainLayout: React.FC = () => {
       children: [
         { label: 'Cabang', to: '/dashboard/master/branches', roles: ['ADMIN', 'OWNER'] },
         { label: 'Kategori', to: '/dashboard/master/categories', roles: ['ADMIN', 'OWNER', 'STAFF'] },
-        { label: 'Produk', to: '/dashboard/master/products', roles: ['ADMIN', 'OWNER', 'STAFF'] },
-        { label: 'Supplier', to: '/dashboard/master/suppliers', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Produk', to: '/dashboard/master/products', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Supplier', to: '/dashboard/master/suppliers', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
         { label: 'Pelanggan', to: '/dashboard/master/customers', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
         { label: 'Pengguna', to: '/dashboard/master/users', roles: ['ADMIN', 'OWNER'] },
       ]
@@ -146,7 +146,7 @@ const MainLayout: React.FC = () => {
       children: [
         { label: 'Ringkasan Laporan', to: '/dashboard/reports', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Shift Kasir', to: '/dashboard/reports/shifts', roles: ['ADMIN', 'OWNER'] },
-        { label: 'Biaya Operasional', to: '/dashboard/finance/expenses', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Biaya Operasional', to: '/dashboard/finance/expenses', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Laba Rugi', to: '/dashboard/reports/profit-loss', roles: ['ADMIN', 'OWNER'] },
       ]
     },
@@ -154,11 +154,24 @@ const MainLayout: React.FC = () => {
       label: 'Hutang & Piutang', 
       icon: CreditCard, 
       to: '/dashboard/debts',
-      roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']
+      roles: ['ADMIN', 'OWNER', 'STAFF']
     },
     { label: 'Pengaturan', icon: Settings, to: '/dashboard/settings', roles: ['ADMIN', 'OWNER'] },
-    { label: 'Pusat Bantuan', icon: HelpCircle, to: '/dashboard/help', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+    { label: 'Pusat Bantuan', icon: HelpCircle, to: '/dashboard/help', roles: ['ADMIN', 'OWNER', 'STAFF'] },
   ];
+
+  const getEffectiveTo = (item: any) => {
+    if (item.label === 'Inventory' && (role === 'CASHIER' || role === 'KASIR')) {
+      return '/dashboard/inventory/opname';
+    }
+    if (item.label === 'Pembelian' && (role === 'CASHIER' || role === 'KASIR')) {
+      return '/dashboard/purchasing/new';
+    }
+    if (item.label === 'Master Data' && (role === 'CASHIER' || role === 'KASIR')) {
+      return '/dashboard/master/products';
+    }
+    return item.to;
+  };
 
   const filteredMenuItems = menuItems.filter(item => {
     if (item.isSuperAdmin && tenantId !== 'SYSTEM') return false;
@@ -202,6 +215,7 @@ const MainLayout: React.FC = () => {
 
           <nav className="flex-1 space-y-2 overflow-y-auto no-scrollbar">
             {filteredMenuItems.map((item) => {
+              const effectiveTo = getEffectiveTo(item);
               const isActive = location.pathname === item.to || (item.to !== '/dashboard' && location.pathname.startsWith(item.to));
               const isExpanded = expandedMenus.includes(item.label);
               
@@ -211,9 +225,9 @@ const MainLayout: React.FC = () => {
                     onClick={() => {
                       if (item.children) {
                         toggleMenu(item.label);
-                        handleNavigation(item.to);
+                        handleNavigation(effectiveTo);
                       } else {
-                        handleNavigation(item.to);
+                        handleNavigation(effectiveTo);
                       }
                     }}
                     className="w-full focus:outline-none"
