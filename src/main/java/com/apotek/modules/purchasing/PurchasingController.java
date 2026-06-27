@@ -27,13 +27,13 @@ public class PurchasingController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public Purchase create(@RequestBody Purchase purchase) {
         return purchasingService.createPurchase(purchase);
     }
 
     @PutMapping("/{id}/receive")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public Purchase receive(@PathVariable Long id, @RequestBody Purchase purchase) {
         return purchasingService.receivePurchase(id, purchase);
     }

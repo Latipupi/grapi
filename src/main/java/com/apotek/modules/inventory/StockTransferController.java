@@ -18,7 +18,7 @@ public class StockTransferController {
     private final StockTransferRepository stockTransferRepository;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<?> createTransfer(
             @RequestBody StockTransferService.StockTransferRequest request,
             @AuthenticationPrincipal User currentUser

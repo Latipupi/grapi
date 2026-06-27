@@ -20,7 +20,7 @@ public class CustomerController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public Customer create(@RequestBody Customer customer) {
         return customerRepository.save(customer);
     }
@@ -33,7 +33,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Customer> update(@PathVariable Long id, @RequestBody Customer details) {
         return customerRepository.findById(id)
                 .map(customer -> {
@@ -48,7 +48,7 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         return customerRepository.findById(id)
                 .map(customer -> {

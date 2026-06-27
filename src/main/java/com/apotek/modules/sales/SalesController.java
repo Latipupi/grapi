@@ -24,7 +24,7 @@ public class SalesController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER', 'KASIR')")
     public ResponseEntity<?> create(@RequestBody SalesService.CreateSaleRequest request) {
         try {
             Sale sale = salesService.processSale(request);

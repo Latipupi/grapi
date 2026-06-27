@@ -20,7 +20,7 @@ public class SupplierController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public Supplier create(@RequestBody Supplier supplier) {
         return supplierRepository.save(supplier);
     }
@@ -33,7 +33,7 @@ public class SupplierController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Supplier> update(@PathVariable Long id, @RequestBody Supplier details) {
         return supplierRepository.findById(id)
                 .map(supplier -> {
@@ -49,7 +49,7 @@ public class SupplierController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         return supplierRepository.findById(id)
                 .map(supplier -> {

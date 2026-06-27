@@ -20,7 +20,7 @@ public class ShiftController {
      * Mengambil shift yang sedang aktif untuk user tertentu di cabang tertentu.
      */
     @GetMapping("/current")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER', 'KASIR')")
     public ResponseEntity<?> getCurrentShift(
             @RequestParam Long userId,
             @RequestParam(required = false) Long branchId) {
@@ -35,7 +35,7 @@ public class ShiftController {
      * Body: { userId, branchId, startingCash }
      */
     @PostMapping("/open")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER', 'KASIR')")
     public ResponseEntity<?> openShift(@RequestBody ShiftService.OpenShiftRequest request) {
         try {
             CashierShift shift = shiftService.openShift(request);
@@ -53,7 +53,7 @@ public class ShiftController {
      * Body: { endingCash }
      */
     @PostMapping("/close")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER', 'KASIR')")
     public ResponseEntity<?> closeShift(
             @RequestParam Long userId,
             @RequestParam(required = false) Long branchId,

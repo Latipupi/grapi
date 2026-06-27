@@ -19,7 +19,7 @@ public class ProductController {
     private final com.apotek.modules.inventory.InventoryService inventoryService;
 
     @PostMapping("/bulk")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<List<Product>> bulkCreate(
             @RequestBody List<ProductImportDTO> dtos,
@@ -110,7 +110,7 @@ public class ProductController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public Product create(@RequestBody Product product) {
         if (product.getCategoryId() != null) {
             categoryRepository.findById(product.getCategoryId()).ifPresent(product::setCategory);
@@ -157,7 +157,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Product> update(@PathVariable Long id, @RequestBody Product details) {
         return productRepository.findById(id)
                 .map(product -> {
@@ -197,7 +197,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<?> delete(@PathVariable Long id) {
         return productRepository.findById(id)
                 .map(product -> {

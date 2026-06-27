@@ -20,7 +20,7 @@ public class CategoryController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public Category create(@RequestBody Category category) {
         return categoryRepository.save(category);
     }
@@ -33,7 +33,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Category> update(@PathVariable Long id, @RequestBody Category details) {
         return categoryRepository.findById(id)
                 .map(category -> {
@@ -45,7 +45,7 @@ public class CategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         return categoryRepository.findById(id)
                 .map(category -> {
