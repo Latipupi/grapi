@@ -29,6 +29,7 @@ import ShiftsReportPage from './pages/ShiftsReportPage';
 import StockOpnamePage from './pages/StockOpnamePage';
 import StockTransferPage from './pages/StockTransferPage';
 import HelpPage from './pages/HelpPage';
+import SalesReturnsPage from './pages/SalesReturnsPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -82,6 +83,11 @@ function App() {
           <Route path="pos" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'CASHIER', 'KASIR']}>
               <POSPage />
+            </RoleProtectedRoute>
+          } />
+          <Route path="sales/returns" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'CASHIER', 'KASIR', 'STAFF']}>
+              <SalesReturnsPage />
             </RoleProtectedRoute>
           } />
           <Route path="master" element={<Navigate to="products" replace />} />

@@ -253,18 +253,52 @@ const ReportsPage: React.FC = () => {
   const handleExportExcel = () => {
     if (!sortedSales || sortedSales.length === 0) return;
     
-    const headers = ['ID Transaksi', 'Tanggal', 'Cabang', 'Pelanggan', 'Kasir', 'Metode Pembayaran', 'Total Transaksi (IDR)', 'Status'];
+    const headers = [
+      'ID Transaksi', 'Tanggal', 'Cabang', 'Pelanggan', 'Kasir', 
+      'Metode Pembayaran', 'Total Transaksi (IDR)', 'Status',
+      'Nama Barang', 'SKU', 'Batch', 'Qty', 'Harga Satuan', 'Subtotal Item'
+    ];
     
-    const rows = sortedSales.map(sale => [
-      `#SAL-${sale.id}`,
-      new Date(sale.saleDate).toLocaleString('id-ID'),
-      sale.branch?.name || 'Cabang Utama',
-      sale.customer?.name || 'Umum',
-      sale.user?.fullName || 'Sistem',
-      sale.paymentMethod,
-      sale.totalAmount,
-      sale.status === 'COMPLETED' ? 'Berhasil' : 'Dibatalkan'
-    ]);
+    const rows: any[] = [];
+    sortedSales.forEach(sale => {
+      if (sale.details && sale.details.length > 0) {
+        sale.details.forEach(detail => {
+          rows.push([
+            `#SAL-${sale.id}`,
+            new Date(sale.saleDate).toLocaleString('id-ID'),
+            sale.branch?.name || 'Cabang Utama',
+            sale.customer?.name || 'Umum',
+            sale.user?.fullName || 'Sistem',
+            sale.paymentMethod,
+            sale.totalAmount,
+            sale.status === 'COMPLETED' ? 'Berhasil' : 'Dibatalkan',
+            detail.product?.name || '',
+            detail.product?.sku || '',
+            detail.batch?.batchNumber || '-',
+            detail.quantity,
+            detail.unitPrice,
+            detail.subtotal
+          ]);
+        });
+      } else {
+        rows.push([
+          `#SAL-${sale.id}`,
+          new Date(sale.saleDate).toLocaleString('id-ID'),
+          sale.branch?.name || 'Cabang Utama',
+          sale.customer?.name || 'Umum',
+          sale.user?.fullName || 'Sistem',
+          sale.paymentMethod,
+          sale.totalAmount,
+          sale.status === 'COMPLETED' ? 'Berhasil' : 'Dibatalkan',
+          '-',
+          '-',
+          '-',
+          0,
+          0,
+          0
+        ]);
+      }
+    });
     
     // Generate Microsoft Excel HTML XML Workbook content
     const excelTemplate = `

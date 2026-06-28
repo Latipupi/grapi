@@ -50,6 +50,9 @@ public class SaleDetail {
     @Column(name = "purchase_price")
     private BigDecimal purchasePrice;
 
+    @Column(name = "conversion_factor", nullable = false)
+    private Integer conversionFactor = 1;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -62,12 +65,14 @@ public class SaleDetail {
         private BigDecimal unitPrice;
         private BigDecimal subtotal;
         private BigDecimal purchasePrice;
+        private Integer conversionFactor = 1;
         public SaleDetailBuilder product(Product product) { this.product = product; return this; }
         public SaleDetailBuilder batch(InventoryBatch batch) { this.batch = batch; return this; }
         public SaleDetailBuilder quantity(BigDecimal quantity) { this.quantity = quantity; return this; }
         public SaleDetailBuilder unitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; return this; }
         public SaleDetailBuilder subtotal(BigDecimal subtotal) { this.subtotal = subtotal; return this; }
         public SaleDetailBuilder purchasePrice(BigDecimal price) { this.purchasePrice = price; return this; }
+        public SaleDetailBuilder conversionFactor(Integer conversionFactor) { this.conversionFactor = conversionFactor; return this; }
         public SaleDetail build() {
             SaleDetail detail = new SaleDetail();
             detail.setProduct(product);
@@ -76,6 +81,7 @@ public class SaleDetail {
             detail.setUnitPrice(unitPrice);
             detail.setSubtotal(subtotal);
             detail.setPurchasePrice(purchasePrice);
+            detail.setConversionFactor(conversionFactor);
             return detail;
         }
     }

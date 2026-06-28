@@ -23,6 +23,13 @@ public class SalesController {
         return saleRepository.findAll();
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Sale> getById(@PathVariable Long id) {
+        return saleRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'CASHIER', 'KASIR')")
     public ResponseEntity<?> create(@RequestBody SalesService.CreateSaleRequest request) {

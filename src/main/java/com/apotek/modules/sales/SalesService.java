@@ -106,6 +106,7 @@ public class SalesService {
                         .unitPrice(item.getUnitPrice())
                         .subtotal(qtyToTakeFromBatch.divide(conversionFactor, 4, java.math.RoundingMode.HALF_UP).multiply(item.getUnitPrice()))
                         .purchasePrice(batch.getPurchasePrice())
+                        .conversionFactor(unit.getConversionToBase())
                         .build();
                 
                 details.add(detail);

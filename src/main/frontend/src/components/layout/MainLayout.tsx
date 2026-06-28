@@ -101,7 +101,16 @@ const MainLayout: React.FC = () => {
   const menuItems = [
     { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
     { label: 'Super Admin Panel', icon: ShieldAlert, to: '/dashboard/super-admin', roles: ['ADMIN', 'OWNER'], isSuperAdmin: true },
-    { label: 'POS Kasir', icon: ShoppingCart, to: '/dashboard/pos', roles: ['ADMIN', 'OWNER', 'CASHIER', 'KASIR'] },
+    { 
+      label: 'Penjualan', 
+      icon: ShoppingCart, 
+      to: '/dashboard/pos',
+      roles: ['ADMIN', 'OWNER', 'CASHIER', 'KASIR', 'STAFF'],
+      children: [
+        { label: 'POS Kasir', to: '/dashboard/pos', roles: ['ADMIN', 'OWNER', 'CASHIER', 'KASIR'] },
+        { label: 'Retur Penjualan', to: '/dashboard/sales/returns', roles: ['ADMIN', 'OWNER', 'CASHIER', 'KASIR', 'STAFF'] },
+      ]
+    },
     { 
       label: 'Inventory', 
       icon: Package, 
@@ -161,6 +170,9 @@ const MainLayout: React.FC = () => {
   ];
 
   const getEffectiveTo = (item: any) => {
+    if (item.label === 'Penjualan' && (role === 'CASHIER' || role === 'KASIR')) {
+      return '/dashboard/pos';
+    }
     if (item.label === 'Inventory' && (role === 'CASHIER' || role === 'KASIR')) {
       return '/dashboard/inventory/opname';
     }

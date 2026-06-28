@@ -21,6 +21,7 @@ public class ShiftService {
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
     private final SaleRepository saleRepository;
+    private final SalesReturnRepository salesReturnRepository;
 
     /**
      * Mendapatkan shift yang sedang aktif (status OPEN) untuk user tertentu.
@@ -83,11 +84,15 @@ public class ShiftService {
         BigDecimal totalCashSales = saleRepository.sumCashSalesByShiftId(shift.getId());
         if (totalCashSales == null) totalCashSales = BigDecimal.ZERO;
 
+        // Hitung total retur tunai selama shift ini
+        BigDecimal totalRefunds = salesReturnRepository.sumRefundsByShiftId(shift.getId());
+        if (totalRefunds == null) totalRefunds = BigDecimal.ZERO;
+
         BigDecimal totalAllSales = saleRepository.sumAllSalesByShiftId(shift.getId());
         if (totalAllSales == null) totalAllSales = BigDecimal.ZERO;
 
-        // Ekspektasi kas = Modal Awal + Total Penjualan Tunai
-        BigDecimal expectedEndingCash = shift.getStartingCash().add(totalCashSales);
+        // Ekspektasi kas = Modal Awal + Total Penjualan Tunai - Total Refund Tunai
+        BigDecimal expectedEndingCash = shift.getStartingCash().add(totalCashSales).subtract(totalRefunds);
 
         shift.setEndTime(LocalDateTime.now());
         shift.setEndingCash(request.getEndingCash());
