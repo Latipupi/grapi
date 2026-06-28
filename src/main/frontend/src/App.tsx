@@ -30,6 +30,7 @@ import StockOpnamePage from './pages/StockOpnamePage';
 import StockTransferPage from './pages/StockTransferPage';
 import HelpPage from './pages/HelpPage';
 import SalesReturnsPage from './pages/SalesReturnsPage';
+import DosageCalculatorPage from './pages/DosageCalculatorPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -189,6 +190,11 @@ function App() {
           <Route path="help" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
               <HelpPage />
+            </RoleProtectedRoute>
+          } />
+          <Route path="dosage-calculator" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
+              <DosageCalculatorPage />
             </RoleProtectedRoute>
           } />
           <Route path="super-admin" element={

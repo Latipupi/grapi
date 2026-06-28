@@ -21,7 +21,8 @@ import {
   ShoppingBag,
   CreditCard,
   ShieldAlert,
-  HelpCircle
+  HelpCircle,
+  Calculator
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import PaywallOverlay from '../common/PaywallOverlay';
@@ -164,6 +165,12 @@ const MainLayout: React.FC = () => {
       icon: CreditCard, 
       to: '/dashboard/debts',
       roles: ['ADMIN', 'OWNER', 'STAFF']
+    },
+    { 
+      label: 'Kalkulator Dosis', 
+      icon: Calculator, 
+      to: '/dashboard/dosage-calculator',
+      roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']
     },
     { label: 'Pengaturan', icon: Settings, to: '/dashboard/settings', roles: ['ADMIN', 'OWNER'] },
     { label: 'Pusat Bantuan', icon: HelpCircle, to: '/dashboard/help', roles: ['ADMIN', 'OWNER', 'STAFF'] },
