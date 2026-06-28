@@ -61,31 +61,13 @@ public class DashboardController {
         LocalDateTime startOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
         LocalDateTime endOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MAX);
 
-        // This is a simplified implementation. 
-        // In a real app, you would use custom JPQL or Criteria API for performance.
-        
-        var sales = saleRepository.findAll().stream()
-                .filter(s -> (branchId == null || s.getBranch().getId().equals(branchId)) 
-                        && s.getSaleDate().isAfter(startOfDay) 
-                        && s.getSaleDate().isBefore(endOfDay))
-                .collect(Collectors.toList());
+        BigDecimal totalSalesToday = saleRepository.sumSalesByBranchAndDateBetween(branchId, startOfDay, endOfDay);
+        long transactionsToday = saleRepository.countSalesByBranchAndDateBetween(branchId, startOfDay, endOfDay);
 
-        BigDecimal totalSalesToday = sales.stream()
-                .map(s -> s.getTotalAmount())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDate ninetyDaysFromNow = LocalDate.now().plusDays(90);
+        long expiredCount = inventoryBatchRepository.countExpiredBatches(branchId, ninetyDaysFromNow);
 
-        long transactionsToday = sales.size();
-
-        long expiredCount = inventoryBatchRepository.findAll().stream()
-                .filter(b -> (branchId == null || b.getBranch().getId().equals(branchId))
-                        && b.getExpiryDate().isBefore(LocalDate.now().plusDays(90))
-                        && b.getCurrentQuantity().compareTo(BigDecimal.ZERO) > 0)
-                .count();
-
-        long lowStockCount = inventoryRepository.findAll().stream()
-                .filter(i -> (branchId == null || i.getBranch().getId().equals(branchId))
-                        && i.getStockQuantity().compareTo(i.getMinimumStock() != null ? i.getMinimumStock() : new BigDecimal("10")) <= 0)
-                .count();
+        long lowStockCount = inventoryRepository.countLowStockItems(branchId);
 
         return DashboardStats.builder()
                 .totalSalesToday(totalSalesToday)
@@ -99,16 +81,11 @@ public class DashboardController {
     public DashboardAlerts getAlerts(@RequestParam(required = false) Long branchId) {
         LocalDate ninetyDaysFromNow = LocalDate.now().plusDays(90);
 
-        List<com.apotek.modules.inventory.InventoryBatch> expiringBatches = inventoryBatchRepository.findAll().stream()
-                .filter(b -> (branchId == null || b.getBranch().getId().equals(branchId))
-                        && b.getExpiryDate().isBefore(ninetyDaysFromNow)
-                        && b.getCurrentQuantity().compareTo(BigDecimal.ZERO) > 0)
-                .collect(Collectors.toList());
+        List<com.apotek.modules.inventory.InventoryBatch> expiringBatches = 
+                inventoryBatchRepository.findExpiringBatches(branchId, ninetyDaysFromNow);
 
-        List<com.apotek.modules.inventory.Inventory> lowStockItems = inventoryRepository.findAll().stream()
-                .filter(i -> (branchId == null || i.getBranch().getId().equals(branchId))
-                        && i.getStockQuantity().compareTo(i.getMinimumStock() != null ? i.getMinimumStock() : new BigDecimal("10")) <= 0)
-                .collect(Collectors.toList());
+        List<com.apotek.modules.inventory.Inventory> lowStockItems = 
+                inventoryRepository.findLowStockItems(branchId);
 
         return DashboardAlerts.builder()
                 .expiringBatches(expiringBatches)

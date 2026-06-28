@@ -129,11 +129,9 @@ public class ReportController {
     @GetMapping("/sales-trend")
     public List<SalesTrendData> getSalesTrend(@RequestParam(required = false) Long branchId) {
         LocalDate last7Days = LocalDate.now().minusDays(7);
+        LocalDateTime thresholdDateTime = last7Days.plusDays(1).atStartOfDay();
         
-        List<Sale> sales = saleRepository.findAll().stream()
-                .filter(s -> (branchId == null || s.getBranch().getId().equals(branchId))
-                        && s.getSaleDate().toLocalDate().isAfter(last7Days))
-                .collect(Collectors.toList());
+        List<Sale> sales = saleRepository.findByBranchIdAndSaleDateAfter(branchId, thresholdDateTime);
 
         Map<LocalDate, BigDecimal> groupedSales = sales.stream()
                 .collect(Collectors.groupingBy(

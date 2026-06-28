@@ -64,24 +64,10 @@ const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-white font-sans text-slate-900 overflow-x-hidden">
       {/* Decorative Background Elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            x: [0, 50, 0],
-            y: [0, 30, 0]
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        <div 
           className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-50 rounded-full blur-3xl opacity-60"
         />
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.3, 1],
-            rotate: [0, -90, 0],
-            x: [0, -40, 0],
-            y: [0, 60, 0]
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+        <div 
           className="absolute top-1/2 -right-24 w-80 h-80 bg-emerald-50 rounded-full blur-3xl opacity-50"
         />
       </div>
