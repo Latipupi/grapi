@@ -228,7 +228,7 @@ const MainLayout: React.FC = () => {
               <Store className="text-white w-6 h-6" />
             </div>
             {(sidebarOpen || window.innerWidth < 1024) && (
-              <span className="text-xl font-bold text-slate-800 whitespace-nowrap">G-Apotek v2</span>
+              <span className="text-xl font-bold text-slate-800 whitespace-nowrap">G-Apotek</span>
             )}
           </div>
 

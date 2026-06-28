@@ -121,17 +121,19 @@ const LoginPage: React.FC = () => {
       </div>
 
       {/* Right Pane - Login Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center p-8 sm:p-12 lg:p-20 relative">
-        <motion.button
-          whileHover={{ x: -5 }}
-          onClick={() => navigate('/')}
-          className="absolute top-8 left-8 lg:top-12 lg:left-12 flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-medium transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Kembali ke Home
-        </motion.button>
+      <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 sm:p-12 lg:p-20 min-h-screen">
+        <div className="w-full flex justify-start mb-6 lg:mb-12">
+          <motion.button
+            whileHover={{ x: -5 }}
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-medium transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Kembali ke Home
+          </motion.button>
+        </div>
 
-        <div className="max-w-md w-full mx-auto space-y-10">
+        <div className="max-w-md w-full mx-auto space-y-10 my-auto py-4">
           <div className="space-y-2 text-center lg:text-left">
             <motion.h1 
               initial={{ opacity: 0, y: -20 }}

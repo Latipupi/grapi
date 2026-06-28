@@ -269,7 +269,7 @@ const StockOpnamePage: React.FC = () => {
         <body>
           <div class="header">
             <h1>LEMBAR STOCK OPNAME FISIK</h1>
-            <p>Sesi Rekonsiliasi Inventori G-Apotek v2</p>
+            <p>Sesi Rekonsiliasi Inventori G-Apotek</p>
           </div>
           <div class="meta-grid">
             <div>

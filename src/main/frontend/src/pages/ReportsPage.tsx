@@ -388,7 +388,7 @@ const ReportsPage: React.FC = () => {
         <body>
           <div class="header">
             <h1>LAPORAN PENJUALAN</h1>
-            <p>Sistem Informasi Manajemen Apotek - G-Apotek v2</p>
+            <p>Sistem Informasi Manajemen Apotek - G-Apotek</p>
           </div>
           <div class="meta">
             <div>

@@ -153,17 +153,19 @@ const RegisterPage: React.FC = () => {
       </div>
 
       {/* Right Pane - Registration Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center p-6 sm:p-12 overflow-y-auto relative">
-        <motion.button
-          whileHover={{ x: -5 }}
-          onClick={() => navigate('/login')}
-          className="absolute top-6 left-6 flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-medium transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Kembali ke Login
-        </motion.button>
+      <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-12 min-h-screen overflow-y-auto">
+        <div className="w-full flex justify-start mb-6">
+          <motion.button
+            whileHover={{ x: -5 }}
+            onClick={() => navigate('/login')}
+            className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-medium transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Kembali ke Login
+          </motion.button>
+        </div>
 
-        <div className="max-w-xl w-full mx-auto space-y-8 pt-12 pb-6">
+        <div className="max-w-xl w-full mx-auto space-y-8 my-auto py-4">
           <div className="space-y-2 text-center lg:text-left">
             <motion.h1 
               initial={{ opacity: 0, y: -20 }}
