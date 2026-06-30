@@ -27,6 +27,8 @@ interface Product {
   id: number;
   name: string;
   sku: string;
+  active?: boolean;
+  branch?: Branch;
 }
 
 interface InventoryItem {
@@ -150,6 +152,8 @@ const StockTransferPage: React.FC = () => {
 
   // Filter products by search query
   const filteredProducts = sourceInventory?.filter((inv) => {
+    if (inv.product?.active === false) return false;
+    if (inv.stockQuantity <= 0) return false;
     const search = productSearch.toLowerCase();
     return (
       inv.product.name.toLowerCase().includes(search) ||
@@ -400,7 +404,12 @@ const StockTransferPage: React.FC = () => {
                                 setIsProductListOpen(false);
                               }}
                             >
-                              <span>{inv.product.name}</span>
+                              <div className="flex flex-col">
+                                <span>{inv.product.name}</span>
+                                <span className="text-[10px] text-slate-400 font-normal">
+                                  SKU: {inv.product.sku} {inv.product.branch ? `(${inv.product.branch.name})` : '(Global)'}
+                                </span>
+                              </div>
                               <span className="font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 shrink-0">Stok: {inv.stockQuantity}</span>
                             </button>
                           ))
