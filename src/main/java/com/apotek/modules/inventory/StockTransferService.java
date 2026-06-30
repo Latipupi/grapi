@@ -89,10 +89,13 @@ public class StockTransferService {
                     purchasePrice
             );
 
-            // B. Add to destination branch (TRANSFER_IN)
+            // Find matching product in destination branch to prevent duplicate/isolated inventory entries
+            Product destProduct = findMatchingProductInBranch(product, request.getDestinationBranchId(), product.getTenantId());
+
+            // B. Add to destination branch (TRANSFER_IN) using destination product ID
             inventoryService.recordMovement(
                     request.getDestinationBranchId(),
-                    itemRequest.getProductId(),
+                    destProduct.getId(),
                     "IN",
                     itemRequest.getQuantity(),
                     itemRequest.getBatchNumber(),
@@ -116,6 +119,37 @@ public class StockTransferService {
 
         // 4. Save final state
         return stockTransferRepository.save(transfer);
+    }
+
+    private Product findMatchingProductInBranch(Product sourceProduct, Long destinationBranchId, String tenantId) {
+        // 1. Try to find by SKU in the destination branch
+        if (sourceProduct.getSku() != null && !sourceProduct.getSku().trim().isEmpty()) {
+            List<Product> matchBySku = productRepository.findByTenantIdAndSkuAndBranch_Id(tenantId, sourceProduct.getSku().trim(), destinationBranchId);
+            if (!matchBySku.isEmpty()) {
+                return matchBySku.get(0);
+            }
+            // Also check if there is a global product with this SKU
+            List<Product> matchGlobalBySku = productRepository.findByTenantIdAndSkuAndBranchIsNull(tenantId, sourceProduct.getSku().trim());
+            if (!matchGlobalBySku.isEmpty()) {
+                return matchGlobalBySku.get(0);
+            }
+        }
+
+        // 2. Try to find by Name (case-insensitive) in the destination branch
+        String normalizedName = sourceProduct.getName().trim();
+        List<Product> matchByName = productRepository.findByTenantIdAndNameIgnoreCaseAndBranchId(tenantId, normalizedName, destinationBranchId);
+        if (!matchByName.isEmpty()) {
+            return matchByName.get(0);
+        }
+        
+        // Also check if there is a global product with this name
+        List<Product> matchGlobalByName = productRepository.findByTenantIdAndNameIgnoreCaseAndBranchIdIsNull(tenantId, normalizedName);
+        if (!matchGlobalByName.isEmpty()) {
+            return matchGlobalByName.get(0);
+        }
+
+        // 3. Fallback: if no match is found, use the source product itself
+        return sourceProduct;
     }
 
     @Data
