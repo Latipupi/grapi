@@ -155,6 +155,8 @@ const MainLayout: React.FC = () => {
       roles: ['ADMIN', 'OWNER', 'STAFF'],
       children: [
         { label: 'Ringkasan Laporan', to: '/dashboard/reports', roles: ['ADMIN', 'OWNER', 'STAFF'] },
+        { label: 'Laporan Modal', to: '/dashboard/reports/capital', roles: ['ADMIN', 'OWNER'] },
+        { label: 'Stock Digital', to: '/dashboard/reports/digital-stock', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Shift Kasir', to: '/dashboard/reports/shifts', roles: ['ADMIN', 'OWNER'] },
         { label: 'Biaya Operasional', to: '/dashboard/finance/expenses', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Laba Rugi', to: '/dashboard/reports/profit-loss', roles: ['ADMIN', 'OWNER'] },

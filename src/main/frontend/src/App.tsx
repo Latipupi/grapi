@@ -31,6 +31,8 @@ import StockTransferPage from './pages/StockTransferPage';
 import HelpPage from './pages/HelpPage';
 import SalesReturnsPage from './pages/SalesReturnsPage';
 import DosageCalculatorPage from './pages/DosageCalculatorPage';
+import CapitalReportPage from './pages/CapitalReportPage';
+import DigitalStockPage from './pages/DigitalStockPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -170,6 +172,16 @@ function App() {
           <Route path="reports/profit-loss" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER']}>
               <ProfitLossPage />
+            </RoleProtectedRoute>
+          } />
+          <Route path="reports/capital" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER']}>
+              <CapitalReportPage />
+            </RoleProtectedRoute>
+          } />
+          <Route path="reports/digital-stock" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+              <DigitalStockPage />
             </RoleProtectedRoute>
           } />
           <Route path="finance/expenses" element={
