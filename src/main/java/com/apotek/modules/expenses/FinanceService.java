@@ -3,6 +3,8 @@ package com.apotek.modules.expenses;
 import com.apotek.modules.purchasing.PurchaseRepository;
 import com.apotek.modules.sales.Sale;
 import com.apotek.modules.sales.SaleRepository;
+import com.apotek.modules.sales.SalesReturn;
+import com.apotek.modules.sales.SalesReturnRepository;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class FinanceService {
     private final SaleRepository saleRepository;
     private final ExpenseRepository expenseRepository;
     private final PurchaseRepository purchaseRepository;
+    private final SalesReturnRepository salesReturnRepository;
 
     public ProfitLossReport getProfitLossReport(Long branchId, LocalDate startDate, LocalDate endDate) {
         LocalDateTime start = LocalDateTime.of(startDate, LocalTime.MIN);
@@ -35,9 +38,20 @@ public class FinanceService {
                         && "COMPLETED".equalsIgnoreCase(s.getStatus()))
                 .collect(Collectors.toList());
 
+        List<SalesReturn> returns = salesReturnRepository.findAll().stream()
+                .filter(r -> r.getBranch().getId().equals(branchId)
+                        && r.getReturnDate().isAfter(start)
+                        && r.getReturnDate().isBefore(end))
+                .collect(Collectors.toList());
+
+        BigDecimal totalRefunds = returns.stream()
+                .map(SalesReturn::getTotalRefundAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         BigDecimal totalRevenue = sales.stream()
                 .map(Sale::getTotalAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .subtract(totalRefunds);
 
         // HPP / COGS (Cost of Goods Sold)
         // For simplicity, we calculate COGS from the purchase price of sold items
@@ -45,6 +59,13 @@ public class FinanceService {
                 .flatMap(s -> s.getDetails().stream())
                 .map(d -> d.getPurchasePrice().multiply(d.getQuantity()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal returnCogs = returns.stream()
+                .flatMap(r -> r.getDetails().stream())
+                .map(rd -> rd.getSaleDetail().getPurchasePrice().multiply(rd.getQuantity()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        cogs = cogs.subtract(returnCogs);
 
         BigDecimal grossProfit = totalRevenue.subtract(cogs);
 

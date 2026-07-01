@@ -91,13 +91,16 @@ public class ShiftService {
         BigDecimal totalAllSales = saleRepository.sumAllSalesByShiftId(shift.getId());
         if (totalAllSales == null) totalAllSales = BigDecimal.ZERO;
 
+        BigDecimal totalAllRefunds = salesReturnRepository.sumAllRefundsByShiftId(shift.getId());
+        if (totalAllRefunds == null) totalAllRefunds = BigDecimal.ZERO;
+
         // Ekspektasi kas = Modal Awal + Total Penjualan Tunai - Total Refund Tunai
         BigDecimal expectedEndingCash = shift.getStartingCash().add(totalCashSales).subtract(totalRefunds);
 
         shift.setEndTime(LocalDateTime.now());
         shift.setEndingCash(request.getEndingCash());
         shift.setExpectedEndingCash(expectedEndingCash);
-        shift.setTotalSales(totalAllSales);
+        shift.setTotalSales(totalAllSales.subtract(totalAllRefunds));
         shift.setStatus("CLOSED");
 
         return shiftRepository.save(shift);

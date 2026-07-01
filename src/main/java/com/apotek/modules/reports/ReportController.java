@@ -4,6 +4,10 @@ import com.apotek.modules.sales.Sale;
 import com.apotek.modules.sales.SaleDetail;
 import com.apotek.modules.sales.SaleDetailRepository;
 import com.apotek.modules.sales.SaleRepository;
+import com.apotek.modules.sales.SalesReturn;
+import com.apotek.modules.sales.SalesReturnRepository;
+import com.apotek.modules.sales.SalesReturnDetail;
+import com.apotek.modules.sales.SalesReturnDetailRepository;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +34,8 @@ public class ReportController {
     private final SaleRepository saleRepository;
     private final SaleDetailRepository saleDetailRepository;
     private final BranchRepository branchRepository;
+    private final SalesReturnRepository salesReturnRepository;
+    private final SalesReturnDetailRepository salesReturnDetailRepository;
 
     @Data
     @Builder
@@ -55,6 +61,8 @@ public class ReportController {
 
         for (Branch branch : branches) {
             List<SaleDetail> details = saleDetailRepository.findBySaleBranchIdAndCreatedAtBetween(branch.getId(), start, end);
+            List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branch.getId(), start, end);
+            
             BigDecimal totalSales = BigDecimal.ZERO;
             BigDecimal totalCost = BigDecimal.ZERO;
 
@@ -63,6 +71,18 @@ public class ReportController {
                 BigDecimal cost = detail.getPurchasePrice().multiply(detail.getQuantity());
                 totalCost = totalCost.add(cost);
             }
+
+            BigDecimal totalRefunds = BigDecimal.ZERO;
+            BigDecimal totalReturnCost = BigDecimal.ZERO;
+
+            for (SalesReturnDetail rd : returnDetails) {
+                totalRefunds = totalRefunds.add(rd.getRefundAmount());
+                BigDecimal cost = rd.getSaleDetail().getPurchasePrice().multiply(rd.getQuantity());
+                totalReturnCost = totalReturnCost.add(cost);
+            }
+
+            totalSales = totalSales.subtract(totalRefunds);
+            totalCost = totalCost.subtract(totalReturnCost);
 
             BigDecimal grossProfit = totalSales.subtract(totalCost);
             comparison.add(BranchComparisonData.builder()
@@ -93,6 +113,8 @@ public class ReportController {
             details = saleDetailRepository.findByCreatedAtBetween(start, end);
         }
 
+        List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branchId, start, end);
+
         BigDecimal totalSales = BigDecimal.ZERO;
         BigDecimal totalCost = BigDecimal.ZERO;
 
@@ -101,6 +123,18 @@ public class ReportController {
             BigDecimal cost = detail.getPurchasePrice().multiply(detail.getQuantity());
             totalCost = totalCost.add(cost);
         }
+
+        BigDecimal totalRefunds = BigDecimal.ZERO;
+        BigDecimal totalReturnCost = BigDecimal.ZERO;
+
+        for (SalesReturnDetail rd : returnDetails) {
+            totalRefunds = totalRefunds.add(rd.getRefundAmount());
+            BigDecimal cost = rd.getSaleDetail().getPurchasePrice().multiply(rd.getQuantity());
+            totalReturnCost = totalReturnCost.add(cost);
+        }
+
+        totalSales = totalSales.subtract(totalRefunds);
+        totalCost = totalCost.subtract(totalReturnCost);
 
         BigDecimal grossProfit = totalSales.subtract(totalCost);
         BigDecimal margin = totalSales.compareTo(BigDecimal.ZERO) > 0 
@@ -132,6 +166,7 @@ public class ReportController {
         LocalDateTime thresholdDateTime = last7Days.plusDays(1).atStartOfDay();
         
         List<Sale> sales = saleRepository.findByBranchIdAndSaleDateAfter(branchId, thresholdDateTime);
+        List<SalesReturn> returns = salesReturnRepository.findByBranchIdAndReturnDateAfter(branchId, thresholdDateTime);
 
         Map<LocalDate, BigDecimal> groupedSales = sales.stream()
                 .collect(Collectors.groupingBy(
@@ -139,12 +174,20 @@ public class ReportController {
                         Collectors.mapping(Sale::getTotalAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
                 ));
 
+        Map<LocalDate, BigDecimal> groupedRefunds = returns.stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.getReturnDate().toLocalDate(),
+                        Collectors.mapping(SalesReturn::getTotalRefundAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
+                ));
+
         List<SalesTrendData> trend = new ArrayList<>();
         for (int i = 6; i >= 0; i--) {
             LocalDate date = LocalDate.now().minusDays(i);
+            BigDecimal grossSale = groupedSales.getOrDefault(date, BigDecimal.ZERO);
+            BigDecimal refund = groupedRefunds.getOrDefault(date, BigDecimal.ZERO);
             trend.add(new SalesTrendData(
                     date.toString(),
-                    groupedSales.getOrDefault(date, BigDecimal.ZERO)
+                    grossSale.subtract(refund)
             ));
         }
 

@@ -3,6 +3,7 @@ package com.apotek.modules.reports;
 import com.apotek.modules.inventory.InventoryBatchRepository;
 import com.apotek.modules.inventory.InventoryRepository;
 import com.apotek.modules.sales.SaleRepository;
+import com.apotek.modules.sales.SalesReturnRepository;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class DashboardController {
     private final InventoryRepository inventoryRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
     private final com.apotek.modules.inventory.StockMovementRepository stockMovementRepository;
+    private final SalesReturnRepository salesReturnRepository;
 
     @GetMapping("/recent-activities")
     public List<ActivityData> getRecentActivities(@RequestParam(required = false) Long branchId) {
@@ -62,6 +64,13 @@ public class DashboardController {
         LocalDateTime endOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MAX);
 
         BigDecimal totalSalesToday = saleRepository.sumSalesByBranchAndDateBetween(branchId, startOfDay, endOfDay);
+        if (totalSalesToday == null) totalSalesToday = BigDecimal.ZERO;
+
+        BigDecimal totalRefundsToday = salesReturnRepository.sumRefundsByBranchAndDateBetween(branchId, startOfDay, endOfDay);
+        if (totalRefundsToday == null) totalRefundsToday = BigDecimal.ZERO;
+
+        totalSalesToday = totalSalesToday.subtract(totalRefundsToday);
+
         long transactionsToday = saleRepository.countSalesByBranchAndDateBetween(branchId, startOfDay, endOfDay);
 
         LocalDate ninetyDaysFromNow = LocalDate.now().plusDays(90);
