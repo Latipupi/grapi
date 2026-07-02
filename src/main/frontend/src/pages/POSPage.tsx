@@ -98,6 +98,8 @@ const POSPage: React.FC = () => {
   }, []);
 
   const [isPaymentExpanded, setIsPaymentExpanded] = useState<boolean>(false);
+  const [isCustomerOpen, setIsCustomerOpen] = useState<boolean>(false);
+  const [customerSearch, setCustomerSearch] = useState<string>('');
 
   const [selectedBranchId, setSelectedBranchId] = useState<string>(branchId?.toString() || '');
   const [successOrder, setSuccessOrder] = useState<any>(null);
@@ -176,6 +178,19 @@ const POSPage: React.FC = () => {
     queryKey: ['customers'],
     queryFn: () => api.get('/customers').then(res => res.data)
   });
+
+  const sortedAndFilteredCustomers = React.useMemo(() => {
+    if (!customers) return [];
+    const sorted = [...customers].sort((a: any, b: any) => 
+      (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' })
+    );
+    if (!customerSearch.trim()) return sorted;
+    const searchLower = customerSearch.toLowerCase();
+    return sorted.filter((c: any) => 
+      c.name?.toLowerCase().includes(searchLower) || 
+      c.phone?.toLowerCase().includes(searchLower)
+    );
+  }, [customers, customerSearch]);
 
   const saleMutation = useMutation({
     mutationFn: (payload: any) => api.post('/sales', payload),
@@ -706,21 +721,102 @@ const POSPage: React.FC = () => {
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="overflow-hidden space-y-4"
+                  className="space-y-4"
+                  style={{ overflow: isPaymentExpanded ? 'visible' : 'hidden' }}
                 >
                   <div className="space-y-3 pt-2">
-                     <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-white/40" />
-                        <select 
-                          className="flex-1 bg-transparent border-none text-sm focus:ring-0 cursor-pointer"
-                          value={customerId || ''}
-                          onChange={(e) => dispatch(setCustomer(e.target.value ? parseInt(e.target.value) : null))}
-                        >
-                          <option value="" className="text-slate-900">Umum / Walk-in Customer</option>
-                          {customers?.map((c: any) => (
-                            <option key={c.id} value={c.id} className="text-slate-900">{c.name}</option>
-                          ))}
-                        </select>
+                     <div className="flex items-center gap-2 w-full relative">
+                        <User className="w-4 h-4 text-white/40 flex-shrink-0" />
+                        
+                        <div className="flex-1 relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomerOpen(!isCustomerOpen)}
+                            className="w-full flex items-center justify-between bg-transparent border-none text-sm text-white focus:outline-none cursor-pointer py-1.5 px-0"
+                          >
+                            <span className="truncate text-left flex-1">
+                              {customers?.find((c: any) => c.id === customerId)?.name || 'Umum / Walk-in Customer'}
+                            </span>
+                            <ChevronDown className="w-4 h-4 text-white/40 flex-shrink-0 ml-1" />
+                          </button>
+
+                          {isCustomerOpen && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-40 bg-transparent" 
+                                onClick={() => {
+                                  setIsCustomerOpen(false);
+                                  setCustomerSearch('');
+                                }} 
+                              />
+                              <div className="absolute left-0 right-0 bottom-full mb-2 z-50 bg-slate-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-64 flex flex-col min-w-[240px]">
+                                {/* Search input inside dropdown */}
+                                <div className="p-2 border-b border-white/10 flex items-center gap-2 bg-slate-950">
+                                  <Search className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
+                                  <input
+                                    type="text"
+                                    placeholder="Cari nama customer..."
+                                    className="w-full bg-transparent border-none p-1 text-xs text-white placeholder-white/30 focus:outline-none focus:ring-0"
+                                    value={customerSearch}
+                                    onChange={(e) => setCustomerSearch(e.target.value)}
+                                    autoFocus
+                                  />
+                                </div>
+                                
+                                {/* Dropdown Options List */}
+                                <div className="overflow-y-auto divide-y divide-white/5 max-h-48 scrollbar-thin">
+                                  {(!customerSearch.trim() || 
+                                    'umum'.includes(customerSearch.toLowerCase()) || 
+                                    'walk-in'.includes(customerSearch.toLowerCase()) ||
+                                    'customer'.includes(customerSearch.toLowerCase())) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        dispatch(setCustomer(null));
+                                        setIsCustomerOpen(false);
+                                        setCustomerSearch('');
+                                      }}
+                                      className={cn(
+                                        "w-full text-left px-3 py-2.5 text-xs transition-colors hover:bg-white/5 text-white",
+                                        !customerId && "bg-emerald-500/20 text-emerald-400 font-bold"
+                                      )}
+                                    >
+                                      Umum / Walk-in Customer
+                                    </button>
+                                  )}
+                                  
+                                  {sortedAndFilteredCustomers.map((c: any) => (
+                                    <button
+                                      key={c.id}
+                                      type="button"
+                                      onClick={() => {
+                                        dispatch(setCustomer(c.id));
+                                        setIsCustomerOpen(false);
+                                        setCustomerSearch('');
+                                      }}
+                                      className={cn(
+                                        "w-full text-left px-3 py-2.5 text-xs transition-colors hover:bg-white/5 text-white",
+                                        customerId === c.id && "bg-emerald-500/20 text-emerald-400 font-bold"
+                                      )}
+                                    >
+                                      {c.name}
+                                    </button>
+                                  ))}
+                                  
+                                  {sortedAndFilteredCustomers.length === 0 && 
+                                   !(!customerSearch.trim() || 
+                                     'umum'.includes(customerSearch.toLowerCase()) || 
+                                     'walk-in'.includes(customerSearch.toLowerCase()) ||
+                                     'customer'.includes(customerSearch.toLowerCase())) && (
+                                    <div className="px-3 py-3 text-center text-xs text-white/30">
+                                      Customer tidak ditemukan
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
                      </div>
                      <div className="flex items-center gap-2">
                         <CreditCard className="w-4 h-4 text-white/40" />
