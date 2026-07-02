@@ -148,6 +148,66 @@ const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({ products, val
   );
 };
 
+const LastPurchasePriceComparison: React.FC<{ 
+  branchId: string; 
+  productId: string; 
+  currentPrice: number; 
+}> = ({ branchId, productId, currentPrice }) => {
+  const [lastPrice, setLastPrice] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!branchId || !productId) {
+      setLastPrice(null);
+      return;
+    }
+
+    setIsLoading(true);
+    api.get(`/inventory/branch/${branchId}/product/${productId}/movements`)
+      .then(res => {
+        const movements = res.data || [];
+        const purchaseMovement = movements.find((m: any) => 
+          (m.type === 'IN' || m.type === 'ADJUSTMENT') && 
+          m.purchasePrice > 0
+        );
+        if (purchaseMovement) {
+          setLastPrice(purchaseMovement.purchasePrice);
+        } else {
+          setLastPrice(null);
+        }
+      })
+      .catch(() => setLastPrice(null))
+      .finally(() => setIsLoading(false));
+  }, [branchId, productId]);
+
+  if (!branchId || !productId) return null;
+  if (isLoading) return <div className="text-[10px] text-slate-400">Memuat harga sebelumnya...</div>;
+  if (lastPrice === null) return <div className="text-[10px] text-slate-400">Belum ada pembelian sebelumnya</div>;
+
+  const diff = currentPrice - lastPrice;
+  const pct = lastPrice > 0 ? (diff / lastPrice) * 100 : 0;
+
+  return (
+    <div className="flex flex-col gap-0.5 mt-1">
+      <div className="text-[10px] text-slate-500">
+        Harga sebelumnya: <span className="font-mono text-slate-700 font-bold">Rp {lastPrice.toLocaleString()}</span>
+      </div>
+      {currentPrice > 0 && diff !== 0 && (
+        <div className={`text-[10px] font-extrabold flex items-center gap-0.5 ${diff > 0 ? "text-red-500" : "text-emerald-500"}`}>
+          {diff > 0 ? (
+            <>📈 Naik Rp {diff.toLocaleString()} (+{pct.toFixed(1)}%)</>
+          ) : (
+            <>📉 Turun Rp {Math.abs(diff).toLocaleString()} ({pct.toFixed(1)}%)</>
+          )}
+        </div>
+      )}
+      {currentPrice > 0 && diff === 0 && (
+        <div className="text-[10px] text-slate-400 font-bold">Stabil</div>
+      )}
+    </div>
+  );
+};
+
 const NewPurchasePage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -352,6 +412,11 @@ const NewPurchasePage: React.FC = () => {
                         type="number" 
                         className="h-9 font-mono"
                         {...register(`details.${index}.unitPrice` as const, { valueAsNumber: true })} 
+                      />
+                      <LastPurchasePriceComparison 
+                        branchId={selectedBranchId}
+                        productId={detailsValues[index]?.productId}
+                        currentPrice={detailsValues[index]?.unitPrice || 0}
                       />
                     </div>
 
