@@ -465,22 +465,35 @@ const ReportsPage: React.FC = () => {
         <head>
           <title>Struk Belanja - #SAL-${sale.id}</title>
           <style>
-            body { font-family: 'Courier New', Courier, monospace; width: 300px; margin: 0 auto; padding: 20px; font-size: 12px; line-height: 1.4; color: #000; }
+            @page { margin: 0; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              width: 48mm; 
+              margin: 0; 
+              padding: 1mm 2mm; 
+              font-size: 10px; 
+              line-height: 1.3; 
+              color: #000; 
+              background-color: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
             .bold { font-weight: bold; }
-            .header { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .header h2 { margin: 0; font-size: 16px; }
-            .header p { margin: 3px 0 0; font-size: 10px; }
-            .meta { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; font-size: 10px; }
-            .meta p { margin: 3px 0; }
-            .items { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .item-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-            .item-name { width: 60%; }
-            .item-sub { display: flex; justify-content: space-between; font-size: 9px; margin-top: -3px; color: #555; }
-            .totals { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .total-row { display: flex; justify-content: space-between; margin: 3px 0; }
-            .footer { font-size: 10px; margin-top: 15px; }
+            .header { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+            .header h2 { margin: 0; font-size: 14px; text-transform: uppercase; }
+            .header p { margin: 2px 0 0; font-size: 9px; }
+            .meta { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; font-size: 9px; }
+            .meta p { margin: 2px 0; }
+            .items { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+            .item-row { margin-bottom: 2px; }
+            .item-name { font-weight: bold; font-size: 10px; text-transform: uppercase; }
+            .item-details { display: flex; justify-content: space-between; font-size: 9px; padding-left: 4px; }
+            .item-batch { font-size: 8px; color: #333; padding-left: 4px; margin-bottom: 4px; }
+            .totals { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+            .total-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 10px; }
+            .footer { font-size: 9px; margin-top: 10px; line-height: 1.2; }
           </style>
         </head>
         <body>
@@ -500,11 +513,13 @@ const ReportsPage: React.FC = () => {
           <div class="items">
             ${sale.details ? sale.details.map(detail => `
               <div class="item-row">
-                <span class="item-name">${detail.product?.name}</span>
+                <div class="item-name">${detail.product?.name}</div>
+              </div>
+              <div class="item-details">
+                <span>${detail.quantity ? Number(detail.quantity) : 0} x Rp ${detail.unitPrice.toLocaleString()}</span>
                 <span class="bold">Rp ${detail.subtotal.toLocaleString()}</span>
               </div>
-              <div class="item-sub">
-                <span>${detail.quantity} x Rp ${detail.unitPrice.toLocaleString()}</span>
+              <div class="item-batch">
                 <span>Batch: ${detail.batch?.batchNumber || '-'}</span>
               </div>
             `).join('') : '<p class="text-center">Tidak ada item</p>'}

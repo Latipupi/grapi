@@ -609,10 +609,63 @@ const DebtsPage: React.FC = () => {
                   variant="outline" 
                   className="flex-1 h-12" 
                   onClick={() => {
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) return;
                     const printContent = document.querySelector('.font-mono')?.innerHTML;
-                    document.body.innerHTML = `<div style="font-family: monospace; padding: 20px; font-size: 14px;">${printContent}</div>`;
-                    window.print();
-                    window.location.reload();
+                    
+                    const htmlContent = `
+                      <html>
+                        <head>
+                          <title>Kwitansi Pembayaran - #RCP-${printPayment.id}</title>
+                          <style>
+                            @page { margin: 0; }
+                            body { 
+                              font-family: 'Courier New', Courier, monospace; 
+                              width: 48mm; 
+                              margin: 0; 
+                              padding: 1mm 2mm; 
+                              font-size: 10px; 
+                              line-height: 1.3; 
+                              color: #000; 
+                              background-color: #fff;
+                              -webkit-print-color-adjust: exact;
+                              print-color-adjust: exact;
+                            }
+                            .text-center { text-align: center; }
+                            .text-right { text-align: right; }
+                            .bold { font-weight: bold; }
+                            .flex { display: flex; }
+                            .justify-between { display: flex; justify-content: space-between; }
+                            .space-y-1 > * + * { margin-top: 4px; }
+                            .space-y-2 > * + * { margin-top: 8px; }
+                            .space-y-4 > * + * { margin-top: 16px; }
+                            .border-b { border-bottom: 1px dashed #000; }
+                            .my-2 { margin-top: 8px; margin-bottom: 8px; }
+                            .text-sm { font-size: 11px; }
+                            .text-[10px] { font-size: 8px; }
+                            .font-bold { font-weight: bold; }
+                            .text-slate-500 { color: #555; }
+                            .text-rose-500 { color: #000; font-weight: bold; }
+                            .font-extrabold { font-weight: 800; }
+                            .text-base { font-size: 12px; }
+                            .uppercase { text-transform: uppercase; }
+                          </style>
+                        </head>
+                        <body>
+                          <div style="width: 100%;">
+                            ${printContent}
+                          </div>
+                          <script>
+                            window.onload = function() {
+                              window.print();
+                              setTimeout(function() { window.close(); }, 500);
+                            };
+                          </script>
+                        </body>
+                      </html>
+                    `;
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
                   }}
                 >
                   <Printer className="w-4 h-4 mr-2" />

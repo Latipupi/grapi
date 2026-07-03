@@ -74,18 +74,31 @@ const ShiftsReportPage: React.FC = () => {
         <head>
           <title>Struk Ringkasan Shift - #SHF-${s.id}</title>
           <style>
-            body { font-family: 'Courier New', Courier, monospace; width: 300px; margin: 0 auto; padding: 20px; font-size: 12px; line-height: 1.4; color: #000; }
+            @page { margin: 0; }
+            body { 
+              font-family: 'Courier New', Courier, monospace; 
+              width: 48mm; 
+              margin: 0; 
+              padding: 1mm 2mm; 
+              font-size: 10px; 
+              line-height: 1.3; 
+              color: #000; 
+              background-color: #fff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
             .bold { font-weight: bold; }
-            .header { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .header h2 { margin: 0; font-size: 16px; }
-            .header p { margin: 3px 0 0; font-size: 10px; }
-            .meta { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; font-size: 10px; }
-            .meta p { margin: 3px 0; }
-            .details { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-            .footer { font-size: 10px; margin-top: 15px; }
+            .header { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+            .header h2 { margin: 0; font-size: 14px; text-transform: uppercase; }
+            .header p { margin: 2px 0 0; font-size: 9px; }
+            .meta { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; font-size: 9px; }
+            .meta p { margin: 2px 0; }
+            .details { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px; }
+            .sub-row { display: flex; justify-content: space-between; margin-bottom: 3px; padding-left: 6px; font-size: 9px; color: #333; }
+            .footer { font-size: 9px; margin-top: 10px; line-height: 1.2; }
           </style>
         </head>
         <body>
@@ -106,13 +119,13 @@ const ShiftsReportPage: React.FC = () => {
             </div>
             <div class="row">
               <span>Total Penjualan</span>
-              <span class="bold">Rp ${s.totalSales?.toLocaleString() || 0}</span>
+              <span class="bold">Rp ${(s.totalSales || 0).toLocaleString()}</span>
             </div>
-            <div class="row" style="padding-left: 10px; font-size: 11px; color: #555;">
+            <div class="sub-row">
               <span>* Tunai (Cash)</span>
               <span>Rp ${(s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0).toLocaleString()}</span>
             </div>
-            <div class="row" style="padding-left: 10px; font-size: 11px; color: #555;">
+            <div class="sub-row">
               <span>* Non-Tunai</span>
               <span>Rp ${(s.totalSales ? (s.totalSales - (s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0)) : 0).toLocaleString()}</span>
             </div>

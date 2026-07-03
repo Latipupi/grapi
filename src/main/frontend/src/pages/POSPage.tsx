@@ -279,9 +279,9 @@ const POSPage: React.FC = () => {
             @page { margin: 0; }
             body { 
               font-family: 'Courier New', Courier, monospace; 
-              width: 58mm; 
+              width: 48mm; 
               margin: 0; 
-              padding: 2mm 3mm; 
+              padding: 1mm 2mm; 
               font-size: 10px; 
               line-height: 1.3; 
               color: #000; 
@@ -298,11 +298,12 @@ const POSPage: React.FC = () => {
             .meta { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; font-size: 9px; }
             .meta p { margin: 2px 0; }
             .items { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-            .item-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
-            .item-name { width: 65%; font-weight: bold; }
-            .item-sub { display: flex; justify-content: space-between; font-size: 9px; margin-top: -1px; color: #000; }
+            .item-row { margin-bottom: 2px; }
+            .item-name { font-weight: bold; font-size: 10px; text-transform: uppercase; }
+            .item-details { display: flex; justify-content: space-between; font-size: 9px; padding-left: 4px; }
+            .item-batch { font-size: 8px; color: #333; padding-left: 4px; margin-bottom: 4px; }
             .totals { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-            .total-row { display: flex; justify-content: space-between; margin: 2px 0; }
+            .total-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 10px; }
             .footer { font-size: 9px; margin-top: 10px; line-height: 1.2; }
           </style>
         </head>
@@ -323,11 +324,13 @@ const POSPage: React.FC = () => {
           <div class="items">
             ${sale.details ? sale.details.map((detail: any) => `
               <div class="item-row">
-                <span class="item-name">${detail.product?.name}</span>
+                <div class="item-name">${detail.product?.name}</div>
+              </div>
+              <div class="item-details">
+                <span>${detail.quantity ? Number(detail.quantity) : 0} x Rp ${detail.unitPrice.toLocaleString()}</span>
                 <span class="bold">Rp ${detail.subtotal.toLocaleString()}</span>
               </div>
-              <div class="item-sub">
-                <span>${detail.quantity} x Rp ${detail.unitPrice.toLocaleString()}</span>
+              <div class="item-batch">
                 <span>Batch: ${detail.batch?.batchNumber || '-'}</span>
               </div>
             `).join('') : '<p class="text-center">Tidak ada item</p>'}
@@ -1323,9 +1326,9 @@ const POSPage: React.FC = () => {
                             @page { margin: 0; }
                             body { 
                               font-family: 'Courier New', Courier, monospace; 
-                              width: 58mm; 
+                              width: 48mm; 
                               margin: 0; 
-                              padding: 2mm 3mm; 
+                              padding: 1mm 2mm; 
                               font-size: 10px; 
                               line-height: 1.3; 
                               color: #000; 
@@ -1342,7 +1345,8 @@ const POSPage: React.FC = () => {
                             .meta { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; font-size: 9px; }
                             .meta p { margin: 2px 0; }
                             .details { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-                            .row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+                            .row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px; }
+                            .sub-row { display: flex; justify-content: space-between; margin-bottom: 3px; padding-left: 6px; font-size: 9px; color: #333; }
                             .footer { font-size: 9px; margin-top: 10px; line-height: 1.2; }
                           </style>
                         </head>
@@ -1366,11 +1370,11 @@ const POSPage: React.FC = () => {
                               <span>Total Penjualan</span>
                               <span class="bold">Rp ${closedShiftSummary.totalSales?.toLocaleString()}</span>
                             </div>
-                            <div class="row" style="padding-left: 10px; font-size: 10px; color: #000;">
+                            <div class="sub-row">
                               <span>* Tunai (Cash)</span>
                               <span>Rp ${(closedShiftSummary.expectedEndingCash - closedShiftSummary.startingCash).toLocaleString()}</span>
                             </div>
-                            <div class="row" style="padding-left: 10px; font-size: 10px; color: #000;">
+                            <div class="sub-row">
                               <span>* Non-Tunai</span>
                               <span>Rp ${(closedShiftSummary.totalSales - (closedShiftSummary.expectedEndingCash - closedShiftSummary.startingCash)).toLocaleString()}</span>
                             </div>
