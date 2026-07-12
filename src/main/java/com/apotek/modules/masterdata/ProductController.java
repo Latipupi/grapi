@@ -179,15 +179,45 @@ public class ProductController {
                         product.setBranch(null);
                     }
                     
-                    // Update units - simple replacement for MVP
+                    // Update units in-place to prevent ID regeneration
                     if (details.getUnits() != null) {
-                        product.getUnits().clear();
+                        // Remove units that are no longer present
+                        java.util.Set<Long> detailsUnitIds = details.getUnits().stream()
+                                .map(ProductUnit::getId)
+                                .filter(java.util.Objects::nonNull)
+                                .collect(java.util.stream.Collectors.toSet());
+                        
+                        product.getUnits().removeIf(u -> u.getId() != null && !detailsUnitIds.contains(u.getId()));
+                        
+                        // Update existing units & add new ones
                         details.getUnits().forEach(unit -> {
-                            unit.setProduct(product);
-                            if (unit.getAdditionalPrices() != null) {
-                                unit.getAdditionalPrices().forEach(price -> price.setProductUnit(unit));
+                            if (unit.getId() != null) {
+                                product.getUnits().stream()
+                                        .filter(u -> u.getId().equals(unit.getId()))
+                                        .findFirst()
+                                        .ifPresent(existing -> {
+                                            existing.setUnitName(unit.getUnitName());
+                                            existing.setConversionToBase(unit.getConversionToBase());
+                                            existing.setBaseUnit(unit.isBaseUnit());
+                                            existing.setPricePerUnit(unit.getPricePerUnit());
+                                            
+                                            // Update additional prices in-place
+                                            existing.getAdditionalPrices().clear();
+                                            if (unit.getAdditionalPrices() != null) {
+                                                unit.getAdditionalPrices().forEach(price -> {
+                                                    price.setProductUnit(existing);
+                                                    existing.getAdditionalPrices().add(price);
+                                                });
+                                            }
+                                        });
+                            } else {
+                                // New unit
+                                unit.setProduct(product);
+                                if (unit.getAdditionalPrices() != null) {
+                                    unit.getAdditionalPrices().forEach(price -> price.setProductUnit(unit));
+                                }
+                                product.getUnits().add(unit);
                             }
-                            product.getUnits().add(unit);
                         });
                     }
                     

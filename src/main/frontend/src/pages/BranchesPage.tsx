@@ -12,6 +12,8 @@ import { Plus, Search, Edit2, Trash2, MapPin, Phone } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
 import { Dialog } from '../components/ui/Dialog';
+import { toast } from '../components/ui/Toast';
+import { confirm } from '../components/ui/ConfirmDialog';
 
 const branchSchema = z.object({
   name: z.string().min(3, 'Nama minimal 3 karakter'),
@@ -65,11 +67,11 @@ const BranchesPage: React.FC = () => {
     mutationFn: (data: BranchFormValues) => api.post('/branches', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
-      alert('Cabang berhasil ditambahkan');
+      toast.success('Cabang berhasil ditambahkan');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal menambah cabang: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menambah cabang: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -78,11 +80,11 @@ const BranchesPage: React.FC = () => {
       api.put(`/branches/${data.id}`, data.values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
-      alert('Data cabang berhasil diperbarui');
+      toast.success('Data cabang berhasil diperbarui');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -90,7 +92,11 @@ const BranchesPage: React.FC = () => {
     mutationFn: (id: number) => api.delete(`/branches/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      toast.success('Cabang berhasil dihapus');
     },
+    onError: (error: any) => {
+      toast.error('Gagal menghapus cabang: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const handleOpenModal = (branch?: Branch) => {
@@ -252,8 +258,14 @@ const BranchesPage: React.FC = () => {
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
-                        onClick={() => {
-                          if (confirm('Hapus cabang ini?')) {
+                        onClick={async () => {
+                          const isConfirmed = await confirm({
+                            title: 'Hapus Cabang',
+                            message: `Apakah Anda yakin ingin menghapus cabang "${branch.name}"?`,
+                            confirmText: 'Ya, Hapus',
+                            type: 'danger'
+                          });
+                          if (isConfirmed) {
                             deleteMutation.mutate(branch.id);
                           }
                         }}

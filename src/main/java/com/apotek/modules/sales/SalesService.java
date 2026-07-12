@@ -67,8 +67,41 @@ public class SalesService {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + item.getProductId()));
 
-            ProductUnit unit = unitRepository.findById(item.getUnitId())
-                    .orElseThrow(() -> new IllegalArgumentException("Unit not found: " + item.getUnitId()));
+            ProductUnit unit = unitRepository.findById(item.getUnitId()).orElse(null);
+            if (unit == null) {
+                // Robust fallback to prevent cashier cart loss when product units have been recreated:
+                // 1. Try to find a unit on this product with the exact same price
+                unit = product.getUnits().stream()
+                        .filter(u -> u.getPricePerUnit() != null && u.getPricePerUnit().compareTo(item.getUnitPrice()) == 0)
+                        .findFirst()
+                        .orElse(null);
+                
+                // 2. Try to find a unit on this product with matching additional prices
+                if (unit == null) {
+                    unit = product.getUnits().stream()
+                            .filter(u -> u.getAdditionalPrices().stream().anyMatch(ap -> ap.getPrice().compareTo(item.getUnitPrice()) == 0))
+                            .findFirst()
+                            .orElse(null);
+                }
+                
+                // 3. Fallback to base unit
+                if (unit == null) {
+                    unit = product.getUnits().stream()
+                            .filter(ProductUnit::isBaseUnit)
+                            .findFirst()
+                            .orElse(null);
+                }
+                
+                // 4. Fallback to first available unit
+                if (unit == null && !product.getUnits().isEmpty()) {
+                    unit = product.getUnits().iterator().next();
+                }
+                
+                // 5. Final fallback - throw exception
+                if (unit == null) {
+                    throw new IllegalArgumentException("Unit not found: " + item.getUnitId());
+                }
+            }
 
             // Convert sell quantity to base unit quantity
             BigDecimal conversionFactor = BigDecimal.valueOf(unit.getConversionToBase());

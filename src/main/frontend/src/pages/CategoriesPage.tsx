@@ -11,6 +11,8 @@ import { Pagination } from '../components/ui/Pagination';
 import { Plus, Search, Edit2, Trash2, Tag } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
+import { toast } from '../components/ui/Toast';
+import { confirm } from '../components/ui/ConfirmDialog';
 
 const categorySchema = z.object({
   name: z.string().min(2, 'Nama minimal 2 karakter'),
@@ -55,11 +57,11 @@ const CategoriesPage: React.FC = () => {
     mutationFn: (data: CategoryFormValues) => api.post('/categories', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      alert('Kategori berhasil ditambahkan');
+      toast.success('Kategori berhasil ditambahkan');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal menambah kategori: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menambah kategori: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -68,11 +70,11 @@ const CategoriesPage: React.FC = () => {
       api.put(`/categories/${data.id}`, data.values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      alert('Kategori berhasil diperbarui');
+      toast.success('Kategori berhasil diperbarui');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal memperbarui kategori: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memperbarui kategori: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -80,7 +82,11 @@ const CategoriesPage: React.FC = () => {
     mutationFn: (id: number) => api.delete(`/categories/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Kategori berhasil dihapus');
     },
+    onError: (error: any) => {
+      toast.error('Gagal menghapus kategori: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const handleOpenModal = (category?: Category) => {
@@ -209,8 +215,14 @@ const CategoriesPage: React.FC = () => {
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
-                        onClick={() => {
-                          if (confirm('Hapus kategori ini?')) {
+                        onClick={async () => {
+                          const isConfirmed = await confirm({
+                            title: 'Hapus Kategori',
+                            message: `Apakah Anda yakin ingin menghapus kategori "${category.name}"?`,
+                            confirmText: 'Ya, Hapus',
+                            type: 'danger'
+                          });
+                          if (isConfirmed) {
                             deleteMutation.mutate(category.id);
                           }
                         }}

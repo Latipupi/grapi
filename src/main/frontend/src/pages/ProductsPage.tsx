@@ -14,6 +14,8 @@ import { cn } from '../lib/utils';
 import { Dialog } from '../components/ui/Dialog';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
+import { toast } from '../components/ui/Toast';
+import { confirm } from '../components/ui/ConfirmDialog';
 
 const productUnitPriceSchema = z.object({
   priceLabel: z.string().min(1, 'Label wajib diisi'),
@@ -173,11 +175,11 @@ const ProductsPage: React.FC = () => {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      alert('Produk berhasil ditambahkan');
+      toast.success('Produk berhasil ditambahkan');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal menambah produk: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menambah produk: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -190,11 +192,11 @@ const ProductsPage: React.FC = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      alert('Data produk berhasil diperbarui');
+      toast.success('Data produk berhasil diperbarui');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -202,10 +204,10 @@ const ProductsPage: React.FC = () => {
     mutationFn: (id: number) => api.delete(`/products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      alert('Produk berhasil dihapus');
+      toast.success('Produk berhasil dihapus');
     },
     onError: (error: any) => {
-      alert('Gagal menghapus produk: ' + (error.response?.data?.message || error.response?.data || error.message));
+      toast.error('Gagal menghapus produk: ' + (error.response?.data?.message || error.response?.data || error.message));
     }
   });
 
@@ -215,13 +217,13 @@ const ProductsPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      alert('Berhasil mengimpor produk');
+      toast.success('Berhasil mengimpor produk');
       setIsImportModalOpen(false);
       setImportData('');
       setSelectedBranchId('');
     },
     onError: (error: any) => {
-      alert('Gagal impor: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal impor: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -496,8 +498,14 @@ const ProductsPage: React.FC = () => {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
-                            onClick={() => {
-                              if (confirm('Hapus produk ini?')) {
+                            onClick={async () => {
+                              const isConfirmed = await confirm({
+                                title: 'Hapus Produk',
+                                message: `Apakah Anda yakin ingin menghapus produk "${product.name}"?`,
+                                confirmText: 'Ya, Hapus',
+                                type: 'danger'
+                              });
+                              if (isConfirmed) {
                                 deleteMutation.mutate(product.id);
                               }
                             }}

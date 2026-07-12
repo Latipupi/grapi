@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from './store';
 import MainLayout from './components/layout/MainLayout';
+import { Toaster } from './components/ui/Toast';
+import { ConfirmContainer } from './components/ui/ConfirmDialog';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import LandingPage from './pages/LandingPage';
@@ -64,6 +66,8 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Toaster />
+      <ConfirmContainer />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

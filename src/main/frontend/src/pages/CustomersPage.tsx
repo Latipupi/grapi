@@ -12,6 +12,8 @@ import { Plus, Search, Edit2, Trash2, User, Phone, Mail, MapPin } from 'lucide-r
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
 import { Dialog } from '../components/ui/Dialog';
+import { toast } from '../components/ui/Toast';
+import { confirm } from '../components/ui/ConfirmDialog';
 
 const customerSchema = z.object({
   name: z.string().min(3, 'Nama minimal 3 karakter'),
@@ -65,11 +67,11 @@ const CustomersPage: React.FC = () => {
     mutationFn: (data: CustomerFormValues) => api.post('/customers', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      alert('Pelanggan berhasil ditambahkan');
+      toast.success('Pelanggan berhasil ditambahkan');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal menambah pelanggan: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal menambah pelanggan: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -78,11 +80,11 @@ const CustomersPage: React.FC = () => {
       api.put(`/customers/${data.id}`, data.values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      alert('Data pelanggan berhasil diperbarui');
+      toast.success('Data pelanggan berhasil diperbarui');
       handleCloseModal();
     },
     onError: (error: any) => {
-      alert('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
+      toast.error('Gagal memperbarui data: ' + (error.response?.data?.message || error.message));
     }
   });
 
@@ -90,7 +92,11 @@ const CustomersPage: React.FC = () => {
     mutationFn: (id: number) => api.delete(`/customers/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success('Pelanggan berhasil dihapus');
     },
+    onError: (error: any) => {
+      toast.error('Gagal menghapus pelanggan: ' + (error.response?.data?.message || error.message));
+    }
   });
 
   const handleOpenModal = (customer?: Customer) => {
@@ -259,11 +265,17 @@ const CustomersPage: React.FC = () => {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
-                          onClick={() => {
-                            if (confirm('Hapus pelanggan ini?')) {
-                              deleteMutation.mutate(customer.id);
-                            }
-                          }}
+                        onClick={async () => {
+                          const isConfirmed = await confirm({
+                            title: 'Hapus Pelanggan',
+                            message: `Apakah Anda yakin ingin menghapus pelanggan "${customer.name}"?`,
+                            confirmText: 'Ya, Hapus',
+                            type: 'danger'
+                          });
+                          if (isConfirmed) {
+                            deleteMutation.mutate(customer.id);
+                          }
+                        }}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
