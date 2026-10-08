@@ -37,4 +37,12 @@ public class StockTransferDetail {
 
     private String batchNumber;
     private LocalDate expiryDate;
+
+    @PrePersist
+    @PreUpdate
+    protected void onPersistOrUpdate() {
+        if (this.expiryDate != null && this.expiryDate.getYear() < 100) {
+            this.expiryDate = this.expiryDate.plusYears(2000);
+        }
+    }
 }

@@ -14,7 +14,7 @@ import { Plus, Search, Package, History, ChevronDown, ChevronRight, Calendar, Al
 import { Input } from '../components/ui/Input';
 import { Dialog } from '../components/ui/Dialog';
 import { Link, useSearchParams } from 'react-router-dom';
-import { cn } from '../lib/utils';
+import { cn, parseSafeExpiryDate } from '../lib/utils';
 
 const adjustmentSchema = z.object({
   productId: z.coerce.number().min(1, 'Pilih produk'),
@@ -99,9 +99,9 @@ const InventoryRow: React.FC<{
     enabled: isExpanded,
   });
 
-  const isExpired = (dateStr: string) => new Date(dateStr) < new Date();
+  const isExpired = (dateStr: string) => parseSafeExpiryDate(dateStr) < new Date();
   const isNearExpired = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseSafeExpiryDate(dateStr);
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
     return date < threeMonthsFromNow && date >= new Date();
@@ -184,7 +184,7 @@ const InventoryRow: React.FC<{
                           <TableCell className="text-sm text-slate-500">
                             <div className="flex items-center gap-1.5">
                               <Calendar className="w-3.5 h-3.5" />
-                              {new Date(batch.expiryDate).toLocaleDateString('id-ID')}
+                              {parseSafeExpiryDate(batch.expiryDate).toLocaleDateString('id-ID')}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm font-bold text-slate-700 text-right">{batch.currentQuantity.toLocaleString()}</TableCell>
@@ -550,7 +550,7 @@ const InventoryPage: React.FC = () => {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Tanggal Expired (Opsional)</label>
-              <Input type="date" {...register('expiryDate')} />
+              <Input type="date" min="2020-01-01" max="2099-12-31" {...register('expiryDate')} />
             </div>
           </div>
 

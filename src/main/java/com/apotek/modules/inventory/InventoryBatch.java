@@ -61,9 +61,13 @@ public class InventoryBatch {
     private Long version;
 
     @PrePersist
-    protected void onCreate() {
+    @PreUpdate
+    protected void onPersistOrUpdate() {
         if (this.tenantId == null) {
             this.tenantId = com.apotek.core.security.TenantContext.getCurrentTenant();
+        }
+        if (this.expiryDate != null && this.expiryDate.getYear() < 100) {
+            this.expiryDate = this.expiryDate.plusYears(2000);
         }
     }
 

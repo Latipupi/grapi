@@ -26,6 +26,10 @@ public class InventoryService {
                                          String batchNumber, LocalDate expiryDate, String referenceNumber, 
                                          String notes, BigDecimal purchasePrice) {
         
+        if (expiryDate != null && expiryDate.getYear() < 100) {
+            expiryDate = expiryDate.plusYears(2000);
+        }
+
         Branch branch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new IllegalArgumentException("Branch not found"));
         Product product = productRepository.findById(productId)

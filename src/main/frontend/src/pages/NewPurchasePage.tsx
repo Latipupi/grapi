@@ -432,6 +432,8 @@ const NewPurchasePage: React.FC = () => {
                       <label className="text-[10px] uppercase font-bold text-slate-400">Expired Date</label>
                       <Input 
                         type="date"
+                        min="2020-01-01"
+                        max="2099-12-31"
                         className="h-9"
                         {...register(`details.${index}.expiryDate` as const)} 
                       />

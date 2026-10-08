@@ -22,7 +22,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { cn } from '../lib/utils';
+import { cn, parseSafeExpiryDate } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 
@@ -368,7 +368,7 @@ const DashboardPage: React.FC = () => {
                         <p className="text-xs text-slate-400">Batch: {batch.batchNumber}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-black text-rose-600">{new Date(batch.expiryDate).toLocaleDateString('id-ID')}</p>
+                        <p className="font-black text-rose-600">{parseSafeExpiryDate(batch.expiryDate).toLocaleDateString('id-ID')}</p>
                         <p className="text-xs text-rose-400">{batch.currentQuantity} {batch.inventory?.product?.baseUnit}</p>
                       </div>
                     </div>

@@ -692,6 +692,8 @@ const PurchaseDetailPage: React.FC = () => {
                             <td className="px-4 py-3">
                               <input
                                 type="date"
+                                min="2020-01-01"
+                                max="2099-12-31"
                                 required
                                 value={item.expiryDate}
                                 onChange={(e) => handleDetailChange(index, 'expiryDate', e.target.value)}

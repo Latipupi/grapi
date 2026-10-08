@@ -46,6 +46,14 @@ public class PurchaseDetail {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
+    @PrePersist
+    @PreUpdate
+    protected void onPersistOrUpdate() {
+        if (this.expiryDate != null && this.expiryDate.getYear() < 100) {
+            this.expiryDate = this.expiryDate.plusYears(2000);
+        }
+    }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Purchase getPurchase() { return purchase; }

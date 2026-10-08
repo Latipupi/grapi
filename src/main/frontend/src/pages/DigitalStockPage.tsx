@@ -16,7 +16,7 @@ import {
   ChevronDown,
   X
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, parseSafeExpiryDate } from '../lib/utils';
 
 interface Branch {
   id: number;
@@ -207,10 +207,10 @@ const DigitalStockPage: React.FC = () => {
     });
   }, [movements]);
 
-  const isExpired = (dateStr: string) => new Date(dateStr) < new Date();
+  const isExpired = (dateStr: string) => parseSafeExpiryDate(dateStr) < new Date();
   
   const isNearExpired = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseSafeExpiryDate(dateStr);
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
     return date < threeMonthsFromNow && date >= new Date();
@@ -293,7 +293,7 @@ const DigitalStockPage: React.FC = () => {
         batch.product.sku,
         batch.product.name,
         batch.batchNumber,
-        new Date(batch.expiryDate).toLocaleDateString('id-ID'),
+        parseSafeExpiryDate(batch.expiryDate).toLocaleDateString('id-ID'),
         batch.currentQuantity,
         statusText
       ];
@@ -432,7 +432,7 @@ const DigitalStockPage: React.FC = () => {
                     <td>${batch.product.sku}</td>
                     <td class="font-bold">${batch.product.name}</td>
                     <td>${batch.batchNumber}</td>
-                    <td>${new Date(batch.expiryDate).toLocaleDateString('id-ID')}</td>
+                    <td>${parseSafeExpiryDate(batch.expiryDate).toLocaleDateString('id-ID')}</td>
                     <td class="text-right font-bold">${batch.currentQuantity.toLocaleString('id-ID')}</td>
                     <td><span class="badge ${badgeClass}">${statusText}</span></td>
                   </tr>
@@ -776,7 +776,7 @@ const DigitalStockPage: React.FC = () => {
                           <TableCell className="font-bold text-slate-800">{batch.product.name}</TableCell>
                           <TableCell className="font-mono text-xs text-slate-600">{batch.batchNumber}</TableCell>
                           <TableCell className="text-sm text-slate-500">
-                            {new Date(batch.expiryDate).toLocaleDateString('id-ID')}
+                            {parseSafeExpiryDate(batch.expiryDate).toLocaleDateString('id-ID')}
                           </TableCell>
                           <TableCell className="text-right font-black text-slate-700">
                             {batch.currentQuantity.toLocaleString('id-ID')}
