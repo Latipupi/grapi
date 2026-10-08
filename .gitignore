@@ -24,3 +24,10 @@ src/main/frontend/.vite/
 # Logs
 *.log
 startup.log
+logs/
+
+# Backups
+backups/
+*.backup
+*.dump
+
