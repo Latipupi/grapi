@@ -1,10 +1,13 @@
 package com.apotek.grapi;
 
 import com.apotek.core.security.TenantContext;
-import com.apotek.modules.auth.User;
-import com.apotek.modules.auth.UserRepository;
-import com.apotek.modules.inventory.*;
-import com.apotek.modules.masterdata.*;
+import com.apotek.modules.auth.model.User;
+import com.apotek.modules.auth.repository.UserRepository;
+import com.apotek.modules.inventory.model.*;
+import com.apotek.modules.inventory.repository.*;
+import com.apotek.modules.inventory.service.*;
+import com.apotek.modules.masterdata.model.*;
+import com.apotek.modules.masterdata.repository.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

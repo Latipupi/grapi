@@ -1,7 +1,7 @@
 package com.apotek.grapi;
  
-import com.apotek.modules.sales.SalesService;
-import com.apotek.modules.sales.Sale;
+import com.apotek.modules.sales.service.SalesService;
+import com.apotek.modules.sales.model.Sale;
 import com.apotek.core.security.TenantContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -108,7 +108,7 @@ public class DatabaseInspectTest {
         
         org.junit.jupiter.api.Assertions.assertNotNull(sale);
         org.junit.jupiter.api.Assertions.assertFalse(sale.getDetails().isEmpty());
-        com.apotek.modules.sales.SaleDetail detail = sale.getDetails().iterator().next();
+        com.apotek.modules.sales.model.SaleDetail detail = sale.getDetails().iterator().next();
         org.junit.jupiter.api.Assertions.assertNotNull(detail.getProduct());
         System.out.println("Fallback successfully processed for product: " + detail.getProduct().getName() + 
                 " with conversion factor: " + detail.getConversionFactor());

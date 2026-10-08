@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import com.apotek.modules.auth.User;
+import com.apotek.modules.auth.model.User;
 
 @Service
 public class JwtService {

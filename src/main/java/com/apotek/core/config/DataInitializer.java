@@ -1,16 +1,16 @@
 package com.apotek.core.config;
 
-import com.apotek.modules.auth.Role;
-import com.apotek.modules.auth.Tenant;
-import com.apotek.modules.auth.TenantRepository;
-import com.apotek.modules.auth.User;
-import com.apotek.modules.auth.UserRepository;
-import com.apotek.modules.masterdata.Branch;
-import com.apotek.modules.masterdata.BranchRepository;
-import com.apotek.modules.inventory.Inventory;
-import com.apotek.modules.inventory.InventoryRepository;
-import com.apotek.modules.inventory.InventoryBatch;
-import com.apotek.modules.inventory.InventoryBatchRepository;
+import com.apotek.modules.auth.model.Role;
+import com.apotek.modules.auth.model.Tenant;
+import com.apotek.modules.auth.repository.TenantRepository;
+import com.apotek.modules.auth.model.User;
+import com.apotek.modules.auth.repository.UserRepository;
+import com.apotek.modules.masterdata.model.Branch;
+import com.apotek.modules.masterdata.repository.BranchRepository;
+import com.apotek.modules.inventory.model.Inventory;
+import com.apotek.modules.inventory.repository.InventoryRepository;
+import com.apotek.modules.inventory.model.InventoryBatch;
+import com.apotek.modules.inventory.repository.InventoryBatchRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;

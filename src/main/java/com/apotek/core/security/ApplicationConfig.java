@@ -1,6 +1,6 @@
 package com.apotek.core.security;
 
-import com.apotek.modules.auth.UserRepository;
+import com.apotek.modules.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
