@@ -11,9 +11,18 @@ import java.util.Optional;
 
 @Repository
 public interface ProductRecommendationRepository extends JpaRepository<ProductRecommendation, Long> {
-    List<ProductRecommendation> findBySourceProductId(Long sourceProductId);
-    List<ProductRecommendation> findBySourceProductIdAndRelationType(Long sourceProductId, String relationType);
-    Optional<ProductRecommendation> findBySourceProductIdAndTargetProductIdAndRelationType(Long sourceProductId, Long targetProductId, String relationType);
+    @Query("SELECT r FROM ProductRecommendation r WHERE r.sourceProduct.id = :sourceProductId")
+    List<ProductRecommendation> findBySourceProductId(@Param("sourceProductId") Long sourceProductId);
+
+    @Query("SELECT r FROM ProductRecommendation r WHERE r.sourceProduct.id = :sourceProductId AND r.relationType = :relationType")
+    List<ProductRecommendation> findBySourceProductIdAndRelationType(@Param("sourceProductId") Long sourceProductId, @Param("relationType") String relationType);
+
+    @Query("SELECT r FROM ProductRecommendation r WHERE r.sourceProduct.id = :sourceProductId AND r.targetProduct.id = :targetProductId AND r.relationType = :relationType")
+    Optional<ProductRecommendation> findBySourceProductIdAndTargetProductIdAndRelationType(
+            @Param("sourceProductId") Long sourceProductId,
+            @Param("targetProductId") Long targetProductId,
+            @Param("relationType") String relationType
+    );
 
     @Query("SELECT r FROM ProductRecommendation r ORDER BY r.sourceProduct.name ASC, r.relationType ASC")
     List<ProductRecommendation> findAllOrderBySourceName();
