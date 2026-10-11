@@ -35,6 +35,7 @@ import SalesReturnsPage from './pages/SalesReturnsPage';
 import DosageCalculatorPage from './pages/DosageCalculatorPage';
 import CapitalReportPage from './pages/CapitalReportPage';
 import DigitalStockPage from './pages/DigitalStockPage';
+import ProductRelationsPage from './pages/ProductRelationsPage';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -111,6 +112,11 @@ function App() {
           <Route path="master/products" element={
             <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR']}>
               <ProductsPage />
+            </RoleProtectedRoute>
+          } />
+          <Route path="master/product-relations" element={
+            <RoleProtectedRoute allowedRoles={['ADMIN', 'OWNER', 'STAFF']}>
+              <ProductRelationsPage />
             </RoleProtectedRoute>
           } />
           <Route path="master/suppliers" element={

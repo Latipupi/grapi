@@ -29,11 +29,17 @@ import {
   Lock,
   LogOut,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Sparkles,
+  RefreshCw,
+  TrendingUp,
+  Link as LinkIcon,
+  Info
 } from 'lucide-react';
 import { Dialog } from '../components/ui/Dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../lib/utils';
+import { toast } from '../components/ui/Toast';
 
 const POSPage: React.FC = () => {
   const dispatch = useDispatch();
@@ -109,11 +115,64 @@ const POSPage: React.FC = () => {
   const [lastReceivedAmount, setLastReceivedAmount] = useState<number>(0);
   const [changeAmount, setChangeAmount] = useState<number>(0);
 
-  // Shift Management States
   const [startingCash, setStartingCash] = useState<string>('0');
   const [closeShiftModalOpen, setCloseShiftModalOpen] = useState(false);
   const [endingCashInput, setEndingCashInput] = useState<string>('');
   const [closedShiftSummary, setClosedShiftSummary] = useState<any>(null);
+
+  // Zero Stock & Recommendation States
+  const [zeroStockProduct, setZeroStockProduct] = useState<any>(null);
+  const [recommendationsData, setRecommendationsData] = useState<any>(null);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+
+  const [recommendationModalItem, setRecommendationModalItem] = useState<any>(null);
+  const [cartRecData, setCartRecData] = useState<any>(null);
+  const [isLoadingCartRec, setIsLoadingCartRec] = useState(false);
+  const [recActiveTab, setRecActiveTab] = useState<'UP_SELLING' | 'LINK_SELLING' | 'SUBSTITUTION'>('UP_SELLING');
+
+  const handleOpenZeroStockModal = async (inv: any) => {
+    setZeroStockProduct(inv);
+    setIsLoadingRecommendations(true);
+    try {
+      const effectiveBranch = selectedBranchId || branchId?.toString() || '';
+      const res = await api.get(`/product-recommendations/pos-suggestions?productId=${inv.product.id}${effectiveBranch ? `&branchId=${effectiveBranch}` : ''}`);
+      setRecommendationsData(res.data);
+    } catch (err) {
+      console.error(err);
+      setRecommendationsData(null);
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
+
+  const handleOpenCartRecommendations = async (item: any) => {
+    setRecommendationModalItem(item);
+    setRecActiveTab('UP_SELLING');
+    setIsLoadingCartRec(true);
+    try {
+      const effectiveBranch = selectedBranchId || branchId?.toString() || '';
+      const res = await api.get(`/product-recommendations/pos-suggestions?productId=${item.productId}${effectiveBranch ? `&branchId=${effectiveBranch}` : ''}`);
+      setCartRecData(res.data);
+    } catch (err) {
+      console.error(err);
+      setCartRecData(null);
+    } finally {
+      setIsLoadingCartRec(false);
+    }
+  };
+
+  const handleSelectSubstituteProduct = (targetProductId: number) => {
+    const targetInv = inventory?.find((i: any) => i.product?.id === targetProductId);
+    setZeroStockProduct(null);
+    setRecommendationModalItem(null);
+    if (targetInv && targetInv.stockQuantity > 0) {
+      setUnitSelectionProduct(targetInv);
+    } else if (targetInv) {
+      toast.error('Stok produk ini juga sedang habis di cabang ini.');
+    } else {
+      toast.error('Produk tidak ditemukan di inventori cabang ini.');
+    }
+  };
 
   // Query Active Shift
   const { data: activeShift, isLoading: isLoadingShift } = useQuery({
@@ -539,10 +598,17 @@ const POSPage: React.FC = () => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ duration: 0.2 }}
                   whileHover={{ y: -4, shadow: "0 10px 25px -5px rgba(16, 185, 129, 0.1)" }}
-                  className="p-4 rounded-2xl border border-slate-100 hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer group bg-white"
+                  className={cn(
+                    "p-4 rounded-2xl border transition-all cursor-pointer group bg-white",
+                    inv.stockQuantity > 0 
+                      ? "border-slate-100 hover:border-emerald-200 hover:shadow-md" 
+                      : "border-rose-100 bg-rose-50/20 hover:border-amber-300 hover:shadow-md"
+                  )}
                   onClick={() => {
                      if (inv.stockQuantity > 0) {
                         setUnitSelectionProduct(inv);
+                     } else {
+                        handleOpenZeroStockModal(inv);
                      }
                   }}
                 >
@@ -553,11 +619,18 @@ const POSPage: React.FC = () => {
                     </div>
                     <div className="flex items-end justify-between">
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Stok: {inv.stockQuantity}</p>
+                        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                          <p className="text-xs text-slate-500">Stok: {inv.stockQuantity}</p>
+                          {inv.stockQuantity <= 0 && (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5 text-amber-600" /> Cek Substitusi
+                            </span>
+                          )}
+                        </div>
                         <p className="text-emerald-600 font-extrabold text-lg">Rp {inv.product.sellingPrice.toLocaleString()}</p>
                       </div>
-                      <div className={inv.stockQuantity > 0 ? "text-emerald-500" : "text-rose-500"}>
-                         {inv.stockQuantity > 0 ? <Plus className="w-6 h-6" /> : <AlertTriangle className="w-5 h-5" />}
+                      <div className={inv.stockQuantity > 0 ? "text-emerald-500" : "text-amber-500"}>
+                         {inv.stockQuantity > 0 ? <Plus className="w-6 h-6" /> : <Sparkles className="w-5 h-5 text-amber-500 group-hover:scale-110 transition-transform" />}
                       </div>
                     </div>
                   </div>
@@ -618,6 +691,15 @@ const POSPage: React.FC = () => {
                       <h4 className="text-sm font-semibold text-white truncate">{item.name}</h4>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                          <span className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">{item.unitName}</span>
+                         <button
+                           type="button"
+                           onClick={() => handleOpenCartRecommendations(item)}
+                           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[9px] font-bold transition-all border border-amber-500/30"
+                           title="Lihat Rekomendasi Up-Selling & Link-Selling"
+                         >
+                           <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+                           Saran Obat
+                         </button>
                          {item.additionalPrices && item.additionalPrices.length > 0 ? (
                             <select
                               value={item.selectedPriceLabel}
@@ -1130,6 +1212,251 @@ const POSPage: React.FC = () => {
                  );
               })}
            </div>
+        </div>
+      </Dialog>
+
+      {/* Zero Stock & Substitution Dialog */}
+      <Dialog
+        isOpen={!!zeroStockProduct}
+        onClose={() => setZeroStockProduct(null)}
+        title="⚠️ Stok Obat Kosong - Rekomendasi Substitusi"
+        size="lg"
+      >
+        <div className="space-y-4 py-1">
+          {/* Source Product Notice */}
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest font-mono">
+                  {zeroStockProduct?.product?.sku || 'SKU'}
+                </span>
+                <h4 className="text-base font-bold text-slate-800 leading-tight">
+                  {zeroStockProduct?.product?.name}
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Stok fisik di cabang ini: <span className="font-bold text-rose-600">0 Unit (Habis)</span>
+                  {zeroStockProduct?.product?.activeSubstance && (
+                    <span> • Kandungan: <b className="text-slate-700">{zeroStockProduct.product.activeSubstance}</b></span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-rose-600 bg-white px-2.5 py-1 rounded-lg border border-rose-200 shrink-0">
+              Stok Kosong
+            </span>
+          </div>
+
+          {/* Section Title */}
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <h5 className="text-sm font-bold text-slate-800">
+                Obat Pengganti / Substitusi yang Tersedia (Ready Stock):
+              </h5>
+            </div>
+            <span className="text-xs text-slate-400">
+              {recommendationsData?.substitutions?.filter((s: any) => s.currentStock > 0)?.length || 0} Alternatif Tersedia
+            </span>
+          </div>
+
+          {/* List of Substitutions */}
+          {isLoadingRecommendations ? (
+            <div className="p-8 text-center text-slate-400 text-sm">
+              Mencari obat substitusi dan ketersediaan stok cabang...
+            </div>
+          ) : (!recommendationsData?.substitutions || recommendationsData.substitutions.filter((s: any) => s.currentStock > 0).length === 0) ? (
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center space-y-2">
+              <Info className="w-6 h-6 text-slate-400 mx-auto" />
+              <p className="text-sm font-bold text-slate-600">Tidak ada obat substitusi yang ready stok</p>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Belum ada obat pengganti sejenis yang memiliki stok &gt; 0 di cabang ini. Anda dapat mengatur aturan relasi di menu <b>Master Data &gt; Rekomendasi Obat</b>.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+              {recommendationsData.substitutions
+                .filter((sub: any) => sub.currentStock > 0)
+                .map((sub: any) => (
+                  <div
+                    key={sub.productId}
+                    className="p-3.5 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all flex items-center justify-between gap-3 group"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-sm group-hover:text-emerald-700 transition-colors">
+                          {sub.name}
+                        </span>
+                        {sub.isConfigured ? (
+                          <span className="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                            Rekomendasi Terdaftar
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                            Zat/Kategori Sejenis
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                        <span className="font-mono text-[11px] text-slate-400">SKU: {sub.sku || '-'}</span>
+                        <span>•</span>
+                        <span>Stok: <b className="text-emerald-600">{sub.currentStock} {sub.unit || 'Unit'}</b></span>
+                        <span>•</span>
+                        <span className="font-black text-slate-800">Rp {sub.sellingPrice?.toLocaleString('id-ID') || 0}</span>
+                      </div>
+                      {sub.notes && (
+                        <p className="text-[11px] text-slate-500 mt-1 italic">
+                          💡 {sub.notes}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={() => handleSelectSubstituteProduct(sub.productId)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 shrink-0 shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Pilih Pengganti
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-slate-100 flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setZeroStockProduct(null)}
+              className="rounded-xl text-xs"
+            >
+              Tutup
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Cart Recommendations Dialog (Up-Sell & Link-Sell) */}
+      <Dialog
+        isOpen={!!recommendationModalItem}
+        onClose={() => setRecommendationModalItem(null)}
+        title={`💡 Rekomendasi Penjualan: ${recommendationModalItem?.name || ''}`}
+        size="lg"
+      >
+        <div className="space-y-4 py-1">
+          <div className="flex border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setRecActiveTab('UP_SELLING')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5",
+                recActiveTab === 'UP_SELLING'
+                  ? "border-emerald-500 text-emerald-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              )}
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+              Up-Selling ({cartRecData?.upSells?.length || 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setRecActiveTab('LINK_SELLING')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5",
+                recActiveTab === 'LINK_SELLING'
+                  ? "border-sky-500 text-sky-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              )}
+            >
+              <LinkIcon className="w-3.5 h-3.5 text-sky-600" />
+              Link-Selling ({cartRecData?.linkSells?.length || 0})
+            </button>
+            <button
+              type="button"
+              onClick={() => setRecActiveTab('SUBSTITUTION')}
+              className={cn(
+                "px-4 py-2 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5",
+                recActiveTab === 'SUBSTITUTION'
+                  ? "border-amber-500 text-amber-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              )}
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
+              Substitusi ({cartRecData?.substitutions?.length || 0})
+            </button>
+          </div>
+
+          {isLoadingCartRec ? (
+            <div className="p-8 text-center text-slate-400 text-sm">
+              Memuat rekomendasi produk...
+            </div>
+          ) : (
+            (() => {
+              const items = recActiveTab === 'UP_SELLING' 
+                ? cartRecData?.upSells 
+                : recActiveTab === 'LINK_SELLING' 
+                  ? cartRecData?.linkSells 
+                  : cartRecData?.substitutions;
+
+              if (!items || items.length === 0) {
+                return (
+                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center space-y-1">
+                    <p className="text-sm font-bold text-slate-600">Belum ada aturan rekomendasi untuk obat ini</p>
+                    <p className="text-xs text-slate-400">
+                      Anda dapat mengatur relasi Up-Selling dan Link-Selling di menu <b>Master Data &gt; Rekomendasi Obat</b>.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                  {items.map((it: any) => (
+                    <div
+                      key={it.productId}
+                      className="p-3.5 bg-white border border-slate-200 rounded-xl hover:border-emerald-500 transition-all flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-800 text-sm">{it.name}</p>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
+                          <span className="font-mono text-[11px] text-slate-400">SKU: {it.sku || '-'}</span>
+                          <span>•</span>
+                          <span>Stok: <b className={it.currentStock > 0 ? "text-emerald-600" : "text-rose-600"}>{it.currentStock} {it.unit || 'Unit'}</b></span>
+                          <span>•</span>
+                          <span className="font-black text-slate-800">Rp {it.sellingPrice?.toLocaleString('id-ID') || 0}</span>
+                        </div>
+                        {it.notes && (
+                          <p className="text-[11px] text-slate-500 mt-1 italic">
+                            💡 {it.notes}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        disabled={it.currentStock <= 0}
+                        onClick={() => handleSelectSubstituteProduct(it.productId)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Tambah
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()
+          )}
+
+          <div className="pt-2 border-t border-slate-100 flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setRecommendationModalItem(null)}
+              className="rounded-xl text-xs"
+            >
+              Tutup
+            </Button>
+          </div>
         </div>
       </Dialog>
 

@@ -58,6 +58,9 @@ public class Product {
     private String barcode;
     private String description;
 
+    @Column(name = "active_substance")
+    private String activeSubstance;
+
     @Column(name = "is_active")
     private boolean active = true;
 

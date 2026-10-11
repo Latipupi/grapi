@@ -168,6 +168,7 @@ public class ProductController {
                     product.setSku(details.getSku());
                     product.setBarcode(details.getBarcode());
                     product.setDescription(details.getDescription());
+                    product.setActiveSubstance(details.getActiveSubstance());
                     product.setActive(details.isActive());
                     
                     if (details.getCategoryId() != null) {

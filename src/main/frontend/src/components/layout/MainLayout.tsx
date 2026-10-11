@@ -144,6 +144,7 @@ const MainLayout: React.FC = () => {
         { label: 'Cabang', to: '/dashboard/master/branches', roles: ['ADMIN', 'OWNER'] },
         { label: 'Kategori', to: '/dashboard/master/categories', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Produk', to: '/dashboard/master/products', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
+        { label: 'Rekomendasi Obat', to: '/dashboard/master/product-relations', roles: ['ADMIN', 'OWNER', 'STAFF'] },
         { label: 'Supplier', to: '/dashboard/master/suppliers', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
         { label: 'Pelanggan', to: '/dashboard/master/customers', roles: ['ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR'] },
         { label: 'Pengguna', to: '/dashboard/master/users', roles: ['ADMIN', 'OWNER'] },
