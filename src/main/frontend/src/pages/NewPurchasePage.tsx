@@ -138,11 +138,18 @@ const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({ products, val
                   <span>{p.name}</span>
                   {p.sku && <span className="text-[10px] text-slate-400 font-mono">SKU: {p.sku}</span>}
                 </div>
-                {p.baseUnit && (
-                  <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold shrink-0">
-                    {p.baseUnit}
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {p.purchasePrice ? (
+                    <span className="text-[10px] text-slate-500 font-mono font-medium">
+                      Beli: Rp {Number(p.purchasePrice).toLocaleString()}
+                    </span>
+                  ) : null}
+                  {p.baseUnit && (
+                    <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold shrink-0">
+                      {p.baseUnit}
+                    </span>
+                  )}
+                </div>
               </button>
             ))
           )}
@@ -216,7 +223,7 @@ const NewPurchasePage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { register, control, handleSubmit, watch, formState: { errors } } = useForm<PurchaseFormValues>({
+  const { register, control, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
       purchaseDate: new Date().toISOString().split('T')[0],
@@ -474,7 +481,15 @@ const NewPurchasePage: React.FC = () => {
                           <ProductSearchSelect
                             products={filteredProductsByBranch}
                             value={field.value}
-                            onChange={field.onChange}
+                            onChange={(val) => {
+                              field.onChange(val);
+                              if (val) {
+                                const selectedProd = products?.find((p: any) => p.id?.toString() === val);
+                                if (selectedProd && selectedProd.purchasePrice && (!getValues(`details.${index}.unitPrice`) || getValues(`details.${index}.unitPrice`) === 0)) {
+                                  setValue(`details.${index}.unitPrice`, Number(selectedProd.purchasePrice));
+                                }
+                              }
+                            }}
                           />
                         )}
                       />

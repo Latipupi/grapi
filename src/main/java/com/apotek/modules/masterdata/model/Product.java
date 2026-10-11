@@ -64,6 +64,9 @@ public class Product {
     @Column(name = "is_active")
     private boolean active = true;
 
+    @Column(name = "purchase_price", nullable = false)
+    private BigDecimal purchasePrice = BigDecimal.ZERO;
+
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
 

@@ -37,6 +37,7 @@ const productSchema = z.object({
   categoryId: z.string().optional(),
   branchId: z.string().optional(),
   active: z.boolean().default(true),
+  purchasePrice: z.number().min(0, 'Harga beli minimal 0').default(0),
   units: z.array(productUnitSchema).min(1, 'Minimal 1 satuan'),
   stockBranchId: z.string().optional(),
   initialStock: z.number().min(0, 'Minimal 0').optional(),
@@ -68,6 +69,7 @@ interface Product {
   category: { id: number; name: string } | null;
   branch: { id: number; name: string } | null;
   active: boolean;
+  purchasePrice?: number;
   units: ProductUnit[];
 }
 
@@ -120,6 +122,7 @@ const ProductsPage: React.FC = () => {
     resolver: zodResolver(productSchema),
     defaultValues: {
       active: true,
+      purchasePrice: 0,
       units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0, additionalPrices: [] }],
       stockBranchId: '',
       initialStock: 0,
@@ -237,6 +240,7 @@ const ProductsPage: React.FC = () => {
         categoryId: product.category?.id.toString(),
         branchId: product.branch?.id?.toString() || '',
         active: product.active,
+        purchasePrice: product.purchasePrice || 0,
         units: product.units.map(u => ({
           unitName: u.unitName,
           conversionToBase: u.conversionToBase,
@@ -249,7 +253,7 @@ const ProductsPage: React.FC = () => {
         })),
         stockBranchId: '',
         initialStock: 0,
-        initialPurchasePrice: 0,
+        initialPurchasePrice: product.purchasePrice || 0,
       });
     } else {
       setSelectedProduct(null);
@@ -260,6 +264,7 @@ const ProductsPage: React.FC = () => {
         categoryId: '',
         branchId: branchId?.toString() || '',
         active: true,
+        purchasePrice: 0,
         units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0, additionalPrices: [] }],
         stockBranchId: '',
         initialStock: 0,
@@ -385,6 +390,7 @@ const ProductsPage: React.FC = () => {
                 <TableHead>Cabang</TableHead>
                 <TableHead>SKU/Barcode</TableHead>
                 {viewBranchId && <TableHead>Stok</TableHead>}
+                <TableHead>Harga Beli</TableHead>
                 <TableHead>Harga (Base)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
@@ -393,13 +399,13 @@ const ProductsPage: React.FC = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={viewBranchId ? 8 : 7} className="h-32 text-center text-slate-400">
+                  <TableCell colSpan={viewBranchId ? 9 : 8} className="h-32 text-center text-slate-400">
                     Memuat data...
                   </TableCell>
                 </TableRow>
               ) : filtered?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={viewBranchId ? 8 : 7} className="h-32 text-center text-slate-400">
+                  <TableCell colSpan={viewBranchId ? 9 : 8} className="h-32 text-center text-slate-400">
                     Tidak ada data ditemukan.
                   </TableCell>
                 </TableRow>
@@ -471,6 +477,9 @@ const ProductsPage: React.FC = () => {
                           </div>
                         </TableCell>
                       )}
+                      <TableCell className="font-mono text-slate-700 font-semibold whitespace-nowrap">
+                        Rp {(product.purchasePrice || 0).toLocaleString()}
+                      </TableCell>
                       <TableCell className="font-medium text-slate-800 whitespace-nowrap">
                         {baseUnit ? `Rp ${baseUnit.pricePerUnit.toLocaleString()}` : '-'}
                       </TableCell>
@@ -601,6 +610,26 @@ const ProductsPage: React.FC = () => {
                 </select>
                 <p className="text-[11px] text-slate-400">
                   Pilih cabang spesifik jika produk ini hanya ada di cabang tersebut.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 flex items-center justify-between">
+                  <span>Harga Beli (HPP Acuan)</span>
+                  <span className="text-[11px] text-slate-400 font-normal">Per satuan dasar</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
+                  <Input
+                    type="number"
+                    min="0"
+                    {...register('purchasePrice', { valueAsNumber: true })}
+                    placeholder="0"
+                    className="pl-9 h-10 font-semibold text-slate-800 focus:ring-emerald-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Harga beli modal produk dari supplier (acuan HPP dan pengadaan).
                 </p>
               </div>
 
@@ -830,7 +859,7 @@ const ProductsPage: React.FC = () => {
                        baseUnit, basePrice, 
                        midUnit, midPrice, midConv, 
                        largeUnit, largePrice, largeConv,
-                       stock, supplier
+                       stock, supplier, purchasePrice
                     ] = line.split(',');
                     
                     const units = [];
@@ -875,6 +904,7 @@ const ProductsPage: React.FC = () => {
                        barcode: barcode?.trim(),
                        initialStock: parseFloat(stock) || 0,
                        supplierName: supplier?.trim(),
+                       purchasePrice: purchasePrice ? (parseFloat(purchasePrice) || 0) : 0,
                        units
                     };
                  });
@@ -890,9 +920,9 @@ const ProductsPage: React.FC = () => {
             <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-700 text-sm animate-in fade-in duration-200">
                <Download className="w-5 h-5 shrink-0" />
                <div className="space-y-1">
-                  <p className="font-bold text-base mb-1">Panduan Import (14 Kolom)</p>
+                  <p className="font-bold text-base mb-1">Panduan Import (14-15 Kolom)</p>
                   <p className="opacity-80 leading-relaxed text-[11px]">
-                     Format: <b>Nama, SKU, Kategori, Barcode, Sat1, Harga1, Sat2, Harga2, Isi2, Sat3, Harga3, Isi3, Stok, Supplier</b>
+                     Format: <b>Nama, SKU, Kategori, Barcode, Sat1, Harga1, Sat2, Harga2, Isi2, Sat3, Harga3, Isi3, Stok, Supplier, HargaBeli(Opsional)</b>
                   </p>
                   <div className="mt-2 p-3 bg-white/60 rounded-xl border border-amber-200 text-[11px] space-y-1">
                      <p><b>Contoh:</b> Amoxicillin, AMX01, Obat, 89912345, Tablet, 1500, Strip, 14000, 10, Box, 135000, 100, 50, PT. Sehat</p>

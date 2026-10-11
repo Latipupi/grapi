@@ -14,6 +14,7 @@ public class ProductImportDTO {
     private String supplierName;
     private String description;
     private BigDecimal initialStock;
+    private BigDecimal purchasePrice;
     private List<UnitDTO> units;
 
     @Data

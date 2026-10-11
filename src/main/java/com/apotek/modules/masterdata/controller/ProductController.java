@@ -35,6 +35,7 @@ public class ProductController {
             product.setBarcode(dto.getBarcode());
             product.setDescription(dto.getDescription());
             product.setActive(true);
+            product.setPurchasePrice(dto.getPurchasePrice() != null ? dto.getPurchasePrice() : java.math.BigDecimal.ZERO);
 
             if (dto.getCategoryName() != null && !dto.getCategoryName().isBlank()) {
                 Category category = categoryRepository.findByName(dto.getCategoryName())
@@ -98,7 +99,7 @@ public class ProductController {
                             null,
                             importRef,
                             "Saldo awal dari import produk: " + savedProduct.getName() + (dto.getSupplierName() != null ? " (Supplier: " + dto.getSupplierName() + ")" : ""),
-                            null
+                            savedProduct.getPurchasePrice() != null ? savedProduct.getPurchasePrice() : java.math.BigDecimal.ZERO
                     );
                 }
             }
@@ -145,7 +146,9 @@ public class ProductController {
                     null, // No expiry date by default
                     refNo,
                     "Saldo awal saat tambah produk baru: " + savedProduct.getName(),
-                    product.getInitialPurchasePrice() != null ? product.getInitialPurchasePrice() : java.math.BigDecimal.ZERO
+                    product.getInitialPurchasePrice() != null 
+                            ? product.getInitialPurchasePrice() 
+                            : (product.getPurchasePrice() != null ? product.getPurchasePrice() : java.math.BigDecimal.ZERO)
             );
         }
 
@@ -170,6 +173,7 @@ public class ProductController {
                     product.setDescription(details.getDescription());
                     product.setActiveSubstance(details.getActiveSubstance());
                     product.setActive(details.isActive());
+                    product.setPurchasePrice(details.getPurchasePrice() != null ? details.getPurchasePrice() : java.math.BigDecimal.ZERO);
                     
                     if (details.getCategoryId() != null) {
                         categoryRepository.findById(details.getCategoryId()).ifPresent(product::setCategory);

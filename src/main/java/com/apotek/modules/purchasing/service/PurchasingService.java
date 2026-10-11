@@ -4,6 +4,8 @@ import com.apotek.modules.purchasing.repository.*;
 
 import com.apotek.modules.inventory.service.InventoryService;
 import com.apotek.modules.debt.service.DebtService;
+import com.apotek.modules.masterdata.model.Product;
+import com.apotek.modules.masterdata.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ public class PurchasingService {
     private final PurchaseRepository purchaseRepository;
     private final InventoryService inventoryService;
     private final DebtService debtService;
+    private final ProductRepository productRepository;
 
     public List<Purchase> getAll() {
         return purchaseRepository.findAll();
@@ -197,6 +200,13 @@ public class PurchasingService {
                     "Purchase from " + purchase.getSupplier().getName(),
                     effectivePurchasePrice
             );
+
+            // Synchronize master product reference purchase price with latest purchase price
+            if (detail.getProduct() != null && effectivePurchasePrice.compareTo(BigDecimal.ZERO) > 0) {
+                Product product = detail.getProduct();
+                product.setPurchasePrice(effectivePurchasePrice);
+                productRepository.save(product);
+            }
         }
     }
 }
