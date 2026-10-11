@@ -1,6 +1,18 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
+export interface CompoundIngredient {
+  productId: number;
+  productName: string;
+  unitId?: number;
+  unitName?: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  availableStock?: number;
+}
+
 export interface CartItem {
+  id?: string;
   productId: number;
   unitId: number;
   unitName: string;
@@ -13,6 +25,14 @@ export interface CartItem {
   quantity: number;
   availableStock: number;
   conversionToBase: number;
+
+  // Compounded prescription fields
+  isCompound?: boolean;
+  compoundName?: string;
+  doseRule?: string;
+  packageType?: string;
+  serviceFee?: number;
+  ingredients?: CompoundIngredient[];
 }
 
 interface POSState {
@@ -32,7 +52,18 @@ const posSlice = createSlice({
   initialState,
   reducers: {
     addToCart: (state, action: PayloadAction<CartItem>) => {
+      if (action.payload.isCompound) {
+        // Compound items are treated as independent custom prescriptions
+        const compoundItem = {
+          ...action.payload,
+          id: action.payload.id || 'compound-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7)
+        };
+        state.cart.push(compoundItem);
+        return;
+      }
+
       const existing = state.cart.find(item => 
+        !item.isCompound &&
         item.productId === action.payload.productId && 
         item.unitId === action.payload.unitId
       );
@@ -48,31 +79,53 @@ const posSlice = createSlice({
         state.cart.push(action.payload);
       }
     },
-    updateQuantity: (state, action: PayloadAction<{ productId: number; unitId: number; quantity: number }>) => {
-      const item = state.cart.find(item => 
-        item.productId === action.payload.productId && 
-        item.unitId === action.payload.unitId
-      );
+    updateQuantity: (state, action: PayloadAction<{ id?: string; productId?: number; unitId?: number; quantity: number }>) => {
+      let item: CartItem | undefined;
+      if (action.payload.id) {
+        item = state.cart.find(i => i.id === action.payload.id);
+      } else {
+        item = state.cart.find(i => 
+          !i.isCompound &&
+          i.productId === action.payload.productId && 
+          i.unitId === action.payload.unitId
+        );
+      }
+
       if (item) {
-        if (action.payload.quantity * item.conversionToBase <= item.availableStock) {
+        if (item.isCompound) {
           item.quantity = action.payload.quantity;
+        } else {
+          if (action.payload.quantity * item.conversionToBase <= item.availableStock) {
+            item.quantity = action.payload.quantity;
+          }
         }
       }
     },
-    updateItemPrice: (state, action: PayloadAction<{ productId: number; unitId: number; priceLabel: string; price: number }>) => {
-      const item = state.cart.find(item => 
-        item.productId === action.payload.productId && 
-        item.unitId === action.payload.unitId
-      );
+    updateItemPrice: (state, action: PayloadAction<{ id?: string; productId?: number; unitId?: number; priceLabel: string; price: number }>) => {
+      let item: CartItem | undefined;
+      if (action.payload.id) {
+        item = state.cart.find(i => i.id === action.payload.id);
+      } else {
+        item = state.cart.find(i => 
+          !i.isCompound &&
+          i.productId === action.payload.productId && 
+          i.unitId === action.payload.unitId
+        );
+      }
+
       if (item) {
         item.selectedPriceLabel = action.payload.priceLabel;
         item.price = action.payload.price;
       }
     },
-    removeFromCart: (state, action: PayloadAction<{ productId: number; unitId: number }>) => {
-      state.cart = state.cart.filter(item => 
-        !(item.productId === action.payload.productId && item.unitId === action.payload.unitId)
-      );
+    removeFromCart: (state, action: PayloadAction<{ id?: string; productId?: number; unitId?: number }>) => {
+      if (action.payload.id) {
+        state.cart = state.cart.filter(item => item.id !== action.payload.id);
+      } else {
+        state.cart = state.cart.filter(item => 
+          item.isCompound || !(item.productId === action.payload.productId && item.unitId === action.payload.unitId)
+        );
+      }
     },
     clearCart: (state) => {
       state.cart = [];

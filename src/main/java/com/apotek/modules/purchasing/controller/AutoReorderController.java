@@ -58,6 +58,14 @@ public class AutoReorderController {
                 Long productId = detail.getProduct().getId();
                 BigDecimal qty = detail.getQuantity() != null ? detail.getQuantity() : BigDecimal.ZERO;
                 productSalesSum.put(productId, productSalesSum.getOrDefault(productId, BigDecimal.ZERO).add(qty));
+            } else if (Boolean.TRUE.equals(detail.getIsCompound()) && detail.getIngredients() != null) {
+                for (com.apotek.modules.sales.model.SaleDetailIngredient ing : detail.getIngredients()) {
+                    if (ing.getProduct() != null) {
+                        Long productId = ing.getProduct().getId();
+                        BigDecimal qty = ing.getQuantity() != null ? ing.getQuantity() : BigDecimal.ZERO;
+                        productSalesSum.put(productId, productSalesSum.getOrDefault(productId, BigDecimal.ZERO).add(qty));
+                    }
+                }
             }
         }
 

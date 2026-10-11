@@ -68,7 +68,8 @@ public class ReportController {
 
             for (SaleDetail detail : details) {
                 totalSales = totalSales.add(detail.getSubtotal());
-                BigDecimal cost = detail.getPurchasePrice().multiply(detail.getQuantity());
+                BigDecimal purchasePrice = detail.getPurchasePrice() != null ? detail.getPurchasePrice() : BigDecimal.ZERO;
+                BigDecimal cost = purchasePrice.multiply(detail.getQuantity());
                 totalCost = totalCost.add(cost);
             }
 
@@ -120,7 +121,8 @@ public class ReportController {
 
         for (SaleDetail detail : details) {
             totalSales = totalSales.add(detail.getSubtotal());
-            BigDecimal cost = detail.getPurchasePrice().multiply(detail.getQuantity());
+            BigDecimal purchasePrice = detail.getPurchasePrice() != null ? detail.getPurchasePrice() : BigDecimal.ZERO;
+            BigDecimal cost = purchasePrice.multiply(detail.getQuantity());
             totalCost = totalCost.add(cost);
         }
 

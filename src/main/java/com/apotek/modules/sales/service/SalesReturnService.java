@@ -88,6 +88,11 @@ public class SalesReturnService {
                 throw new IllegalArgumentException("Sale detail " + item.getSaleDetailId() + " does not belong to sale " + sale.getId());
             }
 
+            // Disallow returning compounded medicines
+            if (Boolean.TRUE.equals(saleDetail.getIsCompound())) {
+                throw new IllegalArgumentException("Obat racikan (" + saleDetail.getCompoundName() + ") tidak dapat diretur.");
+            }
+
             // Calculate already returned quantity
             BigDecimal alreadyReturned = salesReturnDetailRepository.sumReturnedQuantityBySaleDetailId(saleDetail.getId());
             BigDecimal remainingQty = saleDetail.getQuantity().subtract(alreadyReturned);

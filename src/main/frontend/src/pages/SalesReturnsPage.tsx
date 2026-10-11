@@ -19,12 +19,14 @@ import type { RootState } from '../store';
 
 interface SaleDetail {
   id: number;
-  product: { id: number; name: string };
-  batch: { id: number; batchNumber: string; expiryDate: string };
+  product?: { id: number; name: string };
+  batch?: { id: number; batchNumber: string; expiryDate: string };
   quantity: number;
   unitPrice: number;
   subtotal: number;
   conversionFactor: number;
+  isCompound?: boolean;
+  compoundName?: string;
 }
 
 interface Sale {
@@ -541,10 +543,17 @@ const SalesReturnsPage: React.FC = () => {
                       return (
                         <TableRow key={detail.id} className="hover:bg-slate-50/50">
                           <TableCell className="text-left font-semibold text-slate-700">
-                            {detail.product?.name}
+                            {detail.isCompound ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">RACIKAN</span>
+                                <span>{detail.compoundName || 'Obat Racikan'}</span>
+                              </div>
+                            ) : (
+                              detail.product?.name
+                            )}
                           </TableCell>
                           <TableCell className="text-center font-mono text-xs text-slate-500">
-                            {detail.batch?.batchNumber}
+                            {detail.batch?.batchNumber || '-'}
                           </TableCell>
                           <TableCell className="text-center text-slate-600 font-medium">
                             {detail.quantity}
@@ -553,19 +562,23 @@ const SalesReturnsPage: React.FC = () => {
                             {alreadyRet}
                           </TableCell>
                           <TableCell className="text-center text-emerald-600 font-bold">
-                            {remaining}
+                            {detail.isCompound ? 0 : remaining}
                           </TableCell>
                           <TableCell className="text-right text-slate-600">
                             Rp {detail.unitPrice.toLocaleString()}
                           </TableCell>
                           <TableCell className="text-center">
-                            <input
-                              type="number"
-                              value={retQty}
-                              onChange={(e) => handleQtyChange(detail.id, parseFloat(e.target.value) || 0, remaining)}
-                              className="w-20 px-2 py-1 text-center font-bold rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
-                              disabled={remaining <= 0}
-                            />
+                            {detail.isCompound ? (
+                              <span className="text-[10px] text-slate-400 italic">Tidak dapat diretur</span>
+                            ) : (
+                              <input
+                                type="number"
+                                value={retQty}
+                                onChange={(e) => handleQtyChange(detail.id, parseFloat(e.target.value) || 0, remaining)}
+                                className="w-20 px-2 py-1 text-center font-bold rounded-lg border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none text-xs"
+                                disabled={remaining <= 0}
+                              />
+                            )}
                           </TableCell>
                           <TableCell className="text-right font-bold text-emerald-600">
                             Rp {subtotalRefund.toLocaleString()}
