@@ -251,7 +251,7 @@ const ProductsPage: React.FC = () => {
             price: ap.price
           })) || []
         })),
-        stockBranchId: '',
+        stockBranchId: viewBranchId || '',
         initialStock: 0,
         initialPurchasePrice: product.purchasePrice || 0,
       });
@@ -262,7 +262,7 @@ const ProductsPage: React.FC = () => {
         sku: '',
         barcode: '',
         categoryId: '',
-        branchId: branchId?.toString() || '',
+        branchId: branchId?.toString() || viewBranchId || '',
         active: true,
         purchasePrice: 0,
         units: [{ unitName: 'PCS', conversionToBase: 1, baseUnit: true, pricePerUnit: 0, additionalPrices: [] }],

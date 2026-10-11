@@ -23,6 +23,11 @@ public class InventoryController {
     private final StockMovementRepository stockMovementRepository;
     private final InventoryService inventoryService;
 
+    @GetMapping
+    public List<Inventory> getAll() {
+        return inventoryRepository.findAll();
+    }
+
     @GetMapping("/branch/{branchId}")
     public List<Inventory> getInventoryByBranch(@PathVariable Long branchId) {
         return inventoryRepository.findByBranchId(branchId);

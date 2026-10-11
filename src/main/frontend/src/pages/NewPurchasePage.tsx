@@ -9,6 +9,8 @@ import { Input } from '../components/ui/Input';
 import { Trash, Plus, ShoppingCart, ArrowLeft, Save, Package, Search, ChevronDown, X } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store';
 
 const detailSchema = z.object({
   productId: z.string().min(1, 'Produk wajib dipilih'),
@@ -135,7 +137,14 @@ const ProductSearchSelect: React.FC<ProductSearchSelectProps> = ({ products, val
                 }}
               >
                 <div className="flex flex-col">
-                  <span>{p.name}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-slate-800">{p.name}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight ${
+                      p.branch ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {p.branch ? p.branch.name : 'Global'}
+                    </span>
+                  </div>
                   {p.sku && <span className="text-[10px] text-slate-400 font-mono">SKU: {p.sku}</span>}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -222,6 +231,7 @@ const LastPurchasePriceComparison: React.FC<{
 const NewPurchasePage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { branchId: authBranchId, role } = useSelector((state: RootState) => state.auth);
 
   const { register, control, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
@@ -235,19 +245,42 @@ const NewPurchasePage: React.FC = () => {
     }
   });
 
+  useEffect(() => {
+    if (authBranchId && !getValues('branchId')) {
+      setValue('branchId', authBranchId.toString());
+    }
+  }, [authBranchId, setValue, getValues]);
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: "details"
   });
 
-  const { data: suppliers } = useQuery({ queryKey: ['suppliers'], queryFn: () => api.get('/suppliers').then(res => res.data) });
+    const { data: suppliers } = useQuery({ queryKey: ['suppliers'], queryFn: () => api.get('/suppliers').then(res => res.data) });
   const { data: branches } = useQuery({ queryKey: ['branches'], queryFn: () => api.get('/branches').then(res => res.data) });
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: () => api.get('/products').then(res => res.data) });
+  const { data: inventory } = useQuery({ queryKey: ['inventory'], queryFn: () => api.get('/inventory').then(res => res.data) });
 
   const selectedBranchId = watch('branchId');
   const filteredProductsByBranch = products?.filter((p: any) => {
     if (!selectedBranchId) return true;
-    return !p.branch || p.branch.id.toString() === selectedBranchId;
+
+    // 1. Jika produk terikat ke cabang tertentu
+    if (p.branch) {
+      return p.branch.id?.toString() === selectedBranchId;
+    }
+
+    // 2. Jika produk Global (p.branch null), periksa apakah sudah tercatat di inventori cabang lain
+    if (inventory && inventory.length > 0) {
+      const prodInvs = inventory.filter((inv: any) => inv.product?.id === p.id);
+      if (prodInvs.length > 0) {
+        // Hanya tampilkan jika cabang ini memiliki catatan inventori produk tersebut
+        return prodInvs.some((inv: any) => inv.branch?.id?.toString() === selectedBranchId);
+      }
+    }
+
+    // 3. Produk global baru yang belum punya stok/inventori di cabang mana pun
+    return true;
   }) || [];
 
   const detailsValues = watch('details') || [];
@@ -365,7 +398,8 @@ const NewPurchasePage: React.FC = () => {
                 <label className="text-sm font-medium text-slate-700">Cabang Penerima</label>
                 <select 
                   {...register('branchId')}
-                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  disabled={role !== 'ADMIN' && role !== 'OWNER' && !!authBranchId}
                 >
                   <option value="">Pilih Cabang</option>
                   {branches?.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
