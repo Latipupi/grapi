@@ -83,7 +83,7 @@ const DashboardPage: React.FC = () => {
       icon: AlertCircle, 
       color: 'text-rose-600', 
       bg: 'bg-rose-50',
-      link: '/dashboard/inventory' 
+      link: '/dashboard/reports/digital-stock?status=EXPIRED' 
     },
     { 
       label: 'Stok Menipis', 
@@ -364,20 +364,18 @@ const DashboardPage: React.FC = () => {
                   {alerts.expiringBatches.slice(0, 5).map((batch: any) => (
                     <div key={batch.id} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-rose-50">
                       <div>
-                        <p className="font-bold text-slate-700">{batch.inventory?.product?.name}</p>
+                        <p className="font-bold text-slate-700">{batch.product?.name || 'Produk'}</p>
                         <p className="text-xs text-slate-400">Batch: {batch.batchNumber}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-black text-rose-600">{parseSafeExpiryDate(batch.expiryDate).toLocaleDateString('id-ID')}</p>
-                        <p className="text-xs text-rose-400">{batch.currentQuantity} {batch.inventory?.product?.baseUnit}</p>
+                        <p className="text-xs text-rose-400">{batch.currentQuantity} {batch.product?.unit || 'Unit'}</p>
                       </div>
                     </div>
                   ))}
-                  {alerts.expiringBatches.length > 5 && (
-                    <Link to="/dashboard/inventory" className="block text-center text-sm font-bold text-rose-600 hover:text-rose-700 mt-4">
-                      Lihat {alerts.expiringBatches.length - 5} batch lainnya...
-                    </Link>
-                  )}
+                  <Link to="/dashboard/reports/digital-stock?status=NEAR_EXP" className="block text-center text-sm font-bold text-rose-600 hover:text-rose-700 mt-4">
+                    Lihat {alerts.expiringBatches.length > 5 ? `${alerts.expiringBatches.length - 5} batch lainnya...` : 'semua di Stok Digital & Kadaluarsa →'}
+                  </Link>
                 </div>
               </div>
             )}

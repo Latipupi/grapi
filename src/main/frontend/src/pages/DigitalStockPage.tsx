@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { cn, parseSafeExpiryDate } from '../lib/utils';
+import { useSearchParams } from 'react-router-dom';
 
 interface Branch {
   id: number;
@@ -148,7 +149,33 @@ const ProductSearchSelect: React.FC<{
 const DigitalStockPage: React.FC = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED'>('ALL');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlStatus = searchParams.get('status') as 'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED' | null;
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED'>(() => {
+    if (urlStatus && ['ALL', 'SAFE', 'NEAR_EXP', 'EXPIRED'].includes(urlStatus)) {
+      return urlStatus;
+    }
+    return 'ALL';
+  });
+
+  useEffect(() => {
+    const urlStatus = searchParams.get('status') as 'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED' | null;
+    if (urlStatus && ['ALL', 'SAFE', 'NEAR_EXP', 'EXPIRED'].includes(urlStatus)) {
+      setStatusFilter(urlStatus);
+    }
+  }, [searchParams]);
+
+  const handleStatusChange = (newStatus: 'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED') => {
+    setStatusFilter(newStatus);
+    const newParams = new URLSearchParams(searchParams);
+    if (newStatus === 'ALL') {
+      newParams.delete('status');
+    } else {
+      newParams.set('status', newStatus);
+    }
+    setSearchParams(newParams);
+  };
+
   const [activeTab, setActiveTab] = useState<'BATCH' | 'CARD'>('BATCH');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
@@ -626,7 +653,13 @@ const DigitalStockPage: React.FC = () => {
         <>
           {/* Metrics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div 
+              onClick={() => handleStatusChange('ALL')}
+              className={cn(
+                "bg-white p-6 rounded-2xl border shadow-sm relative overflow-hidden group cursor-pointer transition-all",
+                statusFilter === 'ALL' ? "border-sky-500 ring-2 ring-sky-100" : "border-slate-100 hover:border-slate-200"
+              )}
+            >
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
                   <Package className="w-6 h-6" />
@@ -639,7 +672,13 @@ const DigitalStockPage: React.FC = () => {
               <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div 
+              onClick={() => handleStatusChange('SAFE')}
+              className={cn(
+                "bg-white p-6 rounded-2xl border shadow-sm relative overflow-hidden group cursor-pointer transition-all",
+                statusFilter === 'SAFE' ? "border-emerald-500 ring-2 ring-emerald-100" : "border-slate-100 hover:border-slate-200"
+              )}
+            >
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
                   <CheckCircle2 className="w-6 h-6" />
@@ -652,7 +691,13 @@ const DigitalStockPage: React.FC = () => {
               <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div 
+              onClick={() => handleStatusChange('NEAR_EXP')}
+              className={cn(
+                "bg-white p-6 rounded-2xl border shadow-sm relative overflow-hidden group cursor-pointer transition-all",
+                statusFilter === 'NEAR_EXP' ? "border-amber-500 ring-2 ring-amber-100" : "border-slate-100 hover:border-slate-200"
+              )}
+            >
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
                   <AlertTriangle className="w-6 h-6" />
@@ -665,7 +710,13 @@ const DigitalStockPage: React.FC = () => {
               <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div 
+              onClick={() => handleStatusChange('EXPIRED')}
+              className={cn(
+                "bg-white p-6 rounded-2xl border shadow-sm relative overflow-hidden group cursor-pointer transition-all",
+                statusFilter === 'EXPIRED' ? "border-rose-500 ring-2 ring-rose-100" : "border-slate-100 hover:border-slate-200"
+              )}
+            >
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-xl bg-rose-50 text-rose-600">
                   <XCircle className="w-6 h-6" />
@@ -695,7 +746,7 @@ const DigitalStockPage: React.FC = () => {
               {/* Quick Filters */}
               <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100 self-start sm:self-auto shrink-0">
                 <button
-                  onClick={() => setStatusFilter('ALL')}
+                  onClick={() => handleStatusChange('ALL')}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                     statusFilter === 'ALL'
@@ -706,7 +757,7 @@ const DigitalStockPage: React.FC = () => {
                   Semua
                 </button>
                 <button
-                  onClick={() => setStatusFilter('SAFE')}
+                  onClick={() => handleStatusChange('SAFE')}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                     statusFilter === 'SAFE'
@@ -717,7 +768,7 @@ const DigitalStockPage: React.FC = () => {
                   Aman
                 </button>
                 <button
-                  onClick={() => setStatusFilter('NEAR_EXP')}
+                  onClick={() => handleStatusChange('NEAR_EXP')}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                     statusFilter === 'NEAR_EXP'
@@ -725,10 +776,10 @@ const DigitalStockPage: React.FC = () => {
                       : "text-slate-500 hover:text-amber-500"
                   )}
                 >
-                  Hampir Exp
+                  Hampir Exp ({metrics.nearExpCount})
                 </button>
                 <button
-                  onClick={() => setStatusFilter('EXPIRED')}
+                  onClick={() => handleStatusChange('EXPIRED')}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                     statusFilter === 'EXPIRED'
@@ -736,7 +787,7 @@ const DigitalStockPage: React.FC = () => {
                       : "text-slate-500 hover:text-rose-500"
                   )}
                 >
-                  Expired
+                  Expired ({metrics.expiredCount})
                 </button>
               </div>
             </div>

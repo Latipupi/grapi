@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 
@@ -84,11 +84,18 @@ const InventoryRow: React.FC<{
   inv: Inventory;
   selectedBranchId: string;
   handleOpenModal: (p: Product) => void;
-}> = ({ inv, selectedBranchId, handleOpenModal }) => {
+  hasExpiredBatch?: boolean;
+  hasNearExpBatch?: boolean;
+  forceExpand?: boolean;
+}> = ({ inv, selectedBranchId, handleOpenModal, hasExpiredBatch, hasNearExpBatch, forceExpand }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { role } = useSelector((state: RootState) => state.auth);
 
-  console.log(inv, "data inv")
+  useEffect(() => {
+    if (forceExpand) {
+      setIsExpanded(true);
+    }
+  }, [forceExpand]);
 
   const { data: batches, isLoading } = useQuery<InventoryBatch[]>({
     queryKey: ['inventory', selectedBranchId, inv.product.id, 'batches'],
@@ -120,9 +127,19 @@ const InventoryRow: React.FC<{
         </TableCell>
         <TableCell className="font-mono text-xs text-slate-500">{inv.product?.sku || '-'}</TableCell>
         <TableCell className="font-medium text-slate-800">
-          <div className="flex items-center gap-2">
-            <Package className="w-4 h-4 text-slate-400" />
-            {inv.product?.name || 'Produk Tidak Terdaftar'}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Package className="w-4 h-4 text-slate-400 shrink-0" />
+            <span>{inv.product?.name || 'Produk Tidak Terdaftar'}</span>
+            {hasExpiredBatch && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                <AlertCircle className="w-3 h-3" /> Ada Expired
+              </span>
+            )}
+            {!hasExpiredBatch && hasNearExpBatch && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                <AlertCircle className="w-3 h-3" /> Segera Exp
+              </span>
+            )}
           </div>
         </TableCell>
         <TableCell className="text-right font-bold text-slate-700">
@@ -237,8 +254,11 @@ const InventoryPage: React.FC = () => {
   const { role } = useSelector((state: RootState) => state.auth);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW_STOCK'>(() => {
-    return searchParams.get('filter') === 'low-stock' ? 'LOW_STOCK' : 'ALL';
+  const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW_STOCK' | 'EXPIRED'>(() => {
+    const f = searchParams.get('filter');
+    if (f === 'low-stock') return 'LOW_STOCK';
+    if (f === 'expired') return 'EXPIRED';
+    return 'ALL';
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -248,10 +268,12 @@ const InventoryPage: React.FC = () => {
     setCurrentPage(1);
   }, [searchTerm, stockFilter, selectedBranchId]);
 
-  const handleFilterChange = (filter: 'ALL' | 'LOW_STOCK') => {
+  const handleFilterChange = (filter: 'ALL' | 'LOW_STOCK' | 'EXPIRED') => {
     setStockFilter(filter);
     if (filter === 'LOW_STOCK') {
       setSearchParams({ filter: 'low-stock' });
+    } else if (filter === 'EXPIRED') {
+      setSearchParams({ filter: 'expired' });
     } else {
       setSearchParams({});
     }
@@ -297,6 +319,45 @@ const InventoryPage: React.FC = () => {
     enabled: !!selectedBranchId,
   });
 
+  const { data: allBatches } = useQuery<InventoryBatch[]>({
+    queryKey: ['inventory-batches', selectedBranchId],
+    queryFn: async () => {
+      if (!selectedBranchId) return [];
+      const res = await api.get(`/inventory/branch/${selectedBranchId}/batches`);
+      return res.data;
+    },
+    enabled: !!selectedBranchId,
+  });
+
+  const expiredProductIds = useMemo(() => {
+    if (!allBatches) return new Set<number>();
+    const ids = new Set<number>();
+    const now = new Date();
+    allBatches.forEach(b => {
+      const prodId = (b as any).product?.id;
+      if (prodId && parseSafeExpiryDate(b.expiryDate) < now && (b.currentQuantity || 0) > 0) {
+        ids.add(prodId);
+      }
+    });
+    return ids;
+  }, [allBatches]);
+
+  const nearExpProductIds = useMemo(() => {
+    if (!allBatches) return new Set<number>();
+    const ids = new Set<number>();
+    const now = new Date();
+    const threeMonths = new Date();
+    threeMonths.setMonth(threeMonths.getMonth() + 3);
+    allBatches.forEach(b => {
+      const prodId = (b as any).product?.id;
+      const date = parseSafeExpiryDate(b.expiryDate);
+      if (prodId && date >= now && date < threeMonths && (b.currentQuantity || 0) > 0) {
+        ids.add(prodId);
+      }
+    });
+    return ids;
+  }, [allBatches]);
+
   const movementMutation = useMutation({
     mutationFn: (data: AdjustmentFormValues) =>
       api.post('/inventory/movement', {
@@ -306,6 +367,7 @@ const InventoryPage: React.FC = () => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', selectedBranchId] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-batches', selectedBranchId] });
       alert('Mutasi stok berhasil disimpan');
       handleCloseModal();
     },
@@ -347,6 +409,12 @@ const InventoryPage: React.FC = () => {
       return false;
     }
 
+    if (stockFilter === 'EXPIRED') {
+      const isExp = expiredProductIds.has(inv.product.id);
+      const isNear = nearExpProductIds.has(inv.product.id);
+      if (!isExp && !isNear) return false;
+    }
+
     return true;
   }).sort((a, b) => b.id - a.id);
 
@@ -376,12 +444,20 @@ const InventoryPage: React.FC = () => {
           </select>
 
           {selectedBranchId && (
-            <Link to={`/dashboard/inventory/movements?branch=${selectedBranchId}`}>
-              <Button variant="outline" className="flex items-center gap-2">
-                <History className="w-4 h-4" />
-                Riwayat Mutasi
-              </Button>
-            </Link>
+            <>
+              <Link to={`/dashboard/reports/digital-stock`}>
+                <Button variant="outline" className="flex items-center gap-2 border-slate-200 hover:bg-slate-50 text-slate-700">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  Status Batch & Kadaluarsa
+                </Button>
+              </Link>
+              <Link to={`/dashboard/inventory/movements?branch=${selectedBranchId}`}>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  Riwayat Mutasi
+                </Button>
+              </Link>
+            </>
           )}
 
           {role !== 'CASHIER' && role !== 'KASIR' && (
@@ -409,7 +485,7 @@ const InventoryPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100 self-start sm:self-auto shrink-0">
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100 self-start sm:self-auto shrink-0 flex-wrap">
             <button
               onClick={() => handleFilterChange('ALL')}
               className={cn(
@@ -426,12 +502,24 @@ const InventoryPage: React.FC = () => {
               className={cn(
                 "px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
                 stockFilter === 'LOW_STOCK'
-                  ? "bg-rose-500 text-white shadow-sm shadow-rose-100"
-                  : "text-slate-500 hover:text-rose-500"
+                  ? "bg-amber-500 text-white shadow-sm shadow-amber-100"
+                  : "text-slate-500 hover:text-amber-500"
               )}
             >
               <AlertCircle className="w-3.5 h-3.5" />
               Stok Menipis (&lt; 10)
+            </button>
+            <button
+              onClick={() => handleFilterChange('EXPIRED')}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5",
+                stockFilter === 'EXPIRED'
+                  ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
+                  : "text-slate-500 hover:text-rose-600"
+              )}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              Ada Expired / Segera Exp {expiredProductIds.size > 0 ? `(${expiredProductIds.size})` : ''}
             </button>
           </div>
         </div>
@@ -469,6 +557,9 @@ const InventoryPage: React.FC = () => {
                     inv={inv}
                     selectedBranchId={selectedBranchId}
                     handleOpenModal={handleOpenModal}
+                    hasExpiredBatch={expiredProductIds.has(inv.product?.id)}
+                    hasNearExpBatch={nearExpProductIds.has(inv.product?.id)}
+                    forceExpand={stockFilter === 'EXPIRED'}
                   />
                 ))
               )}
