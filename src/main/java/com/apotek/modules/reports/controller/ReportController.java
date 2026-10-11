@@ -162,6 +162,9 @@ public class ReportController {
 
     @GetMapping("/sales-trend")
     public List<SalesTrendData> getSalesTrend(@RequestParam(required = false) Long branchId) {
+        if (branchId != null && branchId <= 0) {
+            branchId = null;
+        }
         LocalDate last7Days = LocalDate.now().minusDays(7);
         LocalDateTime thresholdDateTime = last7Days.plusDays(1).atStartOfDay();
         

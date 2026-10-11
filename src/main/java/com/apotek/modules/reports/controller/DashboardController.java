@@ -29,6 +29,9 @@ public class DashboardController {
 
     @GetMapping("/recent-activities")
     public List<ActivityData> getRecentActivities(@RequestParam(required = false) Long branchId) {
+        if (branchId != null && branchId <= 0) {
+            branchId = null;
+        }
         List<com.apotek.modules.inventory.model.StockMovement> movements;
         if (branchId != null) {
             movements = stockMovementRepository.findTop10ByBranchIdOrderByCreatedAtDesc(branchId);
@@ -60,6 +63,9 @@ public class DashboardController {
 
     @GetMapping("/stats")
     public DashboardStats getStats(@RequestParam(required = false) Long branchId) {
+        if (branchId != null && branchId <= 0) {
+            branchId = null;
+        }
         LocalDateTime startOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
         LocalDateTime endOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MAX);
 
@@ -73,8 +79,10 @@ public class DashboardController {
 
         long transactionsToday = saleRepository.countSalesByBranchAndDateBetween(branchId, startOfDay, endOfDay);
 
-        LocalDate ninetyDaysFromNow = LocalDate.now().plusDays(90);
-        long expiredCount = inventoryBatchRepository.countExpiredBatches(branchId, ninetyDaysFromNow);
+        LocalDate today = LocalDate.now();
+        LocalDate ninetyDaysFromNow = today.plusDays(90);
+        long expiredCount = inventoryBatchRepository.countExpiredBatches(branchId, today);
+        long nearExpiredCount = inventoryBatchRepository.countNearExpiredBatches(branchId, today, ninetyDaysFromNow);
 
         long lowStockCount = inventoryRepository.countLowStockItems(branchId);
 
@@ -82,12 +90,16 @@ public class DashboardController {
                 .totalSalesToday(totalSalesToday)
                 .transactionsToday(transactionsToday)
                 .expiredProductsCount(expiredCount)
+                .nearExpiredProductsCount(nearExpiredCount)
                 .lowStockProductsCount(lowStockCount)
                 .build();
     }
 
     @GetMapping("/alerts")
     public DashboardAlerts getAlerts(@RequestParam(required = false) Long branchId) {
+        if (branchId != null && branchId <= 0) {
+            branchId = null;
+        }
         LocalDate ninetyDaysFromNow = LocalDate.now().plusDays(90);
 
         List<com.apotek.modules.inventory.model.InventoryBatch> expiringBatches = 
@@ -113,6 +125,7 @@ public class DashboardController {
         private BigDecimal totalSalesToday;
         private long transactionsToday;
         private long expiredProductsCount;
+        private long nearExpiredProductsCount;
         private long lowStockProductsCount;
 
         public BigDecimal getTotalSalesToday() { return totalSalesToday; }
@@ -121,6 +134,8 @@ public class DashboardController {
         public void setTransactionsToday(long transactionsToday) { this.transactionsToday = transactionsToday; }
         public long getExpiredProductsCount() { return expiredProductsCount; }
         public void setExpiredProductsCount(long expiredCount) { this.expiredProductsCount = expiredCount; }
+        public long getNearExpiredProductsCount() { return nearExpiredProductsCount; }
+        public void setNearExpiredProductsCount(long nearExpiredCount) { this.nearExpiredProductsCount = nearExpiredCount; }
         public long getLowStockProductsCount() { return lowStockProductsCount; }
         public void setLowStockProductsCount(long lowStockCount) { this.lowStockProductsCount = lowStockCount; }
 
@@ -130,16 +145,19 @@ public class DashboardController {
             private BigDecimal totalSalesToday;
             private long transactionsToday;
             private long expiredCount;
+            private long nearExpiredCount;
             private long lowStockCount;
             public DashboardStatsBuilder totalSalesToday(BigDecimal total) { this.totalSalesToday = total; return this; }
             public DashboardStatsBuilder transactionsToday(long count) { this.transactionsToday = count; return this; }
             public DashboardStatsBuilder expiredProductsCount(long count) { this.expiredCount = count; return this; }
+            public DashboardStatsBuilder nearExpiredProductsCount(long count) { this.nearExpiredCount = count; return this; }
             public DashboardStatsBuilder lowStockProductsCount(long count) { this.lowStockCount = count; return this; }
             public DashboardStats build() {
                 DashboardStats stats = new DashboardStats();
                 stats.setTotalSalesToday(totalSalesToday);
                 stats.setTransactionsToday(transactionsToday);
                 stats.setExpiredProductsCount(expiredCount);
+                stats.setNearExpiredProductsCount(nearExpiredCount);
                 stats.setLowStockProductsCount(lowStockCount);
                 return stats;
             }

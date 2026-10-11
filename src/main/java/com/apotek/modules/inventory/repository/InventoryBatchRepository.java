@@ -15,9 +15,13 @@ public interface InventoryBatchRepository extends JpaRepository<InventoryBatch, 
     Optional<InventoryBatch> findByBranchIdAndProductIdAndBatchNumber(Long branchId, Long productId, String batchNumber);
     List<InventoryBatch> findByBranchIdAndProductIdOrderByExpiryDateAsc(Long branchId, Long productId);
     List<InventoryBatch> findByBranchIdOrderByExpiryDateAsc(Long branchId);
+    List<InventoryBatch> findAllByOrderByExpiryDateAsc();
 
     @Query("SELECT COUNT(b) FROM InventoryBatch b WHERE (:branchId IS NULL OR b.branch.id = :branchId) AND b.expiryDate < :expiryLimit AND b.currentQuantity > 0")
     long countExpiredBatches(@Param("branchId") Long branchId, @Param("expiryLimit") LocalDate expiryLimit);
+
+    @Query("SELECT COUNT(b) FROM InventoryBatch b WHERE (:branchId IS NULL OR b.branch.id = :branchId) AND b.expiryDate >= :today AND b.expiryDate < :expiryLimit AND b.currentQuantity > 0")
+    long countNearExpiredBatches(@Param("branchId") Long branchId, @Param("today") LocalDate today, @Param("expiryLimit") LocalDate expiryLimit);
 
     @Query("SELECT b FROM InventoryBatch b WHERE (:branchId IS NULL OR b.branch.id = :branchId) AND b.expiryDate < :expiryLimit AND b.currentQuantity > 0")
     List<InventoryBatch> findExpiringBatches(@Param("branchId") Long branchId, @Param("expiryLimit") LocalDate expiryLimit);

@@ -28,6 +28,14 @@ public class InventoryController {
         return inventoryRepository.findByBranchId(branchId);
     }
 
+    @GetMapping("/batches")
+    public List<InventoryBatch> getAllBatches(@RequestParam(required = false) Long branchId) {
+        if (branchId != null && branchId > 0) {
+            return inventoryBatchRepository.findByBranchIdOrderByExpiryDateAsc(branchId);
+        }
+        return inventoryBatchRepository.findAllByOrderByExpiryDateAsc();
+    }
+
     @GetMapping("/branch/{branchId}/batches")
     public List<InventoryBatch> getBatchesByBranch(@PathVariable Long branchId) {
         return inventoryBatchRepository.findByBranchIdOrderByExpiryDateAsc(branchId);

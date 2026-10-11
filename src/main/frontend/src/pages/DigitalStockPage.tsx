@@ -37,6 +37,7 @@ interface InventoryBatch {
   currentQuantity: number;
   purchasePrice: number;
   product: Product;
+  branch?: Branch;
 }
 
 const ProductSearchSelect: React.FC<{
@@ -147,9 +148,13 @@ const ProductSearchSelect: React.FC<{
 };
 
 const DigitalStockPage: React.FC = () => {
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const urlBranchId = searchParams.get('branchId');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    if (urlBranchId !== null) return urlBranchId;
+    return '';
+  });
+  const [searchTerm, setSearchTerm] = useState('');
   const urlStatus = searchParams.get('status') as 'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED' | null;
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED'>(() => {
     if (urlStatus && ['ALL', 'SAFE', 'NEAR_EXP', 'EXPIRED'].includes(urlStatus)) {
@@ -163,7 +168,22 @@ const DigitalStockPage: React.FC = () => {
     if (urlStatus && ['ALL', 'SAFE', 'NEAR_EXP', 'EXPIRED'].includes(urlStatus)) {
       setStatusFilter(urlStatus);
     }
+    const currentUrlBranchId = searchParams.get('branchId');
+    if (currentUrlBranchId !== null && currentUrlBranchId !== selectedBranchId) {
+      setSelectedBranchId(currentUrlBranchId);
+    }
   }, [searchParams]);
+
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranchId(newBranchId);
+    const newParams = new URLSearchParams(searchParams);
+    if (newBranchId) {
+      newParams.set('branchId', newBranchId);
+    } else {
+      newParams.delete('branchId');
+    }
+    setSearchParams(newParams);
+  };
 
   const handleStatusChange = (newStatus: 'ALL' | 'SAFE' | 'NEAR_EXP' | 'EXPIRED') => {
     setStatusFilter(newStatus);
@@ -190,16 +210,14 @@ const DigitalStockPage: React.FC = () => {
     queryFn: () => api.get('/products').then(res => res.data),
   });
 
-  useEffect(() => {
-    if (branches && branches.length > 0 && !selectedBranchId) {
-      setSelectedBranchId(branches[0].id.toString());
-    }
-  }, [branches, selectedBranchId]);
-
   const { data: batches, isLoading } = useQuery<InventoryBatch[]>({
     queryKey: ['inventory-batches', selectedBranchId],
-    queryFn: () => api.get(`/inventory/branch/${selectedBranchId}/batches`).then(res => res.data),
-    enabled: !!selectedBranchId,
+    queryFn: () => {
+      if (selectedBranchId) {
+        return api.get(`/inventory/branch/${selectedBranchId}/batches`).then(res => res.data);
+      }
+      return api.get('/inventory/batches').then(res => res.data);
+    },
   });
 
   const { data: movements, isLoading: isMovementsLoading } = useQuery<any[]>({
@@ -614,13 +632,13 @@ const DigitalStockPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <select
-            className="h-10 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="h-10 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-700"
             value={selectedBranchId}
-            onChange={(e) => setSelectedBranchId(e.target.value)}
+            onChange={(e) => handleBranchChange(e.target.value)}
           >
-            <option value="" disabled>Pilih Cabang</option>
+            <option value="">🏢 Semua Cabang (Konsolidasi)</option>
             {branches?.map(b => (
-              <option key={b.id} value={b.id}>{b.name}</option>
+              <option key={b.id} value={b.id.toString()}>📍 {b.name}</option>
             ))}
           </select>
           {activeTab === 'BATCH' && (
@@ -834,6 +852,7 @@ const DigitalStockPage: React.FC = () => {
                   <TableRow>
                     <TableHead>SKU</TableHead>
                     <TableHead>Nama Produk</TableHead>
+                    {!selectedBranchId && <TableHead>Cabang</TableHead>}
                     <TableHead>Nomor Batch</TableHead>
                     <TableHead><span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Expired Date</span></TableHead>
                     <TableHead className="text-right">Stok Digital</TableHead>
@@ -843,13 +862,13 @@ const DigitalStockPage: React.FC = () => {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-slate-400">
+                      <TableCell colSpan={!selectedBranchId ? 7 : 6} className="h-32 text-center text-slate-400">
                         Memuat data stok digital...
                       </TableCell>
                     </TableRow>
                   ) : filteredBatches.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-slate-400">
+                      <TableCell colSpan={!selectedBranchId ? 7 : 6} className="h-32 text-center text-slate-400">
                         Tidak ada data stok digital yang sesuai filter.
                       </TableCell>
                     </TableRow>
@@ -861,6 +880,11 @@ const DigitalStockPage: React.FC = () => {
                         <TableRow key={batch.id} className="hover:bg-slate-50/50">
                           <TableCell className="font-mono text-xs text-slate-500">{batch.product.sku}</TableCell>
                           <TableCell className="font-bold text-slate-800">{batch.product.name}</TableCell>
+                          {!selectedBranchId && (
+                            <TableCell className="text-xs font-semibold text-emerald-700 whitespace-nowrap">
+                              {batch.branch?.name || '-'}
+                            </TableCell>
+                          )}
                           <TableCell className="font-mono text-xs text-slate-600">{batch.batchNumber}</TableCell>
                           <TableCell className="text-sm text-slate-500">
                             {parseSafeExpiryDate(batch.expiryDate).toLocaleDateString('id-ID')}

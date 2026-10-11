@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
@@ -19,34 +19,52 @@ import {
   Package, 
   ArrowRight,
   Calendar,
-  DollarSign
+  DollarSign,
+  Store
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn, parseSafeExpiryDate } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 
+interface Branch {
+  id: number;
+  name: string;
+}
+
 const DashboardPage: React.FC = () => {
-  const { fullName, branchId } = useSelector((state: RootState) => state.auth);
+  const { fullName, branchId, role } = useSelector((state: RootState) => state.auth);
+
+  const { data: branches } = useQuery<Branch[]>({
+    queryKey: ['branches'],
+    queryFn: () => api.get('/branches').then(res => res.data),
+  });
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    if (branchId && branchId > 0 && (role === 'CASHIER' || role === 'KASIR' || role === 'STAFF')) {
+      return branchId.toString();
+    }
+    return '';
+  });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard', 'stats', branchId],
-    queryFn: () => api.get(`/dashboard/stats?branchId=${branchId || ''}`).then(res => res.data),
+    queryKey: ['dashboard', 'stats', selectedBranchId],
+    queryFn: () => api.get(`/dashboard/stats?branchId=${selectedBranchId || ''}`).then(res => res.data),
   });
 
   const { data: activities, isLoading: activitiesLoading } = useQuery({
-    queryKey: ['dashboard', 'activities', branchId],
-    queryFn: () => api.get(`/dashboard/recent-activities?branchId=${branchId || ''}`).then(res => res.data),
+    queryKey: ['dashboard', 'activities', selectedBranchId],
+    queryFn: () => api.get(`/dashboard/recent-activities?branchId=${selectedBranchId || ''}`).then(res => res.data),
   });
 
   const { data: trend, isLoading: trendLoading } = useQuery({
-    queryKey: ['dashboard', 'trend', branchId],
-    queryFn: () => api.get(`/reports/sales-trend?branchId=${branchId || ''}`).then(res => res.data),
+    queryKey: ['dashboard', 'trend', selectedBranchId],
+    queryFn: () => api.get(`/reports/sales-trend?branchId=${selectedBranchId || ''}`).then(res => res.data),
   });
 
   const { data: alerts, isLoading: alertsLoading } = useQuery({
-    queryKey: ['dashboard', 'alerts', branchId],
-    queryFn: () => api.get(`/dashboard/alerts?branchId=${branchId || ''}`).then(res => res.data),
+    queryKey: ['dashboard', 'alerts', selectedBranchId],
+    queryFn: () => api.get(`/dashboard/alerts?branchId=${selectedBranchId || ''}`).then(res => res.data),
   });
 
   const formatRelativeTime = (dateStr: string) => {
@@ -80,10 +98,11 @@ const DashboardPage: React.FC = () => {
     { 
       label: 'Obat Expired', 
       value: stats?.expiredProductsCount || 0, 
+      subtitle: stats?.nearExpiredProductsCount > 0 ? `+${stats.nearExpiredProductsCount} Hampir Exp` : undefined,
       icon: AlertCircle, 
       color: 'text-rose-600', 
       bg: 'bg-rose-50',
-      link: '/dashboard/reports/digital-stock?status=EXPIRED' 
+      link: `/dashboard/reports/digital-stock?status=EXPIRED${selectedBranchId ? `&branchId=${selectedBranchId}` : ''}` 
     },
     { 
       label: 'Stok Menipis', 
@@ -91,7 +110,7 @@ const DashboardPage: React.FC = () => {
       icon: Package, 
       color: 'text-amber-600', 
       bg: 'bg-amber-50',
-      link: '/dashboard/inventory?filter=low-stock'
+      link: `/dashboard/inventory?filter=low-stock${selectedBranchId ? `&branchId=${selectedBranchId}` : ''}`
     },
   ];
 
@@ -121,6 +140,36 @@ const DashboardPage: React.FC = () => {
         <TrendingUp className="absolute -bottom-10 -right-10 w-64 h-64 text-white/5 rotate-12" />
       </div>
 
+      {/* Branch Selector Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div>
+          <h2 className="text-base font-bold text-slate-800">Ringkasan Statistik Apotek</h2>
+          <p className="text-slate-500 text-xs">
+            {selectedBranchId 
+              ? `Menampilkan data khusus untuk: ${branches?.find(b => b.id.toString() === selectedBranchId)?.name || 'Cabang Terpilih'}` 
+              : `Menampilkan data konsolidasi (gabungan seluruh cabang)`}
+          </p>
+        </div>
+        {branches && branches.length > 0 && (
+          <div className="flex items-center gap-2.5 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 self-start sm:self-auto">
+            <Store className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-xs font-bold text-slate-500 shrink-0">Cabang:</span>
+            <select
+              value={selectedBranchId}
+              onChange={(e) => setSelectedBranchId(e.target.value)}
+              className="bg-transparent text-sm font-bold text-slate-800 focus:outline-none cursor-pointer pr-2"
+            >
+              <option value="">🏢 Semua Cabang (Konsolidasi)</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id.toString()}>
+                  📍 {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, i) => (
@@ -142,7 +191,14 @@ const DashboardPage: React.FC = () => {
               {statsLoading ? (
                 <Skeleton className="h-8 w-28 mt-1" />
               ) : (
-                <h3 className="text-2xl font-black text-slate-800">{stat.value}</h3>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <h3 className="text-2xl font-black text-slate-800">{stat.value}</h3>
+                  {stat.subtitle && (
+                    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                      {stat.subtitle}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             <div className={cn("absolute bottom-0 left-0 h-1 w-full opacity-10", stat.color.replace('text-', 'bg-'))} />
