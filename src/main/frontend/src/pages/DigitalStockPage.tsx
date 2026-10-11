@@ -176,6 +176,7 @@ const DigitalStockPage: React.FC = () => {
     setSearchParams(newParams);
   };
 
+  const [onlyInStock, setOnlyInStock] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'BATCH' | 'CARD'>('BATCH');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
@@ -255,6 +256,11 @@ const DigitalStockPage: React.FC = () => {
 
     return batches.filter(batch => {
       if (!batch.product) return false;
+
+      // Stock availability filter: hanya tampilkan batch yang stoknya > 0 jika onlyInStock aktif
+      if (onlyInStock && (batch.currentQuantity || 0) <= 0) {
+        return false;
+      }
       
       // Search filter
       const search = searchTerm.toLowerCase();
@@ -273,25 +279,33 @@ const DigitalStockPage: React.FC = () => {
 
       return true;
     });
-  }, [batches, searchTerm, statusFilter]);
+  }, [batches, searchTerm, statusFilter, onlyInStock]);
 
   // Aggregate metrics
   const metrics = useMemo(() => {
-    if (!batches) return { totalQuantity: 0, safeCount: 0, nearExpCount: 0, expiredCount: 0, totalItems: 0 };
+    if (!batches) return { totalQuantity: 0, safeCount: 0, nearExpCount: 0, expiredCount: 0, expiredZeroCount: 0, totalItems: 0 };
 
     let totalQuantity = 0;
     let safeCount = 0;
     let nearExpCount = 0;
     let expiredCount = 0;
+    let expiredZeroCount = 0;
 
     batches.forEach(batch => {
       const qty = batch.currentQuantity || 0;
       totalQuantity += qty;
 
       const status = getBatchStatus(batch.expiryDate);
-      if (status === 'EXPIRED') expiredCount++;
-      else if (status === 'NEAR_EXP') nearExpCount++;
-      else safeCount++;
+      if (status === 'EXPIRED') {
+        if (qty > 0) expiredCount++;
+        else expiredZeroCount++;
+      }
+      else if (status === 'NEAR_EXP') {
+        if (qty > 0) nearExpCount++;
+      }
+      else {
+        if (qty > 0) safeCount++;
+      }
     });
 
     return {
@@ -299,6 +313,7 @@ const DigitalStockPage: React.FC = () => {
       safeCount,
       nearExpCount,
       expiredCount,
+      expiredZeroCount,
       totalItems: batches.length
     };
   }, [batches]);
@@ -724,6 +739,9 @@ const DigitalStockPage: React.FC = () => {
                 <div>
                   <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Sudah Kadaluarsa</p>
                   <h3 className="text-xl font-black text-rose-600 mt-0.5">{metrics.expiredCount} Batch</h3>
+                  {metrics.expiredZeroCount > 0 && (
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-medium">+{metrics.expiredZeroCount} batch stok habis (0)</p>
+                  )}
                 </div>
               </div>
               <div className="absolute bottom-0 left-0 h-1 w-full bg-rose-500/10" />
@@ -743,52 +761,70 @@ const DigitalStockPage: React.FC = () => {
                 />
               </div>
 
-              {/* Quick Filters */}
-              <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100 self-start sm:self-auto shrink-0">
+              <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
+                {/* Toggle Only In Stock */}
                 <button
-                  onClick={() => handleStatusChange('ALL')}
+                  type="button"
+                  onClick={() => setOnlyInStock(!onlyInStock)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                    statusFilter === 'ALL'
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-slate-500 hover:text-slate-800"
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5",
+                    onlyInStock
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
+                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                   )}
+                  title="Filter berdasarkan ketersediaan stok fisik obat di apotek"
                 >
-                  Semua
+                  <span className={cn("w-2 h-2 rounded-full", onlyInStock ? "bg-emerald-500" : "bg-slate-400")} />
+                  {onlyInStock ? "Hanya Stok Ada (> 0)" : "Semua (Termasuk Stok 0)"}
                 </button>
-                <button
-                  onClick={() => handleStatusChange('SAFE')}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                    statusFilter === 'SAFE'
-                      ? "bg-emerald-500 text-white shadow-sm"
-                      : "text-slate-500 hover:text-emerald-500"
-                  )}
-                >
-                  Aman
-                </button>
-                <button
-                  onClick={() => handleStatusChange('NEAR_EXP')}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                    statusFilter === 'NEAR_EXP'
-                      ? "bg-amber-500 text-white shadow-sm"
-                      : "text-slate-500 hover:text-amber-500"
-                  )}
-                >
-                  Hampir Exp ({metrics.nearExpCount})
-                </button>
-                <button
-                  onClick={() => handleStatusChange('EXPIRED')}
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                    statusFilter === 'EXPIRED'
-                      ? "bg-rose-500 text-white shadow-sm"
-                      : "text-slate-500 hover:text-rose-500"
-                  )}
-                >
-                  Expired ({metrics.expiredCount})
-                </button>
+
+                {/* Quick Filters */}
+                <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                  <button
+                    onClick={() => handleStatusChange('ALL')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      statusFilter === 'ALL'
+                        ? "bg-white text-slate-800 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800"
+                    )}
+                  >
+                    Semua
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('SAFE')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      statusFilter === 'SAFE'
+                        ? "bg-emerald-500 text-white shadow-sm"
+                        : "text-slate-500 hover:text-emerald-500"
+                    )}
+                  >
+                    Aman
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('NEAR_EXP')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      statusFilter === 'NEAR_EXP'
+                        ? "bg-amber-500 text-white shadow-sm"
+                        : "text-slate-500 hover:text-amber-500"
+                    )}
+                  >
+                    Hampir Exp ({metrics.nearExpCount})
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('EXPIRED')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                      statusFilter === 'EXPIRED'
+                        ? "bg-rose-500 text-white shadow-sm"
+                        : "text-slate-500 hover:text-rose-500"
+                    )}
+                  >
+                    Expired ({onlyInStock ? metrics.expiredCount : metrics.expiredCount + metrics.expiredZeroCount})
+                  </button>
+                </div>
               </div>
             </div>
 
