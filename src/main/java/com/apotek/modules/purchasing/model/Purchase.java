@@ -41,6 +41,15 @@ public class Purchase {
 
     private String invoiceNumber;
 
+    @Column(name = "subtotal")
+    private BigDecimal subtotal;
+
+    @Column(name = "discount_percent")
+    private BigDecimal discountPercent;
+
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount;
+
     @Column(nullable = false)
     private BigDecimal totalAmount;
 
@@ -73,6 +82,12 @@ public class Purchase {
     public void setPurchaseDate(LocalDate purchaseDate) { this.purchaseDate = purchaseDate; }
     public String getInvoiceNumber() { return invoiceNumber; }
     public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
+    public BigDecimal getSubtotal() { return subtotal; }
+    public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
+    public BigDecimal getDiscountPercent() { return discountPercent; }
+    public void setDiscountPercent(BigDecimal discountPercent) { this.discountPercent = discountPercent; }
+    public BigDecimal getDiscountAmount() { return discountAmount; }
+    public void setDiscountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     public String getStatus() { return status; }
@@ -104,6 +119,9 @@ public class Purchase {
         private Branch branch;
         private LocalDate purchaseDate;
         private String invoiceNumber;
+        private BigDecimal subtotal;
+        private BigDecimal discountPercent;
+        private BigDecimal discountAmount;
         private BigDecimal totalAmount;
         private String status;
         private String paymentMethod;
@@ -113,6 +131,9 @@ public class Purchase {
         public PurchaseBuilder branch(Branch branch) { this.branch = branch; return this; }
         public PurchaseBuilder purchaseDate(LocalDate purchaseDate) { this.purchaseDate = purchaseDate; return this; }
         public PurchaseBuilder invoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; return this; }
+        public PurchaseBuilder subtotal(BigDecimal subtotal) { this.subtotal = subtotal; return this; }
+        public PurchaseBuilder discountPercent(BigDecimal discountPercent) { this.discountPercent = discountPercent; return this; }
+        public PurchaseBuilder discountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; return this; }
         public PurchaseBuilder totalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; return this; }
         public PurchaseBuilder status(String status) { this.status = status; return this; }
         public PurchaseBuilder paymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; return this; }
@@ -124,6 +145,9 @@ public class Purchase {
             purchase.setBranch(branch);
             purchase.setPurchaseDate(purchaseDate);
             purchase.setInvoiceNumber(invoiceNumber);
+            purchase.setSubtotal(subtotal);
+            purchase.setDiscountPercent(discountPercent);
+            purchase.setDiscountAmount(discountAmount);
             purchase.setTotalAmount(totalAmount);
             purchase.setStatus(status);
             purchase.setPaymentMethod(paymentMethod);

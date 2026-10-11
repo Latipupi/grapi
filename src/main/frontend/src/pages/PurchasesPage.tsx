@@ -33,6 +33,9 @@ interface Purchase {
   branch: { name: string };
   purchaseDate: string;
   invoiceNumber: string;
+  subtotal?: number;
+  discountAmount?: number;
+  discountPercent?: number;
   totalAmount: number;
   status: string;
 }
@@ -306,9 +309,16 @@ const PurchasesPage: React.FC = () => {
                       {purchase.branch?.name}
                     </TableCell>
                     <TableCell className="font-bold text-slate-800">
-                      <div className="flex items-center gap-1.5">
-                        <CreditCard className="w-3.5 h-3.5 text-emerald-500" />
-                        Rp {purchase.totalAmount.toLocaleString()}
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 font-mono">
+                          <CreditCard className="w-3.5 h-3.5 text-emerald-500" />
+                          Rp {purchase.totalAmount.toLocaleString()}
+                        </div>
+                        {purchase.discountAmount && purchase.discountAmount > 0 ? (
+                          <span className="text-[10px] text-rose-500 font-semibold font-mono pl-5">
+                            Hemat Rp {purchase.discountAmount.toLocaleString()} {purchase.discountPercent ? `(${purchase.discountPercent}%)` : ''}
+                          </span>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>

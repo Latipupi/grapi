@@ -14,6 +14,8 @@ const detailSchema = z.object({
   productId: z.string().min(1, 'Produk wajib dipilih'),
   quantity: z.number().min(0.0001, 'Qty minimal 0.0001'),
   unitPrice: z.number().min(0, 'Harga minimal 0'),
+  discountPercent: z.number().min(0).max(100).optional().default(0),
+  discountAmount: z.number().min(0).optional().default(0),
   batchNumber: z.string().min(1, 'Batch wajib diisi'),
   expiryDate: z.string().min(1, 'Expired date wajib diisi'),
 });
@@ -26,6 +28,8 @@ const purchaseSchema = z.object({
   status: z.string().default('RECEIVED'),
   paymentMethod: z.string().min(1, 'Metode pembayaran wajib dipilih'),
   notes: z.string().optional(),
+  discountPercent: z.number().min(0).max(100).optional().default(0),
+  discountAmount: z.number().min(0).optional().default(0),
   details: z.array(detailSchema).min(1, 'Minimal 1 item'),
 });
 
@@ -218,7 +222,9 @@ const NewPurchasePage: React.FC = () => {
       purchaseDate: new Date().toISOString().split('T')[0],
       status: 'RECEIVED',
       paymentMethod: 'CASH',
-      details: [{ productId: '', quantity: 0, unitPrice: 0, batchNumber: '', expiryDate: '' }]
+      discountPercent: 0,
+      discountAmount: 0,
+      details: [{ productId: '', quantity: 0, unitPrice: 0, discountPercent: 0, discountAmount: 0, batchNumber: '', expiryDate: '' }]
     }
   });
 
@@ -231,21 +237,69 @@ const NewPurchasePage: React.FC = () => {
   const { data: branches } = useQuery({ queryKey: ['branches'], queryFn: () => api.get('/branches').then(res => res.data) });
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: () => api.get('/products').then(res => res.data) });
 
+  const selectedBranchId = watch('branchId');
+  const filteredProductsByBranch = products?.filter((p: any) => {
+    if (!selectedBranchId) return true;
+    return !p.branch || p.branch.id.toString() === selectedBranchId;
+  }) || [];
+
+  const detailsValues = watch('details') || [];
+  const invoiceDiscPercent = watch('discountPercent') || 0;
+  const invoiceDiscAmount = watch('discountAmount') || 0;
+
+  // Hitung subtotal seluruh item (setelah diskon item)
+  const itemsSubtotal = detailsValues.reduce((acc, curr) => {
+    const qty = curr.quantity || 0;
+    const price = curr.unitPrice || 0;
+    const gross = qty * price;
+    let disc = 0;
+    if (curr.discountPercent && curr.discountPercent > 0) {
+      disc = (gross * curr.discountPercent) / 100;
+    } else if (curr.discountAmount && curr.discountAmount > 0) {
+      disc = curr.discountAmount;
+    }
+    return acc + Math.max(0, gross - disc);
+  }, 0);
+
+  // Hitung diskon faktur
+  const calculatedInvDiscount = invoiceDiscPercent > 0 
+    ? (itemsSubtotal * invoiceDiscPercent) / 100 
+    : invoiceDiscAmount;
+
+  const grandTotal = Math.max(0, itemsSubtotal - calculatedInvDiscount);
+
   const createMutation = useMutation({
     mutationFn: (data: PurchaseFormValues) => {
       const payload = {
         ...data,
         supplier: { id: parseInt(data.supplierId) },
         branch: { id: parseInt(data.branchId) },
-        totalAmount: data.details.reduce((acc, curr) => acc + (curr.quantity * curr.unitPrice), 0),
-        details: data.details.map(d => ({
-          product: { id: parseInt(d.productId) },
-          quantity: d.quantity,
-          unitPrice: d.unitPrice,
-          batchNumber: d.batchNumber,
-          expiryDate: d.expiryDate,
-          subtotal: d.quantity * d.unitPrice
-        }))
+        subtotal: itemsSubtotal,
+        discountPercent: data.discountPercent || 0,
+        discountAmount: calculatedInvDiscount,
+        totalAmount: grandTotal,
+        details: data.details.map(d => {
+          const qty = d.quantity || 0;
+          const price = d.unitPrice || 0;
+          const gross = qty * price;
+          const discAmount = (d.discountPercent && d.discountPercent > 0)
+            ? (gross * d.discountPercent) / 100
+            : (d.discountAmount || 0);
+          const subtotal = Math.max(0, gross - discAmount);
+          const netPrice = qty > 0 ? (subtotal / qty) : price;
+
+          return {
+            product: { id: parseInt(d.productId) },
+            quantity: qty,
+            unitPrice: price,
+            discountPercent: d.discountPercent || 0,
+            discountAmount: discAmount,
+            netUnitPrice: netPrice,
+            batchNumber: d.batchNumber,
+            expiryDate: d.expiryDate,
+            subtotal: subtotal
+          };
+        })
       };
       return api.post('/purchases', payload);
     },
@@ -255,15 +309,6 @@ const NewPurchasePage: React.FC = () => {
       navigate('/dashboard/purchasing');
     },
   });
-
-  const selectedBranchId = watch('branchId');
-  const filteredProductsByBranch = products?.filter((p: any) => {
-    if (!selectedBranchId) return true;
-    return !p.branch || p.branch.id.toString() === selectedBranchId;
-  }) || [];
-
-  const detailsValues = watch('details');
-  const totalAmount = detailsValues.reduce((acc, curr) => acc + (curr.quantity * curr.unitPrice || 0), 0);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -345,10 +390,49 @@ const NewPurchasePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-slate-500 font-medium">Total Pembelian</span>
-                  <span className="text-xl font-black text-emerald-600">Rp {totalAmount.toLocaleString()}</span>
+              <div className="pt-4 border-t border-slate-100 space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Subtotal Item</span>
+                  <span className="font-bold text-slate-700 font-mono">Rp {itemsSubtotal.toLocaleString()}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-50">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-slate-600">Diskon Faktur (%)</label>
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="0%" 
+                      className="h-8 text-xs font-mono"
+                      {...register('discountPercent', { valueAsNumber: true })} 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-slate-600">Potongan (Rp)</label>
+                    <Input 
+                      type="number" 
+                      placeholder="0" 
+                      className="h-8 text-xs font-mono"
+                      {...register('discountAmount', { valueAsNumber: true })} 
+                    />
+                  </div>
+                </div>
+
+                {calculatedInvDiscount > 0 && (
+                  <div className="flex justify-between items-center text-xs text-rose-600 font-semibold bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-100">
+                    <span>Diskon Faktur</span>
+                    <span className="font-mono font-bold">- Rp {calculatedInvDiscount.toLocaleString()}</span>
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm text-slate-700 font-bold">Total Pembelian</span>
+                    <span className="text-xl font-black text-emerald-600 font-mono">Rp {grandTotal.toLocaleString()}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 text-right italic">
+                    *Harga modal (HPP) stok otomatis dihitung dari harga bersih (netto) setelah diskon.
+                  </p>
                 </div>
               </div>
             </div>
@@ -363,7 +447,7 @@ const NewPurchasePage: React.FC = () => {
                 <Package className="w-5 h-5 text-emerald-600" />
                 Daftar Item
               </h2>
-              <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: '', quantity: 0, unitPrice: 0, batchNumber: '', expiryDate: '' })}>
+              <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: '', quantity: 0, unitPrice: 0, discountPercent: 0, discountAmount: 0, batchNumber: '', expiryDate: '' })}>
                 <Plus className="w-4 h-4 mr-1.5" />
                 Tambah Item
               </Button>
@@ -407,7 +491,7 @@ const NewPurchasePage: React.FC = () => {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold text-slate-400">Harga Satuan</label>
+                      <label className="text-[10px] uppercase font-bold text-slate-400">Harga Satuan (Bruto)</label>
                       <Input 
                         type="number" 
                         className="h-9 font-mono"
@@ -417,6 +501,27 @@ const NewPurchasePage: React.FC = () => {
                         branchId={selectedBranchId}
                         productId={detailsValues[index]?.productId}
                         currentPrice={detailsValues[index]?.unitPrice || 0}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase font-bold text-slate-400">Diskon Item (%)</label>
+                      <Input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="0%"
+                        className="h-9 font-mono"
+                        {...register(`details.${index}.discountPercent` as const, { valueAsNumber: true })} 
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase font-bold text-slate-400">Potongan Item (Rp)</label>
+                      <Input 
+                        type="number" 
+                        placeholder="Rp 0"
+                        className="h-9 font-mono"
+                        {...register(`details.${index}.discountAmount` as const, { valueAsNumber: true })} 
                       />
                     </div>
 
@@ -439,13 +544,44 @@ const NewPurchasePage: React.FC = () => {
                       />
                     </div>
 
-                    <div className="lg:col-span-2 flex items-end">
-                       <div className="w-full h-9 bg-emerald-50/50 rounded-lg flex items-center px-3 justify-between border border-emerald-100/50">
-                          <span className="text-[10px] uppercase font-bold text-emerald-500">Subtotal</span>
-                          <span className="text-sm font-black text-emerald-600">
-                             Rp {((watch(`details.${index}.quantity`) || 0) * (watch(`details.${index}.unitPrice`) || 0)).toLocaleString()}
-                          </span>
-                       </div>
+                    <div className="lg:col-span-4 flex flex-wrap items-center justify-between p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-100/50 gap-2">
+                       {(() => {
+                         const qty = watch(`details.${index}.quantity`) || 0;
+                         const price = watch(`details.${index}.unitPrice`) || 0;
+                         const gross = qty * price;
+                         const discPct = watch(`details.${index}.discountPercent`) || 0;
+                         const discAmtInput = watch(`details.${index}.discountAmount`) || 0;
+                         const discVal = discPct > 0 ? (gross * discPct) / 100 : discAmtInput;
+                         const itemSubtotal = Math.max(0, gross - discVal);
+                         const netUnit = qty > 0 ? (itemSubtotal / qty) : price;
+
+                         return (
+                           <>
+                             <div className="flex flex-wrap items-center gap-3 text-xs">
+                               <div>
+                                 <span className="text-slate-400 mr-1">Bruto:</span>
+                                 <span className="font-semibold text-slate-600 font-mono">Rp {gross.toLocaleString()}</span>
+                               </div>
+                               {discVal > 0 && (
+                                 <div>
+                                   <span className="text-slate-400 mr-1">Diskon:</span>
+                                   <span className="font-bold text-rose-600 font-mono">- Rp {discVal.toLocaleString()} ({discPct > 0 ? `${discPct}%` : 'Nominal'})</span>
+                                 </div>
+                               )}
+                               <div>
+                                 <span className="text-slate-400 mr-1">Harga Bersih (HPP Netto):</span>
+                                 <span className="font-bold text-emerald-700 font-mono">Rp {netUnit.toLocaleString()}</span>
+                               </div>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <span className="text-[10px] uppercase font-bold text-emerald-600">Subtotal</span>
+                                <span className="text-sm font-black text-emerald-700 font-mono">
+                                   Rp {itemSubtotal.toLocaleString()}
+                                </span>
+                             </div>
+                           </>
+                         );
+                       })()}
                     </div>
                   </div>
                 </div>

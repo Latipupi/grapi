@@ -35,16 +35,7 @@ public class PurchasingService {
 
     @Transactional
     public Purchase createPurchase(Purchase purchase) {
-        // Initial status is usually RECEIVED for MVP simplicity (Auto-Stock)
-        // or DRAFT if we want a multi-step process.
-        // User said "logic penambahan stok saat barang diterima".
-        
-        purchase.getDetails().forEach(detail -> {
-            detail.setPurchase(purchase);
-            if (detail.getSubtotal() == null) {
-                detail.setSubtotal(detail.getQuantity().multiply(detail.getUnitPrice()));
-            }
-        });
+        calculateAndNormalizePricing(purchase);
 
         Purchase saved = purchaseRepository.save(purchase);
 
@@ -75,10 +66,14 @@ public class PurchasingService {
         if (receiveData.getNotes() != null) {
             existing.setNotes(receiveData.getNotes());
         }
+        if (receiveData.getDiscountPercent() != null) {
+            existing.setDiscountPercent(receiveData.getDiscountPercent());
+        }
+        if (receiveData.getDiscountAmount() != null) {
+            existing.setDiscountAmount(receiveData.getDiscountAmount());
+        }
 
-        // Update details with confirmed quantities, unit prices, batch numbers, and expiry dates
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        
+        // Update details with confirmed quantities, unit prices, discounts, batch numbers, and expiry dates
         if (receiveData.getDetails() != null) {
             for (PurchaseDetail receivedDetail : receiveData.getDetails()) {
                 PurchaseDetail existingDetail = existing.getDetails().stream()
@@ -93,20 +88,15 @@ public class PurchasingService {
                 if (receivedDetail.getUnitPrice() != null) {
                     existingDetail.setUnitPrice(receivedDetail.getUnitPrice());
                 }
+                existingDetail.setDiscountPercent(receivedDetail.getDiscountPercent());
+                existingDetail.setDiscountAmount(receivedDetail.getDiscountAmount());
                 existingDetail.setBatchNumber(receivedDetail.getBatchNumber());
                 existingDetail.setExpiryDate(receivedDetail.getExpiryDate());
-
-                BigDecimal subtotal = existingDetail.getQuantity().multiply(existingDetail.getUnitPrice());
-                existingDetail.setSubtotal(subtotal);
-                totalAmount = totalAmount.add(subtotal);
-            }
-        } else {
-            for (PurchaseDetail existingDetail : existing.getDetails()) {
-                totalAmount = totalAmount.add(existingDetail.getSubtotal());
             }
         }
 
-        existing.setTotalAmount(totalAmount);
+        calculateAndNormalizePricing(existing);
+
         existing.setStatus("RECEIVED");
         if (receiveData.getPurchaseDate() != null) {
             existing.setPurchaseDate(receiveData.getPurchaseDate());
@@ -125,9 +115,77 @@ public class PurchasingService {
         return saved;
     }
 
+    public void calculateAndNormalizePricing(Purchase purchase) {
+        BigDecimal sumItemsSubtotal = BigDecimal.ZERO;
+
+        if (purchase.getDetails() != null) {
+            for (PurchaseDetail detail : purchase.getDetails()) {
+                detail.setPurchase(purchase);
+
+                BigDecimal qty = detail.getQuantity() != null ? detail.getQuantity() : BigDecimal.ZERO;
+                BigDecimal price = detail.getUnitPrice() != null ? detail.getUnitPrice() : BigDecimal.ZERO;
+                BigDecimal gross = qty.multiply(price);
+
+                BigDecimal discPercent = detail.getDiscountPercent() != null ? detail.getDiscountPercent() : BigDecimal.ZERO;
+                BigDecimal discAmount = detail.getDiscountAmount() != null ? detail.getDiscountAmount() : BigDecimal.ZERO;
+
+                if (discPercent.compareTo(BigDecimal.ZERO) > 0) {
+                    discAmount = gross.multiply(discPercent).divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+                    detail.setDiscountAmount(discAmount);
+                } else if (discAmount.compareTo(BigDecimal.ZERO) > 0 && gross.compareTo(BigDecimal.ZERO) > 0) {
+                    discPercent = discAmount.divide(gross, 4, java.math.RoundingMode.HALF_UP).multiply(new BigDecimal("100")).setScale(2, java.math.RoundingMode.HALF_UP);
+                    detail.setDiscountPercent(discPercent);
+                } else {
+                    detail.setDiscountPercent(BigDecimal.ZERO);
+                    detail.setDiscountAmount(BigDecimal.ZERO);
+                }
+
+                BigDecimal itemSubtotal = gross.subtract(detail.getDiscountAmount());
+                if (itemSubtotal.compareTo(BigDecimal.ZERO) < 0) {
+                    itemSubtotal = BigDecimal.ZERO;
+                }
+                detail.setSubtotal(itemSubtotal);
+
+                if (qty.compareTo(BigDecimal.ZERO) > 0) {
+                    detail.setNetUnitPrice(itemSubtotal.divide(qty, 2, java.math.RoundingMode.HALF_UP));
+                } else {
+                    detail.setNetUnitPrice(price);
+                }
+
+                sumItemsSubtotal = sumItemsSubtotal.add(itemSubtotal);
+            }
+        }
+
+        purchase.setSubtotal(sumItemsSubtotal);
+
+        BigDecimal invDiscPercent = purchase.getDiscountPercent() != null ? purchase.getDiscountPercent() : BigDecimal.ZERO;
+        BigDecimal invDiscAmount = purchase.getDiscountAmount() != null ? purchase.getDiscountAmount() : BigDecimal.ZERO;
+
+        if (invDiscPercent.compareTo(BigDecimal.ZERO) > 0) {
+            invDiscAmount = sumItemsSubtotal.multiply(invDiscPercent).divide(new BigDecimal("100"), 2, java.math.RoundingMode.HALF_UP);
+            purchase.setDiscountAmount(invDiscAmount);
+        } else if (invDiscAmount.compareTo(BigDecimal.ZERO) > 0 && sumItemsSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+            invDiscPercent = invDiscAmount.divide(sumItemsSubtotal, 4, java.math.RoundingMode.HALF_UP).multiply(new BigDecimal("100")).setScale(2, java.math.RoundingMode.HALF_UP);
+            purchase.setDiscountPercent(invDiscPercent);
+        } else {
+            purchase.setDiscountPercent(BigDecimal.ZERO);
+            purchase.setDiscountAmount(BigDecimal.ZERO);
+        }
+
+        BigDecimal finalTotal = sumItemsSubtotal.subtract(purchase.getDiscountAmount());
+        if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotal = BigDecimal.ZERO;
+        }
+        purchase.setTotalAmount(finalTotal);
+    }
+
     @Transactional
     public void processStockUpdate(Purchase purchase) {
         for (PurchaseDetail detail : purchase.getDetails()) {
+            BigDecimal effectivePurchasePrice = detail.getNetUnitPrice() != null 
+                    ? detail.getNetUnitPrice() 
+                    : (detail.getUnitPrice() != null ? detail.getUnitPrice() : BigDecimal.ZERO);
+
             inventoryService.recordMovement(
                     purchase.getBranch().getId(),
                     detail.getProduct().getId(),
@@ -137,7 +195,7 @@ public class PurchasingService {
                     detail.getExpiryDate(),
                     purchase.getInvoiceNumber() != null ? purchase.getInvoiceNumber() : "PO-" + purchase.getId(),
                     "Purchase from " + purchase.getSupplier().getName(),
-                    detail.getUnitPrice()
+                    effectivePurchasePrice
             );
         }
     }

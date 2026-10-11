@@ -37,6 +37,15 @@ public class PurchaseDetail {
     @Column(nullable = false)
     private BigDecimal unitPrice;
 
+    @Column(name = "discount_percent")
+    private BigDecimal discountPercent;
+
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount;
+
+    @Column(name = "net_unit_price")
+    private BigDecimal netUnitPrice;
+
     private String batchNumber;
     private LocalDate expiryDate;
 
@@ -64,6 +73,12 @@ public class PurchaseDetail {
     public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
+    public BigDecimal getDiscountPercent() { return discountPercent; }
+    public void setDiscountPercent(BigDecimal discountPercent) { this.discountPercent = discountPercent; }
+    public BigDecimal getDiscountAmount() { return discountAmount; }
+    public void setDiscountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; }
+    public BigDecimal getNetUnitPrice() { return netUnitPrice; }
+    public void setNetUnitPrice(BigDecimal netUnitPrice) { this.netUnitPrice = netUnitPrice; }
     public String getBatchNumber() { return batchNumber; }
     public void setBatchNumber(String batchNumber) { this.batchNumber = batchNumber; }
     public LocalDate getExpiryDate() { return expiryDate; }

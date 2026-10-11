@@ -23,6 +23,9 @@ interface PurchaseDetailItem {
   };
   quantity: number;
   unitPrice: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  netUnitPrice?: number;
   batchNumber: string;
   expiryDate: string;
   subtotal: number;
@@ -43,6 +46,9 @@ interface Purchase {
   };
   purchaseDate: string;
   invoiceNumber: string;
+  subtotal?: number;
+  discountPercent?: number;
+  discountAmount?: number;
   totalAmount: number;
   status: string;
   paymentMethod?: string;
@@ -62,6 +68,8 @@ const PurchaseDetailPage: React.FC = () => {
   const [notes, setNotes] = React.useState('');
   const [purchaseDate, setPurchaseDate] = React.useState('');
   const [receivedDetails, setReceivedDetails] = React.useState<any[]>([]);
+  const [receiveDiscountPercent, setReceiveDiscountPercent] = React.useState<number>(0);
+  const [receiveDiscountAmount, setReceiveDiscountAmount] = React.useState<number>(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -282,11 +290,16 @@ const PurchaseDetailPage: React.FC = () => {
           product: item.product,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          discountPercent: item.discountPercent || 0,
+          discountAmount: item.discountAmount || 0,
+          netUnitPrice: item.netUnitPrice || item.unitPrice,
           batchNumber: item.batchNumber || '',
           expiryDate: item.expiryDate || '',
           subtotal: item.subtotal
         }))
       );
+      setReceiveDiscountPercent(purchase.discountPercent || 0);
+      setReceiveDiscountAmount(purchase.discountAmount || 0);
       setInvoiceNumber(purchase.invoiceNumber || '');
       setPaymentMethod(purchase.paymentMethod || 'CASH');
       setNotes(purchase.notes || '');
@@ -301,15 +314,29 @@ const PurchaseDetailPage: React.FC = () => {
         ...next[index],
         [field]: value
       };
-      if (field === 'quantity' || field === 'unitPrice') {
-        next[index].subtotal = next[index].quantity * next[index].unitPrice;
-      }
+      const qty = parseFloat(next[index].quantity) || 0;
+      const price = parseFloat(next[index].unitPrice) || 0;
+      const gross = qty * price;
+      const discPct = parseFloat(next[index].discountPercent) || 0;
+      const discAmt = parseFloat(next[index].discountAmount) || 0;
+      const finalDiscAmt = discPct > 0 ? (gross * discPct / 100) : discAmt;
+      const subtotal = Math.max(0, gross - finalDiscAmt);
+      next[index].subtotal = subtotal;
+      next[index].netUnitPrice = qty > 0 ? (subtotal / qty) : price;
       return next;
     });
   };
 
-  const calculateGrandTotal = () => {
+  const calculateItemsSubtotal = () => {
     return receivedDetails.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+  };
+
+  const calculateGrandTotal = () => {
+    const itemsSub = calculateItemsSubtotal();
+    const invDisc = receiveDiscountPercent > 0 
+      ? (itemsSub * receiveDiscountPercent / 100) 
+      : (receiveDiscountAmount || 0);
+    return Math.max(0, itemsSub - invDisc);
   };
 
   const handleSubmitReceive = async () => {
@@ -331,16 +358,25 @@ const PurchaseDetailPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
+      const itemsSub = calculateItemsSubtotal();
+      const invDisc = receiveDiscountPercent > 0 
+        ? (itemsSub * receiveDiscountPercent / 100) 
+        : (receiveDiscountAmount || 0);
+
       const payload = {
         invoiceNumber: invoiceNumber.trim(),
         paymentMethod,
         notes: notes.trim(),
         purchaseDate,
+        discountPercent: receiveDiscountPercent || 0,
+        discountAmount: invDisc,
         details: receivedDetails.map(item => ({
           id: item.id,
           product: { id: item.product.id },
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          discountPercent: item.discountPercent || 0,
+          discountAmount: item.discountAmount || 0,
           batchNumber: item.batchNumber.trim().toUpperCase(),
           expiryDate: item.expiryDate
         }))
@@ -470,12 +506,22 @@ const PurchaseDetailPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-slate-100">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-slate-500 font-medium flex items-center gap-1.5">
-                    <CreditCard className="w-4 h-4" /> Total Pembelian
+              <div className="pt-4 border-t border-slate-100 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Subtotal Item</span>
+                  <span className="font-bold text-slate-700 font-mono">Rp {(purchase.subtotal || purchase.totalAmount)?.toLocaleString()}</span>
+                </div>
+                {purchase.discountAmount && purchase.discountAmount > 0 ? (
+                  <div className="flex justify-between items-center text-xs text-rose-600 font-semibold bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-100">
+                    <span>Diskon Faktur {purchase.discountPercent ? `(${purchase.discountPercent}%)` : ''}</span>
+                    <span className="font-mono font-bold">- Rp {purchase.discountAmount.toLocaleString()}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                  <span className="text-sm text-slate-700 font-bold flex items-center gap-1.5">
+                    <CreditCard className="w-4 h-4 text-emerald-600" /> Total Pembelian
                   </span>
-                  <span className="text-xl font-black text-emerald-600">Rp {purchase.totalAmount?.toLocaleString() || 0}</span>
+                  <span className="text-xl font-black text-emerald-600 font-mono">Rp {purchase.totalAmount?.toLocaleString() || 0}</span>
                 </div>
               </div>
             </div>
@@ -498,14 +544,16 @@ const PurchaseDetailPage: React.FC = () => {
                     <TableHead>Produk</TableHead>
                     <TableHead>Batch & Exp</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Harga Satuan</TableHead>
+                    <TableHead className="text-right">Harga Bruto</TableHead>
+                    <TableHead className="text-right">Diskon</TableHead>
+                    <TableHead className="text-right">HPP Netto</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {purchase.details?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-slate-400">
+                      <TableCell colSpan={7} className="h-32 text-center text-slate-400">
                         Tidak ada detail item.
                       </TableCell>
                     </TableRow>
@@ -520,10 +568,11 @@ const PurchaseDetailPage: React.FC = () => {
                             <TableRow key={item.id}>
                               <TableCell>
                                 <div className="font-medium text-slate-800">{item.product?.name || `Product ID: ${item.product?.id}`}</div>
+                                {item.product?.sku && <span className="text-[10px] text-slate-400 font-mono">SKU: {item.product.sku}</span>}
                               </TableCell>
                               <TableCell>
                                  <div className="text-sm">
-                                   <span className="font-mono text-slate-600">{item.batchNumber || '-'}</span>
+                                   <span className="font-mono text-slate-600 font-semibold">{item.batchNumber || '-'}</span>
                                    <br />
                                    <span className="text-xs text-slate-400">Exp: {item.expiryDate ? parseLocalDate(item.expiryDate).toLocaleDateString('id-ID') : '-'}</span>
                                  </div>
@@ -531,10 +580,23 @@ const PurchaseDetailPage: React.FC = () => {
                               <TableCell className="text-right font-medium">
                                 {item.quantity}
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right font-mono text-slate-600">
                                 Rp {item.unitPrice?.toLocaleString() || 0}
                               </TableCell>
-                              <TableCell className="text-right font-bold text-emerald-600">
+                              <TableCell className="text-right">
+                                {item.discountAmount && item.discountAmount > 0 ? (
+                                  <span className="text-xs font-bold text-rose-600 font-mono">
+                                    - Rp {item.discountAmount.toLocaleString()}
+                                    {item.discountPercent ? ` (${item.discountPercent}%)` : ''}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right font-bold text-emerald-700 font-mono">
+                                Rp {(item.netUnitPrice || item.unitPrice)?.toLocaleString() || 0}
+                              </TableCell>
+                              <TableCell className="text-right font-black text-emerald-600 font-mono">
                                 Rp {item.subtotal?.toLocaleString() || 0}
                               </TableCell>
                             </TableRow>
@@ -644,10 +706,12 @@ const PurchaseDetailPage: React.FC = () => {
                       <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-100">
                         <tr>
                           <th className="px-4 py-3">Nama Produk</th>
-                          <th className="px-4 py-3 text-right" style={{ width: '90px' }}>Qty</th>
-                          <th className="px-4 py-3 text-right" style={{ width: '130px' }}>Harga Satuan</th>
-                          <th className="px-4 py-3" style={{ width: '160px' }}>No. Batch *</th>
-                          <th className="px-4 py-3" style={{ width: '170px' }}>Exp. Date *</th>
+                          <th className="px-3 py-3 text-right" style={{ width: '80px' }}>Qty</th>
+                          <th className="px-3 py-3 text-right" style={{ width: '120px' }}>Harga Bruto</th>
+                          <th className="px-2 py-3 text-right" style={{ width: '80px' }}>Disc %</th>
+                          <th className="px-2 py-3 text-right" style={{ width: '100px' }}>Disc Rp</th>
+                          <th className="px-3 py-3" style={{ width: '130px' }}>No. Batch *</th>
+                          <th className="px-3 py-3" style={{ width: '140px' }}>Exp. Date *</th>
                           <th className="px-4 py-3 text-right">Subtotal</th>
                         </tr>
                       </thead>
@@ -658,16 +722,17 @@ const PurchaseDetailPage: React.FC = () => {
                               {item.product?.name}
                               <span className="block text-xs font-normal text-slate-400 font-mono mt-0.5">{item.product?.sku || '-'}</span>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-3">
                               <input
                                 type="number"
-                                min="1"
+                                min="0.0001"
+                                step="0.0001"
                                 value={item.quantity}
                                 onChange={(e) => handleDetailChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                                 className="w-full px-2 py-1 text-right border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold"
                               />
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-3">
                               <div className="relative flex items-center">
                                 <span className="absolute left-2 text-xs font-semibold text-slate-400">Rp</span>
                                 <input
@@ -675,11 +740,33 @@ const PurchaseDetailPage: React.FC = () => {
                                   min="0"
                                   value={item.unitPrice}
                                   onChange={(e) => handleDetailChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                  className="w-full pl-7 pr-2 py-1 text-right border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold"
+                                  className="w-full pl-7 pr-2 py-1 text-right border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-semibold font-mono"
                                 />
                               </div>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-2 py-3">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                placeholder="0%"
+                                value={item.discountPercent || ''}
+                                onChange={(e) => handleDetailChange(index, 'discountPercent', parseFloat(e.target.value) || 0)}
+                                className="w-full px-1.5 py-1 text-right border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-mono text-xs"
+                              />
+                            </td>
+                            <td className="px-2 py-3">
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={item.discountAmount || ''}
+                                onChange={(e) => handleDetailChange(index, 'discountAmount', parseFloat(e.target.value) || 0)}
+                                className="w-full px-1.5 py-1 text-right border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-mono text-xs"
+                              />
+                            </td>
+                            <td className="px-3 py-3">
                               <input
                                 type="text"
                                 required
@@ -689,7 +776,7 @@ const PurchaseDetailPage: React.FC = () => {
                                 className="w-full px-2.5 py-1 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 font-mono text-xs uppercase"
                               />
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-3 py-3">
                               <input
                                 type="date"
                                 min="2020-01-01"
@@ -700,7 +787,7 @@ const PurchaseDetailPage: React.FC = () => {
                                 className="w-full px-2 py-1 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 text-xs"
                               />
                             </td>
-                            <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                            <td className="px-4 py-3 text-right font-bold text-emerald-600 font-mono">
                               Rp {item.subtotal?.toLocaleString() || 0}
                             </td>
                           </tr>
@@ -713,10 +800,36 @@ const PurchaseDetailPage: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold text-slate-500">Estimasi Total Akhir:</span>
-                <span className="text-lg font-black text-emerald-600">Rp {calculateGrandTotal().toLocaleString()}</span>
+            <div className="p-6 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between bg-slate-50/50 gap-4 shrink-0">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-500">Diskon Faktur (%):</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="0%"
+                    value={receiveDiscountPercent || ''}
+                    onChange={(e) => setReceiveDiscountPercent(parseFloat(e.target.value) || 0)}
+                    className="w-16 px-2 py-1 text-right border border-slate-200 rounded-lg text-xs font-mono bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-500">Potongan (Rp):</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={receiveDiscountAmount || ''}
+                    onChange={(e) => setReceiveDiscountAmount(parseFloat(e.target.value) || 0)}
+                    className="w-24 px-2 py-1 text-right border border-slate-200 rounded-lg text-xs font-mono bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                  <span className="text-xs font-semibold text-slate-500">Total Akhir:</span>
+                  <span className="text-base font-black text-emerald-600 font-mono">Rp {calculateGrandTotal().toLocaleString()}</span>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Button
