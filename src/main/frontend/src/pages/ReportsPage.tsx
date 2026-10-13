@@ -460,83 +460,137 @@ const ReportsPage: React.FC = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const received = Number(sale.paymentMethod === 'CASH' ? ((sale as any).receivedAmount || sale.totalAmount || 0) : sale.totalAmount);
+    const change = Number(sale.paymentMethod === 'CASH' ? ((sale as any).changeAmount || 0) : 0);
+
     const htmlContent = `
       <html>
         <head>
           <title>Struk Belanja - #SAL-${sale.id}</title>
           <style>
-            @page { margin: 0; }
-            body { 
-              font-family: 'Courier New', Courier, monospace; 
-              width: 48mm; 
+            @page { 
+              size: 58mm auto; 
               margin: 0; 
-              padding: 1mm 2mm; 
-              font-size: 10px; 
-              line-height: 1.3; 
+            }
+            * { 
+              box-sizing: border-box; 
+              margin: 0; 
+              padding: 0; 
+            }
+            html, body {
+              width: 100%;
+              margin: 0;
+              padding: 0;
+            }
+            body { 
+              font-family: 'Consolas', 'Courier New', Courier, monospace; 
+              width: 44mm; 
+              max-width: 44mm; 
+              margin: 0; 
+              padding: 1.5mm 1mm 16mm 1mm; 
+              font-size: 8.5px; 
+              line-height: 1.25; 
               color: #000; 
               background-color: #fff;
+              word-break: break-word;
+              overflow-wrap: break-word;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
             .bold { font-weight: bold; }
-            .header { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-            .header h2 { margin: 0; font-size: 14px; text-transform: uppercase; }
-            .header p { margin: 2px 0 0; font-size: 9px; }
-            .meta { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; font-size: 9px; }
-            .meta p { margin: 2px 0; }
-            .items { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-            .item-row { margin-bottom: 2px; }
-            .item-name { font-weight: bold; font-size: 10px; text-transform: uppercase; }
-            .item-details { display: flex; justify-content: space-between; font-size: 9px; padding-left: 4px; }
-            .item-batch { font-size: 8px; color: #333; padding-left: 4px; margin-bottom: 4px; }
-            .totals { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-            .total-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 10px; }
-            .footer { font-size: 9px; margin-top: 10px; line-height: 1.2; }
+            .header { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
+            .header h2 { margin: 0; font-size: 13px; text-transform: uppercase; font-weight: bold; }
+            .header p { margin: 1px 0 0; font-size: 8px; }
+            .meta { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; font-size: 8px; }
+            .meta p { margin: 1.5px 0; }
+            .items { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
+            .item-row { margin-bottom: 1.5px; }
+            .item-name { font-weight: bold; font-size: 8.5px; text-transform: uppercase; line-height: 1.2; }
+            .item-details { display: flex; justify-content: space-between; align-items: flex-start; font-size: 8px; gap: 4px; }
+            .item-details span:first-child { flex: 1; }
+            .item-details span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; font-weight: bold; }
+            .item-batch { font-size: 7.5px; color: #444; margin-bottom: 3px; }
+            .totals { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
+            .total-row { display: flex; justify-content: space-between; align-items: flex-start; margin: 2px 0; font-size: 8.5px; gap: 4px; }
+            .total-row span:first-child { flex: 1; }
+            .total-row span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
+            .total-row.bold { font-weight: bold; font-size: 9.5px; }
+            .footer { font-size: 8px; margin-top: 6px; line-height: 1.25; }
+            .footer p { margin: 1px 0; }
+            .feed-space { height: 16mm; }
           </style>
         </head>
         <body>
           <div class="header text-center">
             <h2>G-APOTEK</h2>
             <p>${sale.branch?.name || 'Cabang Utama'}</p>
-            <p>Telp: (021) 1234567</p>
+            ${(sale.branch as any)?.address ? `<p>${(sale.branch as any).address}</p>` : ''}
+            <p>${(sale.branch as any)?.phone ? 'Telp: ' + (sale.branch as any).phone : 'Telp: (021) 1234567'}</p>
           </div>
           
           <div class="meta">
             <p>No: #SAL-${sale.id}</p>
-            <p>Tgl: ${new Date(sale.saleDate).toLocaleString('id-ID')}</p>
-            <p>Kasir: ${sale.user?.fullName || 'Sistem'}</p>
+            <p>Tgl: ${new Date(sale.saleDate || (sale as any).createdAt || Date.now()).toLocaleString('id-ID')}</p>
+            <p>Kasir: ${sale.user?.fullName || 'Kasir'}</p>
             <p>Pelanggan: ${sale.customer?.name || 'Umum'}</p>
           </div>
 
           <div class="items">
-            ${sale.details ? sale.details.map(detail => `
-              <div class="item-row">
-                <div class="item-name">${detail.product?.name}</div>
-              </div>
-              <div class="item-details">
-                <span>${detail.quantity ? Number(detail.quantity) : 0} x Rp ${detail.unitPrice.toLocaleString()}</span>
-                <span class="bold">Rp ${detail.subtotal.toLocaleString()}</span>
-              </div>
-              <div class="item-batch">
-                <span>Batch: ${detail.batch?.batchNumber || '-'}</span>
-              </div>
+            ${sale.details ? sale.details.map((detail: any) => `
+              ${detail.isCompound ? `
+                <div class="item-row">
+                  <div class="item-name">[RACIKAN] ${detail.compoundName || 'Obat Racikan'} (${detail.quantity ? Number(detail.quantity) : 1} ${detail.packageType || 'Bungkus'})</div>
+                </div>
+                ${detail.doseRule ? `<div style="font-size: 7.5px; font-style: italic; color: #333;">Aturan: ${detail.doseRule}</div>` : ''}
+                <div class="item-details">
+                  <span>1 Paket Racikan</span>
+                  <span class="bold">Rp ${Number(detail.subtotal).toLocaleString('id-ID')}</span>
+                </div>
+                ${detail.ingredients && detail.ingredients.length > 0 ? `
+                  <div style="font-size: 7.5px; color: #444; padding-left: 4px; margin-top: 1px; margin-bottom: 2px; border-left: 1px dotted #888;">
+                    ${detail.ingredients.map((ing: any) => `• ${ing.product?.name || 'Bahan'}: ${Number(ing.quantity)} @ Rp ${Number(ing.unitPrice).toLocaleString('id-ID')}`).join('<br/>')}
+                    ${Number(detail.serviceFee) > 0 ? `<br/>• Jasa Racik: Rp ${Number(detail.serviceFee).toLocaleString('id-ID')}` : ''}
+                  </div>
+                ` : ''}
+              ` : `
+                <div class="item-row">
+                  <div class="item-name">${detail.product?.name}</div>
+                </div>
+                <div class="item-details">
+                  <span>${detail.quantity ? Number(detail.quantity) : 0} x Rp ${Number(detail.unitPrice).toLocaleString('id-ID')}</span>
+                  <span class="bold">Rp ${Number(detail.subtotal).toLocaleString('id-ID')}</span>
+                </div>
+                <div class="item-batch">
+                  <span>Batch: ${detail.batch?.batchNumber || '-'}</span>
+                </div>
+              `}
             `).join('') : '<p class="text-center">Tidak ada item</p>'}
           </div>
 
           <div class="totals">
             <div class="total-row bold">
               <span>TOTAL</span>
-              <span>Rp ${sale.totalAmount.toLocaleString()}</span>
+              <span>Rp ${Number(sale.totalAmount).toLocaleString('id-ID')}</span>
             </div>
+            ${sale.paymentMethod === 'CASH' ? `
+              <div class="total-row">
+                <span>Bayar</span>
+                <span>Rp ${received.toLocaleString('id-ID')}</span>
+              </div>
+              <div class="total-row">
+                <span>Kembalian</span>
+                <span>Rp ${change.toLocaleString('id-ID')}</span>
+              </div>
+            ` : ''}
             <div class="total-row">
               <span>Metode Bayar</span>
-              <span>${sale.paymentMethod}</span>
+              <span>${sale.paymentMethod || 'CASH'}</span>
             </div>
             <div class="total-row">
               <span>Status</span>
-              <span>${sale.status === 'COMPLETED' ? 'LUNAS' : 'DIBATALKAN'}</span>
+              <span>${sale.status === 'COMPLETED' ? 'LUNAS' : (sale.status || 'LUNAS')}</span>
             </div>
           </div>
 
@@ -544,6 +598,8 @@ const ReportsPage: React.FC = () => {
             <p>Terima Kasih atas Kunjungan Anda</p>
             <p>Semoga Lekas Sembuh</p>
           </div>
+
+          <div class="feed-space"></div>
 
           <script>
             window.onload = function() {

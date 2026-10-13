@@ -74,31 +74,53 @@ const ShiftsReportPage: React.FC = () => {
         <head>
           <title>Struk Ringkasan Shift - #SHF-${s.id}</title>
           <style>
-            @page { margin: 0; }
-            body { 
-              font-family: 'Courier New', Courier, monospace; 
-              width: 48mm; 
+            @page { 
+              size: 58mm auto; 
               margin: 0; 
-              padding: 1mm 2mm; 
-              font-size: 10px; 
-              line-height: 1.3; 
+            }
+            * { 
+              box-sizing: border-box; 
+              margin: 0; 
+              padding: 0; 
+            }
+            html, body {
+              width: 100%;
+              margin: 0;
+              padding: 0;
+            }
+            body { 
+              font-family: 'Consolas', 'Courier New', Courier, monospace; 
+              width: 44mm; 
+              max-width: 44mm; 
+              margin: 0; 
+              padding: 1.5mm 1mm 16mm 1mm; 
+              font-size: 8.5px; 
+              line-height: 1.25; 
               color: #000; 
               background-color: #fff;
+              word-break: break-word;
+              overflow-wrap: break-word;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
             .text-center { text-align: center; }
             .text-right { text-align: right; }
             .bold { font-weight: bold; }
-            .header { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-            .header h2 { margin: 0; font-size: 14px; text-transform: uppercase; }
-            .header p { margin: 2px 0 0; font-size: 9px; }
-            .meta { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; font-size: 9px; }
-            .meta p { margin: 2px 0; }
-            .details { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 10px; }
-            .sub-row { display: flex; justify-content: space-between; margin-bottom: 3px; padding-left: 6px; font-size: 9px; color: #333; }
-            .footer { font-size: 9px; margin-top: 10px; line-height: 1.2; }
+            .header { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
+            .header h2 { margin: 0; font-size: 13px; text-transform: uppercase; font-weight: bold; }
+            .header p { margin: 1px 0 0; font-size: 8px; }
+            .meta { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; font-size: 8px; }
+            .meta p { margin: 1.5px 0; }
+            .details { border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px; }
+            .row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2.5px; font-size: 8.5px; gap: 4px; }
+            .row span:first-child { flex: 1; }
+            .row span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
+            .sub-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2.5px; padding-left: 5px; font-size: 8px; color: #333; gap: 4px; }
+            .sub-row span:first-child { flex: 1; }
+            .sub-row span:last-child { white-space: nowrap; flex-shrink: 0; text-align: right; }
+            .footer { font-size: 8px; margin-top: 6px; line-height: 1.25; }
+            .footer p { margin: 1px 0; }
+            .feed-space { height: 16mm; }
           </style>
         </head>
         <body>
@@ -108,39 +130,39 @@ const ShiftsReportPage: React.FC = () => {
           </div>
           <div class="meta">
             <p>Shift ID: #${s.id}</p>
-            <p>Kasir: ${s.user?.fullName}</p>
+            <p>Kasir: ${s.user?.fullName || 'Kasir'}</p>
             <p>Mulai: ${new Date(s.startTime).toLocaleString('id-ID')}</p>
             <p>Selesai: ${s.endTime ? new Date(s.endTime).toLocaleString('id-ID') : 'Belum Ditutup'}</p>
           </div>
           <div class="details">
             <div class="row">
               <span>Modal Awal</span>
-              <span class="bold">Rp ${s.startingCash?.toLocaleString()}</span>
+              <span class="bold">Rp ${Number(s.startingCash || 0).toLocaleString('id-ID')}</span>
             </div>
             <div class="row">
               <span>Total Penjualan</span>
-              <span class="bold">Rp ${(s.totalSales || 0).toLocaleString()}</span>
+              <span class="bold">Rp ${Number(s.totalSales || 0).toLocaleString('id-ID')}</span>
             </div>
             <div class="sub-row">
               <span>* Tunai (Cash)</span>
-              <span>Rp ${(s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0).toLocaleString()}</span>
+              <span>Rp ${Number(s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0).toLocaleString('id-ID')}</span>
             </div>
             <div class="sub-row">
               <span>* Non-Tunai</span>
-              <span>Rp ${(s.totalSales ? (s.totalSales - (s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0)) : 0).toLocaleString()}</span>
+              <span>Rp ${Number(s.totalSales ? (s.totalSales - (s.expectedEndingCash ? (s.expectedEndingCash - s.startingCash) : 0)) : 0).toLocaleString('id-ID')}</span>
             </div>
             <div class="row">
               <span>Ekspektasi Kas</span>
-              <span class="bold">Rp ${(s.expectedEndingCash || s.startingCash).toLocaleString()}</span>
+              <span class="bold">Rp ${Number(s.expectedEndingCash || s.startingCash || 0).toLocaleString('id-ID')}</span>
             </div>
             <div class="row">
               <span>Kas Aktual</span>
-              <span class="bold">${s.endingCash !== null ? `Rp ${s.endingCash.toLocaleString()}` : '-'}</span>
+              <span class="bold">${s.endingCash !== null ? `Rp ${Number(s.endingCash).toLocaleString('id-ID')}` : '-'}</span>
             </div>
             ${s.status === 'CLOSED' ? `
             <div class="row bold">
               <span>Selisih</span>
-              <span>Rp ${(s.endingCash - s.expectedEndingCash).toLocaleString()}</span>
+              <span>Rp ${Number((s.endingCash || 0) - (s.expectedEndingCash || 0)).toLocaleString('id-ID')}</span>
             </div>
             ` : ''}
           </div>
@@ -148,6 +170,7 @@ const ShiftsReportPage: React.FC = () => {
             <p>Dicetak ulang pada: ${new Date().toLocaleString('id-ID')}</p>
             <p>Simpan struk ini untuk serah terima laci kasir</p>
           </div>
+          <div class="feed-space"></div>
           <script>
             window.onload = function() {
               window.print();

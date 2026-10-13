@@ -618,16 +618,32 @@ const DebtsPage: React.FC = () => {
                         <head>
                           <title>Kwitansi Pembayaran - #RCP-${printPayment.id}</title>
                           <style>
-                            @page { margin: 0; }
-                            body { 
-                              font-family: 'Courier New', Courier, monospace; 
-                              width: 48mm; 
+                            @page { 
+                              size: 58mm auto; 
                               margin: 0; 
-                              padding: 1mm 2mm; 
-                              font-size: 10px; 
-                              line-height: 1.3; 
+                            }
+                            * { 
+                              box-sizing: border-box; 
+                              margin: 0; 
+                              padding: 0; 
+                            }
+                            html, body {
+                              width: 100%;
+                              margin: 0;
+                              padding: 0;
+                            }
+                            body { 
+                              font-family: 'Consolas', 'Courier New', Courier, monospace; 
+                              width: 44mm; 
+                              max-width: 44mm; 
+                              margin: 0; 
+                              padding: 1.5mm 1mm 16mm 1mm; 
+                              font-size: 8.5px; 
+                              line-height: 1.25; 
                               color: #000; 
                               background-color: #fff;
+                              word-break: break-word;
+                              overflow-wrap: break-word;
                               -webkit-print-color-adjust: exact;
                               print-color-adjust: exact;
                             }
@@ -635,26 +651,28 @@ const DebtsPage: React.FC = () => {
                             .text-right { text-align: right; }
                             .bold { font-weight: bold; }
                             .flex { display: flex; }
-                            .justify-between { display: flex; justify-content: space-between; }
-                            .space-y-1 > * + * { margin-top: 4px; }
-                            .space-y-2 > * + * { margin-top: 8px; }
-                            .space-y-4 > * + * { margin-top: 16px; }
+                            .justify-between { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
+                            .space-y-1 > * + * { margin-top: 3px; }
+                            .space-y-2 > * + * { margin-top: 5px; }
+                            .space-y-4 > * + * { margin-top: 10px; }
                             .border-b { border-bottom: 1px dashed #000; }
-                            .my-2 { margin-top: 8px; margin-bottom: 8px; }
-                            .text-sm { font-size: 11px; }
-                            .text-[10px] { font-size: 8px; }
+                            .my-2 { margin-top: 5px; margin-bottom: 5px; }
+                            .text-sm { font-size: 9.5px; }
+                            .text-[10px] { font-size: 7.5px; }
                             .font-bold { font-weight: bold; }
                             .text-slate-500 { color: #555; }
                             .text-rose-500 { color: #000; font-weight: bold; }
                             .font-extrabold { font-weight: 800; }
-                            .text-base { font-size: 12px; }
+                            .text-base { font-size: 11px; }
                             .uppercase { text-transform: uppercase; }
+                            .feed-space { height: 16mm; }
                           </style>
                         </head>
                         <body>
                           <div style="width: 100%;">
                             ${printContent}
                           </div>
+                          <div class="feed-space"></div>
                           <script>
                             window.onload = function() {
                               window.print();
