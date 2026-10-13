@@ -5,7 +5,9 @@ import com.apotek.modules.purchasing.repository.*;
 import com.apotek.modules.inventory.service.InventoryService;
 import com.apotek.modules.debt.service.DebtService;
 import com.apotek.modules.masterdata.model.Product;
+import com.apotek.modules.masterdata.model.Supplier;
 import com.apotek.modules.masterdata.repository.ProductRepository;
+import com.apotek.modules.masterdata.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ public class PurchasingService {
     private final InventoryService inventoryService;
     private final DebtService debtService;
     private final ProductRepository productRepository;
+    private final SupplierRepository supplierRepository;
 
     public List<Purchase> getAll() {
         return purchaseRepository.findAll();
@@ -184,6 +187,17 @@ public class PurchasingService {
 
     @Transactional
     public void processStockUpdate(Purchase purchase) {
+        String supplierName = "Supplier";
+        if (purchase.getSupplier() != null) {
+            if (purchase.getSupplier().getName() != null && !purchase.getSupplier().getName().trim().isEmpty()) {
+                supplierName = purchase.getSupplier().getName();
+            } else if (purchase.getSupplier().getId() != null) {
+                supplierName = supplierRepository.findById(purchase.getSupplier().getId())
+                        .map(Supplier::getName)
+                        .orElse("Supplier");
+            }
+        }
+
         for (PurchaseDetail detail : purchase.getDetails()) {
             BigDecimal effectivePurchasePrice = detail.getNetUnitPrice() != null 
                     ? detail.getNetUnitPrice() 
@@ -197,15 +211,16 @@ public class PurchasingService {
                     detail.getBatchNumber(),
                     detail.getExpiryDate(),
                     purchase.getInvoiceNumber() != null ? purchase.getInvoiceNumber() : "PO-" + purchase.getId(),
-                    "Purchase from " + purchase.getSupplier().getName(),
+                    "Purchase from " + supplierName,
                     effectivePurchasePrice
             );
 
-            // Synchronize master product reference purchase price with latest purchase price
-            if (detail.getProduct() != null && effectivePurchasePrice.compareTo(BigDecimal.ZERO) > 0) {
-                Product product = detail.getProduct();
-                product.setPurchasePrice(effectivePurchasePrice);
-                productRepository.save(product);
+            // Synchronize master product reference purchase price with latest purchase price safely
+            if (detail.getProduct() != null && detail.getProduct().getId() != null && effectivePurchasePrice.compareTo(BigDecimal.ZERO) > 0) {
+                productRepository.findById(detail.getProduct().getId()).ifPresent(p -> {
+                    p.setPurchasePrice(effectivePurchasePrice);
+                    productRepository.save(p);
+                });
             }
         }
     }

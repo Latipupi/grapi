@@ -11,6 +11,7 @@ import { Trash, Plus, ShoppingCart, ArrowLeft, Save, Package, Search, ChevronDow
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
+import { toast } from '../components/ui/Toast';
 
 const detailSchema = z.object({
   productId: z.string().min(1, 'Produk wajib dipilih'),
@@ -344,10 +345,15 @@ const NewPurchasePage: React.FC = () => {
       return api.post('/purchases', payload);
     },
     onSuccess: () => {
+      toast.success('Pembelian berhasil disimpan!');
       queryClient.invalidateQueries({ queryKey: ['purchases'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       navigate('/dashboard/purchasing');
     },
+    onError: (error: any) => {
+      const msg = error.response?.data?.message || (typeof error.response?.data === 'string' ? error.response.data : null) || error.message || 'Terjadi kesalahan sistem';
+      toast.error('Gagal menyimpan transaksi pembelian: ' + msg);
+    }
   });
 
   return (
@@ -364,11 +370,17 @@ const NewPurchasePage: React.FC = () => {
         </div>
         <Button 
           className="bg-emerald-600 hover:bg-emerald-700" 
-          onClick={handleSubmit((data) => createMutation.mutate(data))}
+          onClick={handleSubmit(
+            (data) => createMutation.mutate(data),
+            (errs) => {
+              console.error('Validation errors:', errs);
+              toast.error('Mohon periksa kembali form: pastikan supplier, cabang, produk, no. batch, dan expired date sudah diisi lengkap.');
+            }
+          )}
           disabled={createMutation.isPending}
         >
           <Save className="w-4 h-4 mr-2" />
-          Simpan Transaksi
+          {createMutation.isPending ? 'Menyimpan...' : 'Simpan Transaksi'}
         </Button>
       </div>
 
@@ -527,6 +539,9 @@ const NewPurchasePage: React.FC = () => {
                           />
                         )}
                       />
+                      {errors.details?.[index]?.productId && (
+                        <p className="text-[10px] text-red-500 font-medium">{errors.details[index]?.productId?.message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -537,6 +552,9 @@ const NewPurchasePage: React.FC = () => {
                         className="h-9"
                         {...register(`details.${index}.quantity` as const, { valueAsNumber: true })} 
                       />
+                      {errors.details?.[index]?.quantity && (
+                        <p className="text-[10px] text-red-500 font-medium">{errors.details[index]?.quantity?.message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -546,6 +564,9 @@ const NewPurchasePage: React.FC = () => {
                         className="h-9 font-mono"
                         {...register(`details.${index}.unitPrice` as const, { valueAsNumber: true })} 
                       />
+                      {errors.details?.[index]?.unitPrice && (
+                        <p className="text-[10px] text-red-500 font-medium">{errors.details[index]?.unitPrice?.message}</p>
+                      )}
                       <LastPurchasePriceComparison 
                         branchId={selectedBranchId}
                         productId={detailsValues[index]?.productId}
@@ -580,6 +601,9 @@ const NewPurchasePage: React.FC = () => {
                         className="h-9"
                         {...register(`details.${index}.batchNumber` as const)} 
                       />
+                      {errors.details?.[index]?.batchNumber && (
+                        <p className="text-[10px] text-red-500 font-medium">{errors.details[index]?.batchNumber?.message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -591,6 +615,9 @@ const NewPurchasePage: React.FC = () => {
                         className="h-9"
                         {...register(`details.${index}.expiryDate` as const)} 
                       />
+                      {errors.details?.[index]?.expiryDate && (
+                        <p className="text-[10px] text-red-500 font-medium">{errors.details[index]?.expiryDate?.message}</p>
+                      )}
                     </div>
 
                     <div className="lg:col-span-4 flex flex-wrap items-center justify-between p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-100/50 gap-2">
