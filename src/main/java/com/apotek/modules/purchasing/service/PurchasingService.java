@@ -6,6 +6,7 @@ import com.apotek.modules.inventory.service.InventoryService;
 import com.apotek.modules.debt.service.DebtService;
 import com.apotek.modules.masterdata.model.Product;
 import com.apotek.modules.masterdata.model.Supplier;
+import com.apotek.modules.masterdata.repository.BranchRepository;
 import com.apotek.modules.masterdata.repository.ProductRepository;
 import com.apotek.modules.masterdata.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class PurchasingService {
     private final DebtService debtService;
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
+    private final BranchRepository branchRepository;
 
     public List<Purchase> getAll() {
         return purchaseRepository.findAll();
@@ -41,6 +43,13 @@ public class PurchasingService {
 
     @Transactional
     public Purchase createPurchase(Purchase purchase) {
+        if (purchase.getSupplier() != null && purchase.getSupplier().getId() != null) {
+            supplierRepository.findById(purchase.getSupplier().getId()).ifPresent(purchase::setSupplier);
+        }
+        if (purchase.getBranch() != null && purchase.getBranch().getId() != null) {
+            branchRepository.findById(purchase.getBranch().getId()).ifPresent(purchase::setBranch);
+        }
+
         calculateAndNormalizePricing(purchase);
 
         Purchase saved = purchaseRepository.save(purchase);

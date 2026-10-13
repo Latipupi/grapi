@@ -1,6 +1,7 @@
 package com.apotek.modules.purchasing.repository;
 import com.apotek.modules.purchasing.model.*;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -8,6 +9,10 @@ import java.util.List;
 
 @Repository
 public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
+    @EntityGraph(attributePaths = {"supplier", "branch"})
+    List<Purchase> findAll();
+
+    @EntityGraph(attributePaths = {"supplier", "branch"})
     List<Purchase> findByBranchIdOrderByPurchaseDateDesc(Long branchId);
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"supplier", "branch", "details", "details.product"})

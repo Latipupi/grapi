@@ -570,7 +570,7 @@ const DebtsPage: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span>Ref Transaksi</span>
-                    <span>{selectedDebt?.type === 'HUTANG_PENJUALAN' ? `#SAL-${selectedDebt?.sale?.id}` : selectedDebt?.purchase?.invoiceNumber}</span>
+                    <span>{selectedDebt?.type === 'HUTANG_PENJUALAN' ? `#SAL-${selectedDebt?.sale?.id}` : selectedDebt?.purchase?.invoiceNumber || `#PUR-${selectedDebt?.purchase?.id}`}</span>
                   </div>
                 </div>
 
