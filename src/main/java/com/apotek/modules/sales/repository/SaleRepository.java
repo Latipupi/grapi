@@ -14,6 +14,22 @@ import java.util.List;
 public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Sale> findByBranchIdOrderBySaleDateDesc(Long branchId);
 
+    @Query("SELECT DISTINCT s FROM Sale s " +
+           "LEFT JOIN FETCH s.branch " +
+           "LEFT JOIN FETCH s.user " +
+           "LEFT JOIN FETCH s.customer " +
+           "WHERE (:branchId IS NULL OR s.branch.id = :branchId) " +
+           "AND (:startDate IS NULL OR s.saleDate >= :startDate) " +
+           "AND (:endDate IS NULL OR s.saleDate <= :endDate) " +
+           "AND (:status IS NULL OR s.status = :status) " +
+           "ORDER BY s.saleDate DESC")
+    List<Sale> findSalesWithFilters(
+            @Param("branchId") Long branchId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("status") String status
+    );
+
     @Query("SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s WHERE s.shift.id = :shiftId AND s.paymentMethod = 'CASH' AND s.status = 'COMPLETED'")
     BigDecimal sumCashSalesByShiftId(@Param("shiftId") Long shiftId);
 

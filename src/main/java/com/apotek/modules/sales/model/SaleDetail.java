@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -71,6 +72,7 @@ public class SaleDetail {
     private String packageType; // e.g. Puyer, Kapsul, Salep, Sirup
 
     @OneToMany(mappedBy = "saleDetail", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @BatchSize(size = 100)
     private List<SaleDetailIngredient> ingredients = new ArrayList<>();
 
     @CreationTimestamp

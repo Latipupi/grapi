@@ -21,7 +21,8 @@ import {
   TrendingUp,
   PackageCheck,
   ShoppingBag,
-  Gift
+  Gift,
+  Loader2
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { CustomerLoyaltyView } from '../components/customers/CustomerLoyaltyView';
@@ -81,10 +82,19 @@ const ReportsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  const { data: sales, isLoading } = useQuery<Sale[]>({
-    queryKey: ['sales-report'],
-    queryFn: () => api.get('/sales').then(res => res.data),
+  const { data: sales, isLoading, isFetching, refetch } = useQuery<Sale[]>({
+    queryKey: ['sales-report', appliedFilters],
+    queryFn: () => api.get('/sales', {
+      params: {
+        startDate: appliedFilters.start || undefined,
+        endDate: appliedFilters.end || undefined,
+        status: appliedFilters.status || undefined,
+        branchId: appliedFilters.branch || undefined,
+      }
+    }).then(res => res.data),
   });
+
+  const isDataLoading = isLoading || isFetching;
 
   const { data: branches } = useQuery<any[]>({
     queryKey: ['branches'],
@@ -132,56 +142,79 @@ const ReportsPage: React.FC = () => {
   }, [appliedFilters, searchTerm, pageSize]);
 
   const handleApplyFilters = () => {
-    setAppliedFilters({
+    const nextFilters = {
       start: dateRange.start,
       end: dateRange.end,
       status: statusFilter,
       branch: branchFilter
-    });
+    };
+    setAppliedFilters(nextFilters);
+    if (JSON.stringify(nextFilters) === JSON.stringify(appliedFilters)) {
+      refetch();
+    }
   };
 
   const handleResetFilters = () => {
     setDateRange({ start: '', end: '' });
     setStatusFilter('');
     setBranchFilter('');
-    setAppliedFilters({ start: '', end: '', status: '', branch: '' });
+    const reset = { start: '', end: '', status: '', branch: '' };
+    setAppliedFilters(reset);
+    if (JSON.stringify(reset) === JSON.stringify(appliedFilters)) {
+      refetch();
+    }
   };
 
-  // 1. Filtering
-  const filteredSales = sales?.filter(sale => {
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      const idMatch = `#sal-${sale.id}`.toLowerCase().includes(search) || `sal-${sale.id}`.toLowerCase().includes(search) || String(sale.id).includes(search);
-      const customerMatch = sale.customer?.name?.toLowerCase().includes(search);
-      const userMatch = sale.user?.fullName?.toLowerCase().includes(search);
-      if (!idMatch && !customerMatch && !userMatch) return false;
+  const handlePresetDate = (type: 'today' | '7days' | 'this_month' | 'all') => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    let startStr = '';
+    let endStr = '';
+
+    if (type === 'today') {
+      startStr = todayStr;
+      endStr = todayStr;
+    } else if (type === '7days') {
+      const d = new Date();
+      d.setDate(today.getDate() - 7);
+      startStr = d.toISOString().split('T')[0];
+      endStr = todayStr;
+    } else if (type === 'this_month') {
+      const d = new Date(today.getFullYear(), today.getMonth(), 1);
+      startStr = d.toISOString().split('T')[0];
+      endStr = todayStr;
+    } else if (type === 'all') {
+      startStr = '';
+      endStr = '';
     }
 
-    // Status filter
-    if (appliedFilters.status && sale.status !== appliedFilters.status) {
-      return false;
+    setDateRange({ start: startStr, end: endStr });
+    const nextFilters = {
+      ...appliedFilters,
+      start: startStr,
+      end: endStr
+    };
+    setAppliedFilters(nextFilters);
+    if (JSON.stringify(nextFilters) === JSON.stringify(appliedFilters)) {
+      refetch();
     }
+  };
 
-    // Branch filter
-    if (appliedFilters.branch && String(sale.branch?.id) !== appliedFilters.branch) {
-      return false;
-    }
-
-    // Date range filter
-    if (appliedFilters.start) {
-      const startDate = new Date(appliedFilters.start);
-      startDate.setHours(0, 0, 0, 0);
-      if (new Date(sale.saleDate) < startDate) return false;
-    }
-    if (appliedFilters.end) {
-      const endDate = new Date(appliedFilters.end);
-      endDate.setHours(23, 59, 59, 999);
-      if (new Date(sale.saleDate) > endDate) return false;
-    }
-
-    return true;
-  });
+  // 1. Client-side Search and Fallback Filtering
+  const filteredSales = React.useMemo(() => {
+    if (!sales) return [];
+    return sales.filter(sale => {
+      // Search filter
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const idMatch = `#sal-${sale.id}`.toLowerCase().includes(search) || `sal-${sale.id}`.toLowerCase().includes(search) || String(sale.id).includes(search);
+        const customerMatch = sale.customer?.name?.toLowerCase().includes(search);
+        const userMatch = sale.user?.fullName?.toLowerCase().includes(search);
+        if (!idMatch && !customerMatch && !userMatch) return false;
+      }
+      return true;
+    });
+  }, [sales, searchTerm]);
 
   const [showCharts, setShowCharts] = useState(true);
 
@@ -197,10 +230,10 @@ const ReportsPage: React.FC = () => {
 
     filteredSales.forEach(s => {
       if (s.status === 'COMPLETED') {
-        totalRevenue += s.totalAmount;
+        totalRevenue += Number(s.totalAmount) || 0;
         completedCount++;
         if (s.details) {
-          s.details.forEach(d => totalItemsSold += d.quantity);
+          s.details.forEach(d => totalItemsSold += Number(d.quantity) || 0);
         }
       } else {
         cancelledCount++;
@@ -700,59 +733,133 @@ const ReportsPage: React.FC = () => {
       </div>
 
       {activeTab !== 'loyalty' && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-4 items-end">
-           <div className="space-y-1.5 flex-1 min-w-[150px]">
-              <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                 <Calendar className="w-3 h-3" /> Tanggal Mulai
-              </label>
-              <Input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} />
-           </div>
-           <div className="space-y-1.5 flex-1 min-w-[150px]">
-              <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                 <Calendar className="w-3 h-3" /> Tanggal Akhir
-              </label>
-              <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} />
-           </div>
-           
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+           {/* Presets Bar for Sales */}
            {activeTab === 'sales' && (
-             <>
-               <div className="space-y-1.5 flex-1 min-w-[150px]">
-                  <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                     <Filter className="w-3 h-3" /> Status
-                  </label>
-                  <select 
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                     <option value="">Semua Status</option>
-                     <option value="COMPLETED">Berhasil</option>
-                     <option value="CANCELLED">Dibatalkan</option>
-                  </select>
+             <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+               <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
+                 <span>Periode Cepat:</span>
+                 <div className="flex flex-wrap gap-1.5">
+                   <button
+                     type="button"
+                     onClick={() => handlePresetDate('today')}
+                     className={cn(
+                       "px-3 py-1 rounded-lg text-xs font-bold border transition-colors",
+                       appliedFilters.start === new Date().toISOString().split('T')[0] && appliedFilters.end === new Date().toISOString().split('T')[0]
+                         ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                         : "border-slate-200 hover:bg-slate-50 text-slate-700"
+                     )}
+                   >
+                     Hari Ini
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => handlePresetDate('7days')}
+                     className="px-3 py-1 rounded-lg text-xs font-bold border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors"
+                   >
+                     7 Hari Terakhir
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => handlePresetDate('this_month')}
+                     className="px-3 py-1 rounded-lg text-xs font-bold border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors"
+                   >
+                     Bulan Ini
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => handlePresetDate('all')}
+                     className={cn(
+                       "px-3 py-1 rounded-lg text-xs font-bold border transition-colors",
+                       !appliedFilters.start && !appliedFilters.end
+                         ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                         : "border-slate-200 hover:bg-slate-50 text-slate-700"
+                     )}
+                   >
+                     Semua Waktu
+                   </button>
+                 </div>
                </div>
-               <div className="space-y-1.5 flex-1 min-w-[150px]">
-                  <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                     <Filter className="w-3 h-3" /> Cabang
-                  </label>
-                  <select 
-                    value={branchFilter}
-                    onChange={(e) => setBranchFilter(e.target.value)}
-                    className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                     <option value="">Semua Cabang</option>
-                     {branches?.map(b => (
-                       <option key={b.id} value={b.id}>{b.name}</option>
-                     ))}
-                  </select>
-               </div>
-             </>
+
+               {isDataLoading && (
+                 <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full animate-pulse border border-emerald-200">
+                   <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                   <span>Memuat data dari server...</span>
+                 </div>
+               )}
+             </div>
            )}
 
-           <div className="flex gap-2">
-              <Button onClick={handleApplyFilters} className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700">Filter</Button>
-              {(appliedFilters.start || appliedFilters.end || (activeTab === 'sales' && (appliedFilters.status || appliedFilters.branch))) && (
-                <Button onClick={handleResetFilters} variant="outline" className="h-10 px-4">Reset</Button>
+           <div className="flex flex-wrap gap-4 items-end">
+              <div className="space-y-1.5 flex-1 min-w-[150px]">
+                 <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3" /> Tanggal Mulai
+                 </label>
+                 <Input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} />
+              </div>
+              <div className="space-y-1.5 flex-1 min-w-[150px]">
+                 <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3" /> Tanggal Akhir
+                 </label>
+                 <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} />
+              </div>
+              
+              {activeTab === 'sales' && (
+                <>
+                  <div className="space-y-1.5 flex-1 min-w-[150px]">
+                     <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                        <Filter className="w-3 h-3" /> Status
+                     </label>
+                     <select 
+                       value={statusFilter}
+                       onChange={(e) => setStatusFilter(e.target.value)}
+                       className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                     >
+                        <option value="">Semua Status</option>
+                        <option value="COMPLETED">Berhasil</option>
+                        <option value="CANCELLED">Dibatalkan</option>
+                     </select>
+                  </div>
+                  <div className="space-y-1.5 flex-1 min-w-[150px]">
+                     <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                        <Filter className="w-3 h-3" /> Cabang
+                     </label>
+                     <select 
+                       value={branchFilter}
+                       onChange={(e) => setBranchFilter(e.target.value)}
+                       className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                     >
+                        <option value="">Semua Cabang</option>
+                        {branches?.map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                     </select>
+                  </div>
+                </>
               )}
+
+              <div className="flex gap-2">
+                 <Button 
+                   onClick={handleApplyFilters} 
+                   disabled={isDataLoading}
+                   className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 font-bold shadow-sm"
+                 >
+                   {isDataLoading ? (
+                     <>
+                       <Loader2 className="w-4 h-4 animate-spin text-white" />
+                       Memuat...
+                     </>
+                   ) : (
+                     <>
+                       <Filter className="w-4 h-4" />
+                       Filter
+                     </>
+                   )}
+                 </Button>
+                 {(appliedFilters.start || appliedFilters.end || (activeTab === 'sales' && (appliedFilters.status || appliedFilters.branch))) && (
+                   <Button onClick={handleResetFilters} variant="outline" disabled={isDataLoading} className="h-10 px-4">Reset</Button>
+                 )}
+              </div>
            </div>
         </div>
       )}
@@ -769,7 +876,11 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan</p>
-                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {metrics.totalRevenue.toLocaleString()}</h3>
+                    {isDataLoading ? (
+                      <div className="h-7 w-32 bg-slate-200 animate-pulse rounded-lg mt-1" />
+                    ) : (
+                      <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {metrics.totalRevenue.toLocaleString()}</h3>
+                    )}
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
                 </div>
@@ -780,7 +891,11 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Rata-rata Transaksi</p>
-                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {Math.round(metrics.avgTicket).toLocaleString()}</h3>
+                    {isDataLoading ? (
+                      <div className="h-7 w-32 bg-slate-200 animate-pulse rounded-lg mt-1" />
+                    ) : (
+                      <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {Math.round(metrics.avgTicket).toLocaleString()}</h3>
+                    )}
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
                 </div>
@@ -791,7 +906,11 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Item Terjual</p>
-                    <h3 className="text-xl font-black text-slate-800 mt-0.5">{metrics.totalItemsSold} Item</h3>
+                    {isDataLoading ? (
+                      <div className="h-7 w-24 bg-slate-200 animate-pulse rounded-lg mt-1" />
+                    ) : (
+                      <h3 className="text-xl font-black text-slate-800 mt-0.5">{metrics.totalItemsSold} Item</h3>
+                    )}
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
                 </div>
@@ -806,7 +925,12 @@ const ReportsPage: React.FC = () => {
                     <p className="text-xs text-slate-400">Total omset bersih harian dari filter aktif</p>
                   </div>
                   <div className="h-[260px] w-full">
-                    {dailyTrendData.length === 0 ? (
+                    {isDataLoading ? (
+                      <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                        <span className="text-xs font-semibold text-slate-500">Memuat visualisasi grafik...</span>
+                      </div>
+                    ) : dailyTrendData.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-slate-400 text-xs italic">
                         Belum ada data penjualan selesai untuk dirender.
                       </div>
@@ -858,7 +982,12 @@ const ReportsPage: React.FC = () => {
                   </div>
                   
                   <div className="flex-1 min-h-[180px] w-full flex items-center justify-center relative">
-                    {paymentMethodData.length === 0 ? (
+                    {isDataLoading ? (
+                      <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                        <span className="text-xs font-semibold text-slate-500">Memuat distribusi pembayaran...</span>
+                      </div>
+                    ) : paymentMethodData.length === 0 ? (
                       <div className="text-slate-400 text-xs italic">Tidak ada data.</div>
                     ) : (
                       <ResponsiveContainer width="100%" height="100%">
@@ -910,8 +1039,9 @@ const ReportsPage: React.FC = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                </div>
-               <div className="text-sm font-medium text-slate-500">
-                  Menampilkan <span className="text-slate-800 font-bold">{totalItems}</span> Transaksi
+               <div className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                  {isDataLoading && <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />}
+                  Menampilkan <span className="text-slate-800 font-bold">{isDataLoading ? '...' : totalItems}</span> Transaksi
                </div>
             </div>
 
@@ -931,7 +1061,7 @@ const ReportsPage: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {isDataLoading ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={i}>
                         <TableCell><Skeleton className="h-5 w-20 rounded" /></TableCell>

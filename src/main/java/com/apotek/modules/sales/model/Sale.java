@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "sales")
@@ -65,6 +66,7 @@ public class Sale {
     private String tenantId;
 
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @BatchSize(size = 100)
     private java.util.Set<SaleDetail> details = new java.util.LinkedHashSet<>();
 
     @CreationTimestamp

@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "products")
@@ -71,6 +72,7 @@ public class Product {
     private String tenantId;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @BatchSize(size = 100)
     private java.util.Set<ProductUnit> units = new java.util.LinkedHashSet<>();
 
     @Column(name = "created_at", updatable = false)

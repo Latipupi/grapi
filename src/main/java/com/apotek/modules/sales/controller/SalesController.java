@@ -8,7 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/v1/sales")
@@ -19,11 +22,33 @@ public class SalesController {
     private final SaleRepository saleRepository;
 
     @GetMapping
-    public List<Sale> getAll(@RequestParam(required = false) Long branchId) {
-        if (branchId != null) {
-            return saleRepository.findByBranchIdOrderBySaleDateDesc(branchId);
+    @Transactional(readOnly = true)
+    public List<Sale> getAll(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String status
+    ) {
+        LocalDateTime start = parseDateTime(startDate, false);
+        LocalDateTime end = parseDateTime(endDate, true);
+        String stat = (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) ? status : null;
+
+        return saleRepository.findSalesWithFilters(branchId, start, end, stat);
+    }
+
+    private LocalDateTime parseDateTime(String dateStr, boolean isEnd) {
+        if (dateStr == null || dateStr.isBlank()) {
+            return null;
         }
-        return saleRepository.findAll();
+        try {
+            if (dateStr.contains("T")) {
+                return LocalDateTime.parse(dateStr);
+            }
+            LocalDate ld = LocalDate.parse(dateStr);
+            return isEnd ? ld.atTime(23, 59, 59, 999999999) : ld.atStartOfDay();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @GetMapping("/{id}")
