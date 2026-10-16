@@ -57,9 +57,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
-            filterChain.doFilter(request, response);
+        } catch (Exception e) {
+            // Token is expired, signature is invalid, or malformed:
+            // Clear context so Spring Security authenticationEntryPoint returns 401
+            SecurityContextHolder.clearContext();
         } finally {
-            TenantContext.clear();
+            try {
+                filterChain.doFilter(request, response);
+            } finally {
+                TenantContext.clear();
+            }
         }
     }
 }

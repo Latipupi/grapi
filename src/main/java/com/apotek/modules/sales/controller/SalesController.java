@@ -22,6 +22,7 @@ public class SalesController {
     private final SaleRepository saleRepository;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     @Transactional(readOnly = true)
     public List<Sale> getAll(
             @RequestParam(required = false) Long branchId,
@@ -52,6 +53,7 @@ public class SalesController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public ResponseEntity<Sale> getById(@PathVariable Long id) {
         return saleRepository.findById(id)
                 .map(ResponseEntity::ok)
