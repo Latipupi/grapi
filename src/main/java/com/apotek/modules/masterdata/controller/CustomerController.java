@@ -3,6 +3,7 @@ import com.apotek.modules.masterdata.model.*;
 import com.apotek.modules.masterdata.repository.*;
 import com.apotek.modules.masterdata.dto.*;
 
+import com.apotek.modules.masterdata.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,10 +17,23 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerRepository customerRepository;
+    private final CustomerService customerService;
 
     @GetMapping
     public List<Customer> getAll() {
         return customerRepository.findAll();
+    }
+
+    @GetMapping("/spending-summary")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
+    public CustomerLoyaltyReportDTO getCustomerSpendingSummary(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false, defaultValue = "TOTAL_SPENT") String sortBy,
+            @RequestParam(required = false, defaultValue = "false") Boolean includeAll
+    ) {
+        return customerService.getCustomerLoyaltyReport(branchId, startDate, endDate, sortBy, includeAll);
     }
 
     @PostMapping

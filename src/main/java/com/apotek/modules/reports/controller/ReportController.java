@@ -23,8 +23,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.apotek.modules.masterdata.dto.CustomerLoyaltyReportDTO;
 import com.apotek.modules.masterdata.model.Branch;
 import com.apotek.modules.masterdata.repository.BranchRepository;
+import com.apotek.modules.masterdata.service.CustomerService;
 
 @RestController
 @RequestMapping("/api/v1/reports")
@@ -36,6 +38,19 @@ public class ReportController {
     private final BranchRepository branchRepository;
     private final SalesReturnRepository salesReturnRepository;
     private final SalesReturnDetailRepository salesReturnDetailRepository;
+    private final CustomerService customerService;
+
+    @GetMapping("/customer-loyalty")
+    @Transactional(readOnly = true)
+    public CustomerLoyaltyReportDTO getCustomerLoyalty(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false, defaultValue = "TOTAL_SPENT") String sortBy,
+            @RequestParam(required = false, defaultValue = "false") Boolean includeAll
+    ) {
+        return customerService.getCustomerLoyaltyReport(branchId, startDate, endDate, sortBy, includeAll);
+    }
 
     @Data
     @Builder

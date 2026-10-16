@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -8,12 +9,13 @@ import api from '../api/api';
 import { Button } from '../components/ui/Button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Pagination } from '../components/ui/Pagination';
-import { Plus, Search, Edit2, Trash2, User, Phone, Mail, MapPin } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, User, Phone, Mail, MapPin, Users, Gift } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { cn } from '../lib/utils';
 import { Dialog } from '../components/ui/Dialog';
 import { toast } from '../components/ui/Toast';
 import { confirm } from '../components/ui/ConfirmDialog';
+import { CustomerLoyaltyView } from '../components/customers/CustomerLoyaltyView';
 
 const customerSchema = z.object({
   name: z.string().min(3, 'Nama minimal 3 karakter'),
@@ -35,6 +37,15 @@ interface Customer {
 }
 
 const CustomersPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'loyalty' ? 'loyalty' : 'list';
+  const [activeTab, setActiveTab] = useState<'list' | 'loyalty'>(initialTab);
+
+  const handleTabChange = (tab: 'list' | 'loyalty') => {
+    setActiveTab(tab);
+    setSearchParams(tab === 'loyalty' ? { tab: 'loyalty' } : {});
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -151,152 +162,186 @@ const CustomersPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Daftar Pelanggan</h1>
-          <p className="text-slate-500 text-sm">Kelola data pelanggan apotek.</p>
-        </div>
-        <Button 
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
-          onClick={() => handleOpenModal()}
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-slate-200 bg-white p-1 rounded-2xl gap-2 w-fit shadow-sm">
+        <button
+          onClick={() => handleTabChange('list')}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all",
+            activeTab === 'list'
+              ? "bg-emerald-600 text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+          )}
         >
-          <Plus className="w-4 h-4" />
-          Tambah Pelanggan
-        </Button>
+          <Users className="w-4 h-4" />
+          Master Pelanggan
+        </button>
+        <button
+          onClick={() => handleTabChange('loyalty')}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all",
+            activeTab === 'loyalty'
+              ? "bg-emerald-600 text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+          )}
+        >
+          <Gift className="w-4 h-4 text-amber-300" />
+          Peringkat & Rekap THR Pelanggan
+        </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Cari nama atau telepon..." 
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+      {activeTab === 'loyalty' ? (
+        <CustomerLoyaltyView />
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">Daftar Pelanggan</h1>
+              <p className="text-slate-500 text-sm">Kelola data pelanggan apotek.</p>
+            </div>
+            <Button 
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100"
+              onClick={() => handleOpenModal()}
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Pelanggan
+            </Button>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  placeholder="Cari nama atau telepon..." 
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pelanggan</TableHead>
+                    <TableHead>Kontak</TableHead>
+                    <TableHead>Alamat</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-32 text-center text-slate-400">
+                        Memuat data...
+                      </TableCell>
+                    </TableRow>
+                  ) : filtered?.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-32 text-center text-slate-400">
+                        Tidak ada data ditemukan.
+                      </TableCell>
+                    </TableRow>
+                    ) : (
+                    currentEntries?.map((customer, index) => (
+                      <motion.tr 
+                        key={customer.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="group border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center shrink-0">
+                              <User className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-800 truncate">{customer.name}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1 text-xs text-slate-500">
+                            {customer.phone && (
+                              <p className="flex items-center gap-1">
+                                <Phone className="w-3 h-3" /> {customer.phone}
+                              </p>
+                            )}
+                            {customer.email && (
+                              <p className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" /> {customer.email}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <div className="flex items-center gap-1 text-sm text-slate-500 truncate">
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />
+                            {customer.address || '-'}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn(
+                            "px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
+                            customer.active 
+                              ? "bg-emerald-50 text-emerald-600 border border-emerald-100" 
+                              : "bg-slate-100 text-slate-500 border border-slate-200"
+                          )}>
+                            {customer.active ? 'Aktif' : 'Non-aktif'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"
+                              onClick={() => handleOpenModal(customer)}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
+                            onClick={async () => {
+                              const isConfirmed = await confirm({
+                                title: 'Hapus Pelanggan',
+                                message: `Apakah Anda yakin ingin menghapus pelanggan "${customer.name}"?`,
+                                confirmText: 'Ya, Hapus',
+                                type: 'danger'
+                              });
+                              if (isConfirmed) {
+                                deleteMutation.mutate(customer.id);
+                              }
+                            }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </motion.tr>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalEntries={totalEntries}
+              indexOfFirstEntry={indexOfFirstEntry}
+              indexOfLastEntry={indexOfLastEntry}
+              label="Pelanggan"
             />
           </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Pelanggan</TableHead>
-                <TableHead>Kontak</TableHead>
-                <TableHead>Alamat</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-slate-400">
-                    Memuat data...
-                  </TableCell>
-                </TableRow>
-              ) : filtered?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-slate-400">
-                    Tidak ada data ditemukan.
-                  </TableCell>
-                </TableRow>
-                ) : (
-                currentEntries?.map((customer, index) => (
-                  <motion.tr 
-                    key={customer.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="group border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors"
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center shrink-0">
-                          <User className="w-5 h-5 text-slate-400" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-slate-800 truncate">{customer.name}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1 text-xs text-slate-500">
-                        {customer.phone && (
-                          <p className="flex items-center gap-1">
-                            <Phone className="w-3 h-3" /> {customer.phone}
-                          </p>
-                        )}
-                        {customer.email && (
-                          <p className="flex items-center gap-1">
-                            <Mail className="w-3 h-3" /> {customer.email}
-                          </p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <div className="flex items-center gap-1 text-sm text-slate-500 truncate">
-                        <MapPin className="w-3.5 h-3.5 shrink-0" />
-                        {customer.address || '-'}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className={cn(
-                        "px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
-                        customer.active 
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-100" 
-                          : "bg-slate-100 text-slate-500 border border-slate-200"
-                      )}>
-                        {customer.active ? 'Aktif' : 'Non-aktif'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600"
-                          onClick={() => handleOpenModal(customer)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 hover:bg-red-50 text-slate-400 hover:text-red-600"
-                        onClick={async () => {
-                          const isConfirmed = await confirm({
-                            title: 'Hapus Pelanggan',
-                            message: `Apakah Anda yakin ingin menghapus pelanggan "${customer.name}"?`,
-                            confirmText: 'Ya, Hapus',
-                            type: 'danger'
-                          });
-                          if (isConfirmed) {
-                            deleteMutation.mutate(customer.id);
-                          }
-                        }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </motion.tr>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalEntries={totalEntries}
-          indexOfFirstEntry={indexOfFirstEntry}
-          indexOfLastEntry={indexOfLastEntry}
-          label="Pelanggan"
-        />
-      </div>
+        </>
+      )}
 
       <Dialog
         isOpen={isModalOpen}

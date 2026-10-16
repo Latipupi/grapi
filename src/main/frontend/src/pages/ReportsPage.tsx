@@ -20,8 +20,11 @@ import {
   BarChart3,
   TrendingUp,
   PackageCheck,
-  ShoppingBag
+  ShoppingBag,
+  Gift
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { CustomerLoyaltyView } from '../components/customers/CustomerLoyaltyView';
 import { 
   XAxis, 
   YAxis, 
@@ -88,7 +91,15 @@ const ReportsPage: React.FC = () => {
     queryFn: () => api.get('/branches').then(res => res.data),
   });
 
-  const [activeTab, setActiveTab] = useState<'sales' | 'consolidation'>('sales');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'sales' | 'consolidation' | 'loyalty'>(() => {
+    return searchParams.get('tab') === 'loyalty' ? 'loyalty' : 'sales';
+  });
+
+  const handleTabChange = (tab: 'sales' | 'consolidation' | 'loyalty') => {
+    setActiveTab(tab);
+    setSearchParams(tab === 'loyalty' ? { tab: 'loyalty' } : {});
+  };
 
   const { data: branchComparison, isLoading: isComparisonLoading } = useQuery<any[]>({
     queryKey: ['branch-comparison', appliedFilters.start, appliedFilters.end],
@@ -619,8 +630,14 @@ const ReportsPage: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Laporan Penjualan</h1>
-          <p className="text-slate-500 text-sm">Analisa performa transaksi apotek Anda.</p>
+          <h1 className="text-2xl font-bold text-slate-800">
+            {activeTab === 'loyalty' ? 'Peringkat Pelanggan & THR' : 'Laporan Penjualan'}
+          </h1>
+          <p className="text-slate-500 text-sm">
+            {activeTab === 'loyalty' 
+              ? 'Analisa pelanggan loyal, total belanja, dan persiapan alokasi THR.' 
+              : 'Analisa performa transaksi apotek Anda.'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
            {activeTab === 'sales' && (
@@ -645,7 +662,7 @@ const ReportsPage: React.FC = () => {
       {/* Premium Tab Bar */}
       <div className="flex border-b border-slate-100">
         <button
-          onClick={() => setActiveTab('sales')}
+          onClick={() => handleTabChange('sales')}
           className={cn(
             "px-6 py-3 text-sm font-extrabold border-b-2 transition-all flex items-center gap-2",
             activeTab === 'sales'
@@ -657,7 +674,7 @@ const ReportsPage: React.FC = () => {
           Transaksi Penjualan
         </button>
         <button
-          onClick={() => setActiveTab('consolidation')}
+          onClick={() => handleTabChange('consolidation')}
           className={cn(
             "px-6 py-3 text-sm font-extrabold border-b-2 transition-all flex items-center gap-2",
             activeTab === 'consolidation'
@@ -668,63 +685,77 @@ const ReportsPage: React.FC = () => {
           <BarChart3 className="w-4 h-4" />
           Laporan Konsolidasi Cabang
         </button>
+        <button
+          onClick={() => handleTabChange('loyalty')}
+          className={cn(
+            "px-6 py-3 text-sm font-extrabold border-b-2 transition-all flex items-center gap-2",
+            activeTab === 'loyalty'
+              ? "border-emerald-500 text-emerald-600"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <Gift className="w-4 h-4 text-amber-500" />
+          Peringkat Pelanggan & THR
+        </button>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-4 items-end">
-         <div className="space-y-1.5 flex-1 min-w-[150px]">
-            <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-               <Calendar className="w-3 h-3" /> Tanggal Mulai
-            </label>
-            <Input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} />
-         </div>
-         <div className="space-y-1.5 flex-1 min-w-[150px]">
-            <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-               <Calendar className="w-3 h-3" /> Tanggal Akhir
-            </label>
-            <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} />
-         </div>
-         
-         {activeTab === 'sales' && (
-           <>
-             <div className="space-y-1.5 flex-1 min-w-[150px]">
-                <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                   <Filter className="w-3 h-3" /> Status
-                </label>
-                <select 
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                >
-                   <option value="">Semua Status</option>
-                   <option value="COMPLETED">Berhasil</option>
-                   <option value="CANCELLED">Dibatalkan</option>
-                </select>
-             </div>
-             <div className="space-y-1.5 flex-1 min-w-[150px]">
-                <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
-                   <Filter className="w-3 h-3" /> Cabang
-                </label>
-                <select 
-                  value={branchFilter}
-                  onChange={(e) => setBranchFilter(e.target.value)}
-                  className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                >
-                   <option value="">Semua Cabang</option>
-                   {branches?.map(b => (
-                     <option key={b.id} value={b.id}>{b.name}</option>
-                   ))}
-                </select>
-             </div>
-           </>
-         )}
+      {activeTab !== 'loyalty' && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-4 items-end">
+           <div className="space-y-1.5 flex-1 min-w-[150px]">
+              <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                 <Calendar className="w-3 h-3" /> Tanggal Mulai
+              </label>
+              <Input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} />
+           </div>
+           <div className="space-y-1.5 flex-1 min-w-[150px]">
+              <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                 <Calendar className="w-3 h-3" /> Tanggal Akhir
+              </label>
+              <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} />
+           </div>
+           
+           {activeTab === 'sales' && (
+             <>
+               <div className="space-y-1.5 flex-1 min-w-[150px]">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                     <Filter className="w-3 h-3" /> Status
+                  </label>
+                  <select 
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                     <option value="">Semua Status</option>
+                     <option value="COMPLETED">Berhasil</option>
+                     <option value="CANCELLED">Dibatalkan</option>
+                  </select>
+               </div>
+               <div className="space-y-1.5 flex-1 min-w-[150px]">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1.5">
+                     <Filter className="w-3 h-3" /> Cabang
+                  </label>
+                  <select 
+                    value={branchFilter}
+                    onChange={(e) => setBranchFilter(e.target.value)}
+                    className="w-full h-10 px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                     <option value="">Semua Cabang</option>
+                     {branches?.map(b => (
+                       <option key={b.id} value={b.id}>{b.name}</option>
+                     ))}
+                  </select>
+               </div>
+             </>
+           )}
 
-         <div className="flex gap-2">
-            <Button onClick={handleApplyFilters} className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700">Filter</Button>
-            {(appliedFilters.start || appliedFilters.end || (activeTab === 'sales' && (appliedFilters.status || appliedFilters.branch))) && (
-              <Button onClick={handleResetFilters} variant="outline" className="h-10 px-4">Reset</Button>
-            )}
-         </div>
-      </div>
+           <div className="flex gap-2">
+              <Button onClick={handleApplyFilters} className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700">Filter</Button>
+              {(appliedFilters.start || appliedFilters.end || (activeTab === 'sales' && (appliedFilters.status || appliedFilters.branch))) && (
+                <Button onClick={handleResetFilters} variant="outline" className="h-10 px-4">Reset</Button>
+              )}
+           </div>
+        </div>
+      )}
 
       {activeTab === 'sales' && (
         <>
@@ -1175,6 +1206,12 @@ const ReportsPage: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {activeTab === 'loyalty' && (
+        <div className="pt-2">
+          <CustomerLoyaltyView />
         </div>
       )}
 

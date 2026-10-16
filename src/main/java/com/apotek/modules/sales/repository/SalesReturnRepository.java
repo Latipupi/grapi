@@ -26,4 +26,16 @@ public interface SalesReturnRepository extends JpaRepository<SalesReturn, Long> 
 
     @Query("SELECT sr FROM SalesReturn sr WHERE (:branchId IS NULL OR sr.branch.id = :branchId) AND sr.returnDate >= :afterDate")
     List<SalesReturn> findByBranchIdAndReturnDateAfter(@Param("branchId") Long branchId, @Param("afterDate") LocalDateTime afterDate);
+
+    @Query("SELECT sr.sale.customer.id, COALESCE(SUM(sr.totalRefundAmount), 0) " +
+           "FROM SalesReturn sr " +
+           "WHERE sr.sale.customer IS NOT NULL " +
+           "AND (:branchId IS NULL OR sr.branch.id = :branchId) " +
+           "AND sr.returnDate >= :startDate AND sr.returnDate <= :endDate " +
+           "GROUP BY sr.sale.customer.id")
+    List<Object[]> findCustomerRefundSummary(
+            @Param("branchId") Long branchId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }
