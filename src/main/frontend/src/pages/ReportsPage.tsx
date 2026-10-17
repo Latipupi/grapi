@@ -54,13 +54,20 @@ interface Sale {
   branch: { id: number; name: string };
   details?: {
     id: number;
-    product: { name: string; sku: string };
+    product?: { name: string; sku: string };
     batch?: { batchNumber: string };
     quantity: number;
     unitPrice: number;
     subtotal: number;
+    purchasePrice?: number;
+    isCompound?: boolean;
+    compoundName?: string;
   }[];
 }
+
+const formatRupiah = (val: number) => {
+  return 'Rp ' + Math.round(Number(val) || 0).toLocaleString('id-ID');
+};
 
 const ReportsPage: React.FC = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -78,6 +85,13 @@ const ReportsPage: React.FC = () => {
   // Selected sale for detail modal
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
+  // Selected branch/report profit breakdown modal
+  const [selectedBreakdown, setSelectedBreakdown] = useState<{
+    data: any;
+    tab: 'gross' | 'net';
+  } | null>(null);
+  const [breakdownItemSearch, setBreakdownItemSearch] = useState('');
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -90,6 +104,17 @@ const ReportsPage: React.FC = () => {
         endDate: appliedFilters.end || undefined,
         status: appliedFilters.status || undefined,
         branchId: appliedFilters.branch || undefined,
+      }
+    }).then(res => res.data),
+  });
+
+  const { data: salesProfitLoss } = useQuery<any>({
+    queryKey: ['sales-profit-loss', appliedFilters.branch, appliedFilters.start, appliedFilters.end],
+    queryFn: () => api.get('/reports/profit-loss', {
+      params: {
+        branchId: appliedFilters.branch || undefined,
+        startDate: appliedFilters.start || undefined,
+        endDate: appliedFilters.end || undefined,
       }
     }).then(res => res.data),
   });
@@ -123,17 +148,96 @@ const ReportsPage: React.FC = () => {
 
   const consolidationMetrics = React.useMemo(() => {
     if (!branchComparison || branchComparison.length === 0) {
-      return { totalSales: 0, totalProfit: 0, totalTransactions: 0 };
+      return {
+        grossSales: 0,
+        totalRefunds: 0,
+        totalSales: 0,
+        totalCost: 0,
+        totalProfit: 0,
+        totalExpenses: 0,
+        totalNetProfit: 0,
+        totalTransactions: 0,
+        combinedBreakdown: null
+      };
     }
+    let grossSales = 0;
+    let totalRefunds = 0;
     let totalSales = 0;
+    let totalCost = 0;
     let totalProfit = 0;
+    let totalExpenses = 0;
+    let totalNetProfit = 0;
     let totalTransactions = 0;
+
+    const itemMap = new Map<string, any>();
+    const allReturns: any[] = [];
+    const allExpenses: any[] = [];
+
     branchComparison.forEach(b => {
-      totalSales += b.totalSales || 0;
-      totalProfit += b.grossProfit || 0;
-      totalTransactions += b.transactionCount || 0;
+      grossSales += Number(b.grossSales ?? b.totalSales ?? 0);
+      totalRefunds += Number(b.totalRefunds || 0);
+      totalSales += Number(b.totalSales || 0);
+      totalCost += Number(b.totalCost || 0);
+      totalProfit += Number(b.grossProfit || 0);
+      totalExpenses += Number(b.totalExpenses || 0);
+      totalNetProfit += Number(b.netProfit ?? b.grossProfit ?? 0);
+      totalTransactions += Number(b.transactionCount || 0);
+
+      if (Array.isArray(b.itemsBreakdown)) {
+        b.itemsBreakdown.forEach((item: any) => {
+          const key = `${item.sku || '-'}::${item.productName}`;
+          const existing = itemMap.get(key);
+          if (!existing) {
+            itemMap.set(key, {
+              productName: item.productName,
+              sku: item.sku,
+              quantitySold: Number(item.quantitySold || 0),
+              totalRevenue: Number(item.totalRevenue || 0),
+              totalCost: Number(item.totalCost || 0),
+              grossProfit: Number(item.grossProfit || 0),
+            });
+          } else {
+            existing.quantitySold += Number(item.quantitySold || 0);
+            existing.totalRevenue += Number(item.totalRevenue || 0);
+            existing.totalCost += Number(item.totalCost || 0);
+            existing.grossProfit += Number(item.grossProfit || 0);
+          }
+        });
+      }
+      if (Array.isArray(b.returnsBreakdown)) {
+        allReturns.push(...b.returnsBreakdown);
+      }
+      if (Array.isArray(b.expensesBreakdown)) {
+        allExpenses.push(...b.expensesBreakdown);
+      }
     });
-    return { totalSales, totalProfit, totalTransactions };
+
+    const combinedItems = Array.from(itemMap.values()).sort((a, b) => b.grossProfit - a.grossProfit);
+
+    return {
+      grossSales,
+      totalRefunds,
+      totalSales,
+      totalCost,
+      totalProfit,
+      totalExpenses,
+      totalNetProfit,
+      totalTransactions,
+      combinedBreakdown: {
+        branchName: 'Konsolidasi Semua Cabang',
+        grossSales,
+        totalRefunds,
+        totalSales,
+        totalCost,
+        grossProfit: totalProfit,
+        totalExpenses,
+        netProfit: totalNetProfit,
+        transactionCount: totalTransactions,
+        itemsBreakdown: combinedItems,
+        returnsBreakdown: allReturns,
+        expensesBreakdown: allExpenses,
+      }
+    };
   }, [branchComparison]);
 
   // Reset pagination on filter or search changes
@@ -734,8 +838,8 @@ const ReportsPage: React.FC = () => {
 
       {activeTab !== 'loyalty' && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-           {/* Presets Bar for Sales */}
-           {activeTab === 'sales' && (
+           {/* Presets Bar for Sales & Consolidation */}
+           {(activeTab === 'sales' || activeTab === 'consolidation') && (
              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
                <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
                  <span>Periode Cepat:</span>
@@ -781,7 +885,7 @@ const ReportsPage: React.FC = () => {
                  </div>
                </div>
 
-               {isDataLoading && (
+               {(isDataLoading || isComparisonLoading) && (
                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full animate-pulse border border-emerald-200">
                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
                    <span>Memuat data dari server...</span>
@@ -869,48 +973,119 @@ const ReportsPage: React.FC = () => {
           {showCharts && (
             <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
               {/* Highlight Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-                  <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
-                    <TrendingUp className="w-6 h-6" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5 relative overflow-hidden group">
+                  <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+                    <TrendingUp className="w-5 h-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan</p>
                     {isDataLoading ? (
-                      <div className="h-7 w-32 bg-slate-200 animate-pulse rounded-lg mt-1" />
+                      <div className="h-7 w-28 bg-slate-200 animate-pulse rounded-lg mt-1" />
                     ) : (
-                      <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {metrics.totalRevenue.toLocaleString()}</h3>
+                      <h3 className="text-lg font-black text-slate-800 mt-0.5 truncate">{formatRupiah(metrics.totalRevenue)}</h3>
                     )}
+                    <p className="text-[10px] text-slate-400 mt-0.5">{metrics.completedCount} Transaksi Lunas</p>
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-                  <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
-                    <ShoppingBag className="w-6 h-6" />
+                {/* Profit Kotor Card (Clickable) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (salesProfitLoss) {
+                      setBreakdownItemSearch('');
+                      setSelectedBreakdown({ data: salesProfitLoss, tab: 'gross' });
+                    }
+                  }}
+                  className="text-left bg-white p-5 rounded-2xl border border-emerald-100 hover:border-emerald-300 hover:shadow-md transition-all flex items-center gap-3.5 relative overflow-hidden group cursor-pointer"
+                >
+                  <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0">
+                    <BarChart3 className="w-5 h-5" />
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Rata-rata Transaksi</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Profit Kotor</p>
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">Lihat HPP →</span>
+                    </div>
                     {isDataLoading ? (
-                      <div className="h-7 w-32 bg-slate-200 animate-pulse rounded-lg mt-1" />
+                      <div className="h-7 w-28 bg-slate-200 animate-pulse rounded-lg mt-1" />
                     ) : (
-                      <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {Math.round(metrics.avgTicket).toLocaleString()}</h3>
+                      <h3 className="text-lg font-black text-emerald-600 mt-0.5 truncate">
+                        {formatRupiah(salesProfitLoss?.grossProfit || 0)}
+                      </h3>
                     )}
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                      Modal HPP: -{formatRupiah(salesProfitLoss?.totalCost || 0)}
+                    </p>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/30" />
+                </button>
+
+                {/* Profit Bersih Card (Clickable) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (salesProfitLoss) {
+                      setBreakdownItemSearch('');
+                      setSelectedBreakdown({ data: salesProfitLoss, tab: 'net' });
+                    }
+                  }}
+                  className="text-left bg-slate-900 p-5 rounded-2xl border border-slate-800 hover:border-emerald-500/50 hover:shadow-md transition-all flex items-center gap-3.5 relative overflow-hidden group cursor-pointer text-white"
+                >
+                  <div className="p-2.5 rounded-xl bg-slate-800 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors shrink-0">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Profit Bersih</p>
+                      <span className="text-[9px] font-bold text-emerald-300 bg-slate-800 px-1.5 py-0.5 rounded-md">Rincian →</span>
+                    </div>
+                    {isDataLoading ? (
+                      <div className="h-7 w-28 bg-slate-700 animate-pulse rounded-lg mt-1" />
+                    ) : (
+                      <h3 className={cn(
+                        "text-lg font-black mt-0.5 truncate",
+                        (salesProfitLoss?.netProfit || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                      )}>
+                        {formatRupiah(salesProfitLoss?.netProfit || 0)}
+                      </h3>
+                    )}
+                    <p className="text-[10px] text-rose-300/90 mt-0.5 truncate">
+                      Biaya Ops: -{formatRupiah(salesProfitLoss?.totalExpenses || 0)}
+                    </p>
+                  </div>
+                </button>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5 relative overflow-hidden group">
+                  <div className="p-2.5 rounded-xl bg-sky-50 text-sky-600 shrink-0">
+                    <ShoppingBag className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Rata-rata Tiket</p>
+                    {isDataLoading ? (
+                      <div className="h-7 w-28 bg-slate-200 animate-pulse rounded-lg mt-1" />
+                    ) : (
+                      <h3 className="text-lg font-black text-slate-800 mt-0.5 truncate">{formatRupiah(metrics.avgTicket)}</h3>
+                    )}
+                    <p className="text-[10px] text-slate-400 mt-0.5">Per Transaksi</p>
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-                  <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
-                    <PackageCheck className="w-6 h-6" />
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3.5 relative overflow-hidden group">
+                  <div className="p-2.5 rounded-xl bg-amber-50 text-amber-600 shrink-0">
+                    <PackageCheck className="w-5 h-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Item Terjual</p>
                     {isDataLoading ? (
                       <div className="h-7 w-24 bg-slate-200 animate-pulse rounded-lg mt-1" />
                     ) : (
-                      <h3 className="text-xl font-black text-slate-800 mt-0.5">{metrics.totalItemsSold} Item</h3>
+                      <h3 className="text-lg font-black text-slate-800 mt-0.5 truncate">{metrics.totalItemsSold} Item</h3>
                     )}
+                    <p className="text-[10px] text-slate-400 mt-0.5">Unit Keluar</p>
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
                 </div>
@@ -1198,39 +1373,99 @@ const ReportsPage: React.FC = () => {
           ) : (
             <>
               {/* Highlight Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-                  <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
+                  <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
                     <TrendingUp className="w-6 h-6" />
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan Konsolidasi</p>
-                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {consolidationMetrics.totalSales.toLocaleString()}</h3>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pendapatan</p>
+                    <h3 className="text-xl font-black text-slate-800 mt-0.5 truncate">{formatRupiah(consolidationMetrics.totalSales)}</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{consolidationMetrics.totalTransactions} Transaksi Gabungan</p>
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-emerald-500/10" />
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-                  <div className="p-3 rounded-xl bg-sky-50 text-sky-600">
+                {/* Clickable Total Profit Kotor */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (consolidationMetrics.combinedBreakdown) {
+                      setBreakdownItemSearch('');
+                      setSelectedBreakdown({ data: consolidationMetrics.combinedBreakdown, tab: 'gross' });
+                    }
+                  }}
+                  className="text-left bg-white p-6 rounded-2xl border border-emerald-100 hover:border-emerald-300 hover:shadow-md transition-all flex items-center gap-4 relative overflow-hidden group cursor-pointer"
+                >
+                  <div className="p-3 rounded-xl bg-sky-50 text-sky-600 group-hover:bg-sky-600 group-hover:text-white transition-colors shrink-0">
                     <BarChart3 className="w-6 h-6" />
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Profit Kotor</p>
-                    <h3 className="text-xl font-black text-slate-800 mt-0.5">Rp {consolidationMetrics.totalProfit.toLocaleString()}</h3>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Profit Kotor</p>
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Klik Rincian HPP →</span>
+                    </div>
+                    <h3 className="text-xl font-black text-emerald-600 mt-0.5 truncate">{formatRupiah(consolidationMetrics.totalProfit)}</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                      Modal Obat (HPP): -{formatRupiah(consolidationMetrics.totalCost)}
+                    </p>
                   </div>
-                  <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/10" />
-                </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/20" />
+                </button>
 
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 relative overflow-hidden group">
-                  <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+                {/* Clickable Total Pengurangan Biaya Operasional */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (consolidationMetrics.combinedBreakdown) {
+                      setBreakdownItemSearch('');
+                      setSelectedBreakdown({ data: consolidationMetrics.combinedBreakdown, tab: 'net' });
+                    }
+                  }}
+                  className="text-left bg-white p-6 rounded-2xl border border-rose-100 hover:border-rose-300 hover:shadow-md transition-all flex items-center gap-4 relative overflow-hidden group cursor-pointer"
+                >
+                  <div className="p-3 rounded-xl bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-colors shrink-0">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Pengurangan Biaya</p>
+                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">Lihat Detail →</span>
+                    </div>
+                    <h3 className="text-xl font-black text-rose-600 mt-0.5 truncate">-{formatRupiah(consolidationMetrics.totalExpenses)}</h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Biaya Operasional Cabang</p>
+                  </div>
+                  <div className="absolute bottom-0 left-0 h-1 w-full bg-rose-500/20" />
+                </button>
+
+                {/* Clickable Total Profit Bersih */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (consolidationMetrics.combinedBreakdown) {
+                      setBreakdownItemSearch('');
+                      setSelectedBreakdown({ data: consolidationMetrics.combinedBreakdown, tab: 'net' });
+                    }
+                  }}
+                  className="text-left bg-slate-900 p-6 rounded-2xl border border-slate-800 hover:border-emerald-500/50 hover:shadow-md transition-all flex items-center gap-4 relative overflow-hidden group cursor-pointer text-white"
+                >
+                  <div className="p-3 rounded-xl bg-slate-800 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors shrink-0">
                     <PackageCheck className="w-6 h-6" />
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Transaksi Gabungan</p>
-                    <h3 className="text-xl font-black text-slate-800 mt-0.5">{consolidationMetrics.totalTransactions} Transaksi</h3>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Profit Bersih</p>
+                      <span className="text-[10px] font-bold text-emerald-300 bg-slate-800 px-2 py-0.5 rounded-md">Klik Detail →</span>
+                    </div>
+                    <h3 className={cn(
+                      "text-xl font-black mt-0.5 truncate",
+                      consolidationMetrics.totalNetProfit >= 0 ? "text-emerald-400" : "text-rose-400"
+                    )}>
+                      {formatRupiah(consolidationMetrics.totalNetProfit)}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Profit Kotor - Biaya Operasional</p>
                   </div>
-                  <div className="absolute bottom-0 left-0 h-1 w-full bg-amber-500/10" />
-                </div>
+                </button>
               </div>
 
               {/* Chart Grid */}
@@ -1238,7 +1473,7 @@ const ReportsPage: React.FC = () => {
                 <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
                   <div>
                     <h3 className="font-extrabold text-slate-800">Perbandingan Kinerja Cabang</h3>
-                    <p className="text-xs text-slate-400">Komparasi visual pendapatan vs profit kotor antar cabang aktif</p>
+                    <p className="text-xs text-slate-400">Komparasi visual Pendapatan, Profit Kotor, dan Profit Bersih antar cabang</p>
                   </div>
                   <div className="h-[320px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1258,11 +1493,12 @@ const ReportsPage: React.FC = () => {
                         />
                         <ChartTooltip 
                           contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                          formatter={(val: number) => [`Rp ${val.toLocaleString()}`]}
+                          formatter={(val: number) => [formatRupiah(val)]}
                         />
                         <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
                         <Bar dataKey="totalSales" name="Pendapatan" fill="#10b981" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="grossProfit" name="Profit Kotor" fill="#0284c7" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="netProfit" name="Profit Bersih" fill="#6366f1" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -1271,23 +1507,32 @@ const ReportsPage: React.FC = () => {
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col space-y-4">
                   <div>
                     <h3 className="font-extrabold text-slate-800">Ringkasan Margin Cabang</h3>
-                    <p className="text-xs text-slate-400">Efisiensi operasional dan profit margin per cabang</p>
+                    <p className="text-xs text-slate-400">Klik cabang untuk melihat rincian HPP & biaya pengurang</p>
                   </div>
                   <div className="flex-1 overflow-auto">
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {branchComparison.map((branch: any) => {
                         const margin = branch.totalSales > 0 ? (branch.grossProfit / branch.totalSales) * 100 : 0;
+                        const netProfitVal = branch.netProfit ?? branch.grossProfit ?? 0;
                         return (
-                          <div key={branch.branchId} className="p-3 bg-slate-50/50 border border-slate-100 rounded-2xl flex justify-between items-center">
+                          <div
+                            key={branch.branchId}
+                            onClick={() => {
+                              setBreakdownItemSearch('');
+                              setSelectedBreakdown({ data: branch, tab: 'gross' });
+                            }}
+                            className="p-3.5 bg-slate-50/70 hover:bg-emerald-50/40 border border-slate-100 hover:border-emerald-200 rounded-2xl flex justify-between items-center cursor-pointer transition-all"
+                          >
                             <div>
-                              <p className="text-xs font-bold text-slate-700">{branch.branchName}</p>
-                              <p className="text-[10px] text-slate-400 font-semibold">{branch.transactionCount} Transaksi</p>
+                              <p className="text-xs font-bold text-slate-800">{branch.branchName}</p>
+                              <p className="text-[10px] text-slate-400 font-semibold">{branch.transactionCount} Transaksi • Klik untuk detail</p>
                             </div>
                             <div className="text-right">
                               <span className="inline-block px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-100/50">
-                                Margin: {margin.toFixed(1)}%
+                                Margin Kotor: {margin.toFixed(1)}%
                               </span>
-                              <p className="text-xs font-black text-slate-800 mt-1">Rp {branch.grossProfit.toLocaleString()}</p>
+                              <p className="text-xs font-black text-emerald-600 mt-1">Kotor: {formatRupiah(branch.grossProfit)}</p>
+                              <p className="text-[11px] font-bold text-indigo-600">Bersih: {formatRupiah(netProfitVal)}</p>
                             </div>
                           </div>
                         );
@@ -1299,9 +1544,13 @@ const ReportsPage: React.FC = () => {
 
               {/* Detailed Consolidation Table */}
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-slate-100 bg-slate-50/20">
-                  <h3 className="font-extrabold text-slate-800">Detail Kontribusi Cabang</h3>
-                  <p className="text-xs text-slate-400">Laporan tabulasi komprehensif performa per cabang</p>
+                <div className="p-5 border-b border-slate-100 bg-slate-50/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Detail Kontribusi Cabang</h3>
+                    <p className="text-xs text-slate-400">
+                      Klik angka <span className="font-bold text-emerald-600">Profit Kotor</span> untuk melihat asal hitungan & HPP obat, atau klik <span className="font-bold text-indigo-600">Profit Bersih</span> untuk melihat rincian pengurangan biaya.
+                    </p>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <Table>
@@ -1309,24 +1558,99 @@ const ReportsPage: React.FC = () => {
                       <TableRow className="bg-slate-50/30">
                         <TableHead className="font-bold text-slate-500">Nama Cabang</TableHead>
                         <TableHead className="font-bold text-slate-500 text-right">Total Pendapatan</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Modal Obat (HPP)</TableHead>
                         <TableHead className="font-bold text-slate-500 text-right">Profit Kotor</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-right">Margin Profit</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-center">Jumlah Transaksi</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-right">Rata-rata Tiket</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Pengurangan Biaya</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Profit Bersih</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Margin</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-center">Transaksi</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-center">Detail</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {branchComparison.map((branch: any) => {
                         const margin = branch.totalSales > 0 ? (branch.grossProfit / branch.totalSales) * 100 : 0;
-                        const avgTicket = branch.transactionCount > 0 ? branch.totalSales / branch.transactionCount : 0;
+                        const totalCostVal = branch.totalCost ?? (branch.totalSales - branch.grossProfit);
+                        const totalExpensesVal = branch.totalExpenses ?? 0;
+                        const netProfitVal = branch.netProfit ?? (branch.grossProfit - totalExpensesVal);
                         return (
                           <TableRow key={branch.branchId} className="hover:bg-slate-50/50 transition-colors">
                             <TableCell className="font-bold text-slate-700">{branch.branchName}</TableCell>
-                            <TableCell className="text-right font-bold text-slate-800">Rp {branch.totalSales.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-bold text-emerald-600">Rp {branch.grossProfit.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-bold text-slate-800">{formatRupiah(branch.totalSales)}</TableCell>
+                            <TableCell className="text-right font-semibold text-rose-500">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBreakdownItemSearch('');
+                                  setSelectedBreakdown({ data: branch, tab: 'gross' });
+                                }}
+                                className="hover:underline cursor-pointer text-right"
+                                title="Klik untuk melihat rincian HPP obat terjual"
+                              >
+                                -{formatRupiah(totalCostVal)}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBreakdownItemSearch('');
+                                  setSelectedBreakdown({ data: branch, tab: 'gross' });
+                                }}
+                                className="inline-flex flex-col items-end px-2.5 py-1 rounded-xl bg-emerald-50/70 hover:bg-emerald-100 border border-emerald-200/60 transition-colors cursor-pointer"
+                                title="Klik untuk lihat kenapa jumlah Profit Kotor segini"
+                              >
+                                <span className="font-black text-emerald-700">{formatRupiah(branch.grossProfit)}</span>
+                                <span className="text-[10px] font-bold text-emerald-600">Lihat HPP →</span>
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-rose-600">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBreakdownItemSearch('');
+                                  setSelectedBreakdown({ data: branch, tab: 'net' });
+                                }}
+                                className="hover:underline cursor-pointer text-right"
+                                title="Klik untuk melihat daftar pengeluaran operasional"
+                              >
+                                -{formatRupiah(totalExpensesVal)}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setBreakdownItemSearch('');
+                                  setSelectedBreakdown({ data: branch, tab: 'net' });
+                                }}
+                                className={cn(
+                                  "inline-flex flex-col items-end px-2.5 py-1 rounded-xl border transition-colors cursor-pointer",
+                                  netProfitVal >= 0
+                                    ? "bg-indigo-50/70 hover:bg-indigo-100 border-indigo-200/60 text-indigo-700"
+                                    : "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700"
+                                )}
+                                title="Klik untuk lihat rincian pengurangan & Profit Bersih"
+                              >
+                                <span className="font-black">{formatRupiah(netProfitVal)}</span>
+                                <span className="text-[10px] font-bold opacity-80">Lihat Pengurangan →</span>
+                              </button>
+                            </TableCell>
                             <TableCell className="text-right font-black text-slate-700">{margin.toFixed(2)}%</TableCell>
                             <TableCell className="text-center font-bold text-slate-600">{branch.transactionCount}</TableCell>
-                            <TableCell className="text-right font-bold text-slate-800">Rp {Math.round(avgTicket).toLocaleString()}</TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setBreakdownItemSearch('');
+                                  setSelectedBreakdown({ data: branch, tab: 'gross' });
+                                }}
+                                className="h-8 px-3 text-xs font-bold border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              >
+                                Rincian
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         );
                       })}
@@ -1345,6 +1669,292 @@ const ReportsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Modal Rincian Profit Kotor & Profit Bersih */}
+      <AnimatePresence>
+        {selectedBreakdown && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                    Transparansi Perhitungan Laba Rugi
+                  </span>
+                  <h3 className="text-xl font-black text-slate-800 mt-2">
+                    Rincian Profit: {selectedBreakdown.data.branchName || 'Semua Cabang'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Periode: {appliedFilters.start ? `${appliedFilters.start} s/d ${appliedFilters.end || 'Sekarang'}` : 'Semua Waktu'} • {selectedBreakdown.data.transactionCount || 0} Transaksi
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedBreakdown(null)}
+                  className="w-9 h-9 p-0 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Tab Switcher inside Modal */}
+              <div className="px-6 pt-4 bg-white border-b border-slate-100 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBreakdown({ ...selectedBreakdown, tab: 'gross' })}
+                  className={cn(
+                    "pb-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 cursor-pointer",
+                    selectedBreakdown.tab === 'gross'
+                      ? "border-emerald-600 text-emerald-700"
+                      : "border-transparent text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  <span>1. Kenapa Profit Kotor Sekian? (Rincian HPP Obat)</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-700 font-black">
+                    {formatRupiah(selectedBreakdown.data.grossProfit || 0)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBreakdown({ ...selectedBreakdown, tab: 'net' })}
+                  className={cn(
+                    "pb-3 px-4 text-xs sm:text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 cursor-pointer",
+                    selectedBreakdown.tab === 'net'
+                      ? "border-indigo-600 text-indigo-700"
+                      : "border-transparent text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  <span>2. Rincian Profit Bersih & Pengurangan Biaya</span>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] bg-indigo-50 text-indigo-700 font-black">
+                    {formatRupiah(selectedBreakdown.data.netProfit ?? selectedBreakdown.data.grossProfit ?? 0)}
+                  </span>
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                {selectedBreakdown.tab === 'gross' ? (
+                  <>
+                    {/* Step-by-step Gross Profit Formula Box */}
+                    <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                        Alur Perhitungan Profit Kotor (Laba Kotor)
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
+                          <span className="text-slate-600 font-medium">1. Total Penjualan Kotor (Harga Jual Barang Keluar)</span>
+                          <span className="font-bold text-slate-800">
+                            {formatRupiah(selectedBreakdown.data.grossSales ?? selectedBreakdown.data.totalSales ?? 0)}
+                          </span>
+                        </div>
+                        {(selectedBreakdown.data.totalRefunds || 0) > 0 && (
+                          <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-rose-600">
+                            <span className="font-medium">2. Dikurangi: Retur Penjualan (Barang Dikembalikan Pembeli)</span>
+                            <span className="font-bold">-{formatRupiah(selectedBreakdown.data.totalRefunds || 0)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 bg-white px-3 rounded-xl">
+                          <span className="font-bold text-slate-700">Total Pendapatan Bersih (Omset)</span>
+                          <span className="font-black text-slate-900">{formatRupiah(selectedBreakdown.data.totalSales || 0)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-rose-600">
+                          <div>
+                            <span className="font-bold">Dikurangi: Total Modal Obat Terjual (HPP / Harga Beli Batch)</span>
+                            <p className="text-[11px] text-slate-400">Akumulasi (Harga Beli per Batch × Jumlah Obat Terjual)</p>
+                          </div>
+                          <span className="font-black">
+                            -{formatRupiah(selectedBreakdown.data.totalCost ?? ((selectedBreakdown.data.totalSales || 0) - (selectedBreakdown.data.grossProfit || 0)))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 px-3 py-2.5 bg-emerald-600 text-white rounded-xl shadow-sm">
+                          <span className="font-black uppercase tracking-wide text-xs sm:text-sm">HASIL: PROFIT KOTOR (LABA KOTOR)</span>
+                          <span className="text-lg font-black">{formatRupiah(selectedBreakdown.data.grossProfit || 0)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Items Breakdown Table */}
+                    <div className="space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-extrabold text-slate-800">
+                            Rincian Modal (HPP) & Profit Kotor per Obat Terjual
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            Daftar produk yang membentuk angka Pendapatan, Modal HPP, dan Profit Kotor di atas
+                          </p>
+                        </div>
+                        <div className="relative w-full sm:w-64">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <Input
+                            placeholder="Cari nama obat / SKU..."
+                            value={breakdownItemSearch}
+                            onChange={(e) => setBreakdownItemSearch(e.target.value)}
+                            className="pl-8 h-9 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="border border-slate-100 rounded-2xl overflow-hidden max-h-80 overflow-y-auto">
+                        <table className="w-full text-xs sm:text-sm">
+                          <thead className="bg-slate-50 sticky top-0 border-b border-slate-100 text-slate-500 font-bold">
+                            <tr>
+                              <th className="py-2.5 px-4 text-left">Nama Obat / Produk</th>
+                              <th className="py-2.5 px-3 text-center">Qty Terjual</th>
+                              <th className="py-2.5 px-4 text-right">Total Harga Jual</th>
+                              <th className="py-2.5 px-4 text-right">Modal Obat (HPP)</th>
+                              <th className="py-2.5 px-4 text-right">Profit Kotor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {(() => {
+                              const items: any[] = selectedBreakdown.data.itemsBreakdown || [];
+                              const filtered = items.filter(it =>
+                                !breakdownItemSearch ||
+                                it.productName?.toLowerCase().includes(breakdownItemSearch.toLowerCase()) ||
+                                it.sku?.toLowerCase().includes(breakdownItemSearch.toLowerCase())
+                              );
+                              if (filtered.length === 0) {
+                                return (
+                                  <tr>
+                                    <td colSpan={5} className="py-8 text-center text-slate-400 italic">
+                                      Tidak ada rincian produk yang cocok.
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                              return filtered.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50/60">
+                                  <td className="py-2.5 px-4">
+                                    <p className="font-bold text-slate-800">{item.productName}</p>
+                                    <p className="text-[10px] font-mono text-slate-400">{item.sku}</p>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center font-bold text-slate-600">
+                                    {Number(item.quantitySold || 0).toLocaleString('id-ID')}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-semibold text-slate-800">
+                                    {formatRupiah(item.totalRevenue)}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-semibold text-rose-500">
+                                    -{formatRupiah(item.totalCost)}
+                                  </td>
+                                  <td className="py-2.5 px-4 text-right font-black text-emerald-600">
+                                    {formatRupiah(item.grossProfit)}
+                                  </td>
+                                </tr>
+                              ));
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Step-by-step Net Profit Formula Box */}
+                    <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                        Alur Perhitungan Profit Bersih & Pengurangan Biaya
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
+                          <div>
+                            <span className="font-bold text-slate-700">1. Profit Kotor (Pendapatan Bersih - Modal HPP Obat)</span>
+                            <p className="text-[11px] text-slate-400">Keuntungan penjualan obat sebelum biaya operasional</p>
+                          </div>
+                          <span className="font-black text-emerald-600">{formatRupiah(selectedBreakdown.data.grossProfit || 0)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-rose-600">
+                          <div>
+                            <span className="font-bold">2. Dikurangi: Total Biaya Operasional / Pengeluaran</span>
+                            <p className="text-[11px] text-slate-400">Gaji, listrik, sewa, operasional harian, dll. pada periode ini</p>
+                          </div>
+                          <span className="font-black">-{formatRupiah(selectedBreakdown.data.totalExpenses || 0)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 px-3 py-2.5 bg-slate-900 text-white rounded-xl shadow-sm">
+                          <span className="font-black uppercase tracking-wide text-xs sm:text-sm">HASIL: PROFIT BERSIH (LABA BERSIH)</span>
+                          <span className={cn(
+                            "text-lg font-black",
+                            (selectedBreakdown.data.netProfit ?? selectedBreakdown.data.grossProfit ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                          )}>
+                            {formatRupiah(selectedBreakdown.data.netProfit ?? selectedBreakdown.data.grossProfit ?? 0)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expenses Breakdown Table */}
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-sm font-extrabold text-slate-800">
+                          Daftar Rincian Pengurangan Biaya Operasional
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          Seluruh pengeluaran yang mengurangi Profit Kotor menjadi Profit Bersih pada periode ini
+                        </p>
+                      </div>
+
+                      <div className="border border-slate-100 rounded-2xl overflow-hidden max-h-80 overflow-y-auto">
+                        <table className="w-full text-xs sm:text-sm">
+                          <thead className="bg-slate-50 sticky top-0 border-b border-slate-100 text-slate-500 font-bold">
+                            <tr>
+                              <th className="py-2.5 px-4 text-left">Tanggal</th>
+                              <th className="py-2.5 px-4 text-left">Cabang</th>
+                              <th className="py-2.5 px-4 text-left">Kategori</th>
+                              <th className="py-2.5 px-4 text-left">Keterangan</th>
+                              <th className="py-2.5 px-4 text-right">Nominal Pengurang</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {selectedBreakdown.data.expensesBreakdown && selectedBreakdown.data.expensesBreakdown.length > 0 ? (
+                              selectedBreakdown.data.expensesBreakdown.map((exp: any, idx: number) => (
+                                <tr key={exp.id || idx} className="hover:bg-slate-50/60">
+                                  <td className="py-2.5 px-4 font-medium text-slate-600">
+                                    {exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                                  </td>
+                                  <td className="py-2.5 px-4 font-bold text-slate-700">{exp.branchName || '-'}</td>
+                                  <td className="py-2.5 px-4">
+                                    <span className="inline-block px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[11px] font-bold border border-rose-100">
+                                      {exp.category}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-4 text-slate-600">{exp.notes || '-'}</td>
+                                  <td className="py-2.5 px-4 text-right font-black text-rose-600">
+                                    -{formatRupiah(exp.amount)}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={5} className="py-8 text-center text-slate-400 italic">
+                                  Belum ada catatan pengeluaran / biaya operasional pada periode ini (Pengurangan Rp 0).
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50/60 flex justify-end">
+                <Button onClick={() => setSelectedBreakdown(null)} className="px-6 bg-slate-800 hover:bg-slate-900 text-white font-bold">
+                  Tutup Rincian
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Modal Detail Transaksi */}
       <AnimatePresence>
         {selectedSale && (
@@ -1353,12 +1963,12 @@ const ReportsPage: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]"
             >
                {/* Header */}
                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                   <div>
-                     <span className="text-[10px] font-black uppercase text-slate-400">Detail Transaksi</span>
+                     <span className="text-[10px] font-black uppercase text-slate-400">Detail Transaksi & Laba Kotor Struk</span>
                      <div className="flex items-center gap-2.5 mt-1">
                         <h3 className="text-lg font-mono font-bold text-slate-800 uppercase tracking-tighter">#SAL-{selectedSale.id}</h3>
                         <span className={cn(
@@ -1405,37 +2015,47 @@ const ReportsPage: React.FC = () => {
                      </div>
                   </div>
 
-                  {/* Items Table */}
+                  {/* Items Table with HPP & Profit Kotor */}
                   <div>
-                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Daftar Item</h4>
+                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5">Daftar Item & Rincian Profit Kotor</h4>
                      <div className="border border-slate-100 rounded-2xl overflow-hidden">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-xs sm:text-sm">
                            <thead>
                               <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-400 font-bold">
                                  <th className="py-2.5 px-4 text-left font-semibold">Nama Produk</th>
-                                 <th className="py-2.5 px-4 text-center font-semibold">Qty</th>
-                                 <th className="py-2.5 px-4 text-right font-semibold">Harga</th>
-                                 <th className="py-2.5 px-4 text-right font-semibold">Subtotal</th>
+                                 <th className="py-2.5 px-3 text-center font-semibold">Qty</th>
+                                 <th className="py-2.5 px-3 text-right font-semibold">Harga Jual</th>
+                                 <th className="py-2.5 px-3 text-right font-semibold">Subtotal</th>
+                                 <th className="py-2.5 px-3 text-right font-semibold">Modal (HPP)</th>
+                                 <th className="py-2.5 px-4 text-right font-semibold">Profit Kotor</th>
                               </tr>
                            </thead>
                            <tbody className="divide-y divide-slate-50 text-slate-700">
                               {selectedSale.details && selectedSale.details.length > 0 ? (
-                                selectedSale.details.map((detail) => (
-                                   <tr key={detail.id} className="hover:bg-slate-50/20">
-                                      <td className="py-3 px-4">
-                                         <p className="font-bold text-slate-800">{detail.product?.name}</p>
-                                         {detail.batch && (
-                                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">Batch: {detail.batch.batchNumber}</p>
-                                         )}
-                                      </td>
-                                      <td className="py-3 px-4 text-center font-bold text-slate-600">{detail.quantity}</td>
-                                      <td className="py-3 px-4 text-right text-slate-500">Rp {detail.unitPrice.toLocaleString()}</td>
-                                      <td className="py-3 px-4 text-right font-bold text-slate-800">Rp {detail.subtotal.toLocaleString()}</td>
-                                   </tr>
-                                ))
+                                selectedSale.details.map((detail) => {
+                                   const itemCost = (Number(detail.purchasePrice) || 0) * (Number(detail.quantity) || 0);
+                                   const itemProfit = (Number(detail.subtotal) || 0) - itemCost;
+                                   return (
+                                     <tr key={detail.id} className="hover:bg-slate-50/20">
+                                        <td className="py-3 px-4">
+                                           <p className="font-bold text-slate-800">
+                                             {detail.isCompound ? `[Racikan] ${detail.compoundName || 'Obat Racikan'}` : detail.product?.name}
+                                           </p>
+                                           {detail.batch && (
+                                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">Batch: {detail.batch.batchNumber}</p>
+                                           )}
+                                        </td>
+                                        <td className="py-3 px-3 text-center font-bold text-slate-600">{detail.quantity}</td>
+                                        <td className="py-3 px-3 text-right text-slate-500">{formatRupiah(detail.unitPrice)}</td>
+                                        <td className="py-3 px-3 text-right font-bold text-slate-800">{formatRupiah(detail.subtotal)}</td>
+                                        <td className="py-3 px-3 text-right font-semibold text-rose-500">-{formatRupiah(itemCost)}</td>
+                                        <td className="py-3 px-4 text-right font-black text-emerald-600">{formatRupiah(itemProfit)}</td>
+                                     </tr>
+                                   );
+                                })
                               ) : (
                                 <tr>
-                                   <td colSpan={4} className="py-8 text-center text-slate-400">Tidak ada detail item.</td>
+                                   <td colSpan={6} className="py-8 text-center text-slate-400">Tidak ada detail item.</td>
                                 </tr>
                               )}
                            </tbody>
@@ -1453,26 +2073,45 @@ const ReportsPage: React.FC = () => {
                </div>
 
                {/* Footer Summary */}
-               <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-slate-600 text-xs font-bold border border-slate-100 shadow-sm">
-                        <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                        {selectedSale.paymentMethod}
-                     </span>
-                     <Button 
-                       onClick={() => handlePrintReceipt(selectedSale)} 
-                       variant="outline" 
-                       className="flex items-center gap-1.5 h-9 text-xs font-bold"
-                     >
-                        <Printer className="w-3.5 h-3.5" />
-                        Cetak Struk
-                     </Button>
-                  </div>
-                  <div className="text-right">
-                     <span className="text-[10px] uppercase font-black text-slate-400">Total Transaksi</span>
-                     <p className="text-xl font-black text-emerald-600">Rp {selectedSale.totalAmount.toLocaleString()}</p>
-                  </div>
-               </div>
+               {(() => {
+                 const totalHpp = (selectedSale.details || []).reduce(
+                   (acc, d) => acc + (Number(d.purchasePrice) || 0) * (Number(d.quantity) || 0),
+                   0
+                 );
+                 const totalGrossProfit = (Number(selectedSale.totalAmount) || 0) - totalHpp;
+                 return (
+                   <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-slate-600 text-xs font-bold border border-slate-100 shadow-sm">
+                            <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+                            {selectedSale.paymentMethod}
+                         </span>
+                         <Button 
+                           onClick={() => handlePrintReceipt(selectedSale)} 
+                           variant="outline" 
+                           className="flex items-center gap-1.5 h-9 text-xs font-bold"
+                         >
+                            <Printer className="w-3.5 h-3.5" />
+                            Cetak Struk
+                         </Button>
+                      </div>
+                      <div className="flex items-center gap-6 text-right">
+                         <div>
+                            <span className="text-[10px] uppercase font-black text-slate-400">Modal HPP</span>
+                            <p className="text-sm font-bold text-rose-500">-{formatRupiah(totalHpp)}</p>
+                         </div>
+                         <div>
+                            <span className="text-[10px] uppercase font-black text-slate-400">Profit Kotor</span>
+                            <p className="text-base font-black text-emerald-600">{formatRupiah(totalGrossProfit)}</p>
+                         </div>
+                         <div>
+                            <span className="text-[10px] uppercase font-black text-slate-400">Total Transaksi</span>
+                            <p className="text-xl font-black text-slate-900">{formatRupiah(selectedSale.totalAmount)}</p>
+                         </div>
+                      </div>
+                   </div>
+                 );
+               })()}
             </motion.div>
           </div>
         )}

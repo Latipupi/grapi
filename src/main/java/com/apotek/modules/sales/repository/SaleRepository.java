@@ -18,10 +18,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
            "LEFT JOIN FETCH s.branch " +
            "LEFT JOIN FETCH s.user " +
            "LEFT JOIN FETCH s.customer " +
+           "LEFT JOIN FETCH s.shift " +
            "WHERE (:branchId IS NULL OR s.branch.id = :branchId) " +
-           "AND (:startDate IS NULL OR s.saleDate >= :startDate) " +
-           "AND (:endDate IS NULL OR s.saleDate <= :endDate) " +
-           "AND (:status IS NULL OR s.status = :status) " +
+           "AND s.saleDate >= :startDate " +
+           "AND s.saleDate <= :endDate " +
+           "AND (:status = '' OR s.status = :status) " +
            "ORDER BY s.saleDate DESC")
     List<Sale> findSalesWithFilters(
             @Param("branchId") Long branchId,

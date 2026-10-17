@@ -30,9 +30,18 @@ public class SalesController {
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String status
     ) {
+        if (branchId != null && branchId <= 0) {
+            branchId = null;
+        }
         LocalDateTime start = parseDateTime(startDate, false);
+        if (start == null) {
+            start = LocalDateTime.of(2000, 1, 1, 0, 0, 0);
+        }
         LocalDateTime end = parseDateTime(endDate, true);
-        String stat = (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) ? status : null;
+        if (end == null) {
+            end = LocalDateTime.of(2100, 12, 31, 23, 59, 59);
+        }
+        String stat = (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) ? status.trim() : "";
 
         return saleRepository.findSalesWithFilters(branchId, start, end, stat);
     }

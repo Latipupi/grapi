@@ -18,7 +18,7 @@ public class FinanceController {
 
     @GetMapping("/profit-loss")
     public FinanceService.ProfitLossReport getProfitLoss(
-            @RequestParam Long branchId,
+            @RequestParam(required = false) Long branchId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return financeService.getProfitLossReport(branchId, startDate, endDate);

@@ -13,9 +13,15 @@ import java.util.List;
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     List<Expense> findByBranchIdOrderByExpenseDateDesc(Long branchId);
     
-    @Query("SELECT e FROM Expense e WHERE e.branch.id = :branchId AND e.expenseDate BETWEEN :startDate AND :endDate ORDER BY e.expenseDate DESC")
+    @Query("SELECT e FROM Expense e LEFT JOIN FETCH e.branch WHERE e.branch.id = :branchId AND e.expenseDate BETWEEN :startDate AND :endDate ORDER BY e.expenseDate DESC")
     List<Expense> findByBranchIdAndDateRange(
             @Param("branchId") Long branchId, 
             @Param("startDate") LocalDate startDate, 
+            @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT e FROM Expense e LEFT JOIN FETCH e.branch WHERE (:branchId IS NULL OR e.branch.id = :branchId) AND e.expenseDate >= :startDate AND e.expenseDate <= :endDate ORDER BY e.expenseDate DESC")
+    List<Expense> findExpensesWithFilters(
+            @Param("branchId") Long branchId,
+            @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 }

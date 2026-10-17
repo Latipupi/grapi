@@ -23,10 +23,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.apotek.modules.expenses.model.Expense;
+import com.apotek.modules.expenses.repository.ExpenseRepository;
 import com.apotek.modules.masterdata.dto.CustomerLoyaltyReportDTO;
 import com.apotek.modules.masterdata.model.Branch;
 import com.apotek.modules.masterdata.repository.BranchRepository;
 import com.apotek.modules.masterdata.service.CustomerService;
+import java.util.LinkedHashMap;
 
 @RestController
 @RequestMapping("/api/v1/reports")
@@ -38,6 +41,7 @@ public class ReportController {
     private final BranchRepository branchRepository;
     private final SalesReturnRepository salesReturnRepository;
     private final SalesReturnDetailRepository salesReturnDetailRepository;
+    private final ExpenseRepository expenseRepository;
     private final CustomerService customerService;
 
     @GetMapping("/customer-loyalty")
@@ -54,12 +58,58 @@ public class ReportController {
 
     @Data
     @Builder
+    public static class ItemProfitBreakdown {
+        private String productName;
+        private String sku;
+        private BigDecimal quantitySold;
+        private BigDecimal totalRevenue;
+        private BigDecimal totalCost;
+        private BigDecimal grossProfit;
+    }
+
+    @Data
+    @Builder
+    public static class ReturnBreakdown {
+        private Long returnId;
+        private LocalDateTime returnDate;
+        private String productName;
+        private BigDecimal quantity;
+        private BigDecimal refundAmount;
+        private BigDecimal returnCost;
+    }
+
+    @Data
+    @Builder
+    public static class ExpenseBreakdown {
+        private Long id;
+        private LocalDate expenseDate;
+        private String branchName;
+        private String category;
+        private String expenseType;
+        private String notes;
+        private BigDecimal amount;
+    }
+
+    @Data
+    @Builder
     public static class BranchComparisonData {
         private Long branchId;
         private String branchName;
+        private BigDecimal grossSales;
+        private BigDecimal totalRefunds;
         private BigDecimal totalSales;
+        private BigDecimal grossCost;
+        private BigDecimal totalReturnCost;
+        private BigDecimal totalCost;
         private BigDecimal grossProfit;
+        private BigDecimal totalExpenses;
+        private BigDecimal netProfit;
+        private BigDecimal marginPercentage;
+        private BigDecimal netMarginPercentage;
         private long transactionCount;
+        private List<ItemProfitBreakdown> itemsBreakdown;
+        private List<ReturnBreakdown> returnsBreakdown;
+        private List<ExpenseBreakdown> expensesBreakdown;
     }
 
     @GetMapping("/branch-comparison")
@@ -68,46 +118,18 @@ public class ReportController {
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate
     ) {
-        LocalDateTime start = startDate != null ? LocalDate.parse(startDate).atStartOfDay() : LocalDate.now().withDayOfMonth(1).atStartOfDay();
-        LocalDateTime end = endDate != null ? LocalDate.parse(endDate).atTime(23, 59, 59) : LocalDateTime.now();
+        LocalDate startLd = (startDate != null && !startDate.isBlank())
+                ? LocalDate.parse(startDate)
+                : LocalDate.of(2000, 1, 1);
+        LocalDate endLd = (endDate != null && !endDate.isBlank())
+                ? LocalDate.parse(endDate)
+                : LocalDate.now();
 
         List<Branch> branches = branchRepository.findAll();
         List<BranchComparisonData> comparison = new ArrayList<>();
 
         for (Branch branch : branches) {
-            List<SaleDetail> details = saleDetailRepository.findBySaleBranchIdAndCreatedAtBetween(branch.getId(), start, end);
-            List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branch.getId(), start, end);
-            
-            BigDecimal totalSales = BigDecimal.ZERO;
-            BigDecimal totalCost = BigDecimal.ZERO;
-
-            for (SaleDetail detail : details) {
-                totalSales = totalSales.add(detail.getSubtotal());
-                BigDecimal purchasePrice = detail.getPurchasePrice() != null ? detail.getPurchasePrice() : BigDecimal.ZERO;
-                BigDecimal cost = purchasePrice.multiply(detail.getQuantity());
-                totalCost = totalCost.add(cost);
-            }
-
-            BigDecimal totalRefunds = BigDecimal.ZERO;
-            BigDecimal totalReturnCost = BigDecimal.ZERO;
-
-            for (SalesReturnDetail rd : returnDetails) {
-                totalRefunds = totalRefunds.add(rd.getRefundAmount());
-                BigDecimal cost = rd.getSaleDetail().getPurchasePrice().multiply(rd.getQuantity());
-                totalReturnCost = totalReturnCost.add(cost);
-            }
-
-            totalSales = totalSales.subtract(totalRefunds);
-            totalCost = totalCost.subtract(totalReturnCost);
-
-            BigDecimal grossProfit = totalSales.subtract(totalCost);
-            comparison.add(BranchComparisonData.builder()
-                    .branchId(branch.getId())
-                    .branchName(branch.getName())
-                    .totalSales(totalSales)
-                    .grossProfit(grossProfit)
-                    .transactionCount(details.stream().map(d -> d.getSale().getId()).distinct().count())
-                    .build());
+            comparison.add(buildBranchProfitLoss(branch.getId(), branch.getName(), startLd, endLd));
         }
 
         return comparison;
@@ -118,63 +140,197 @@ public class ReportController {
     public ProfitLossData getProfitLoss(@RequestParam(required = false) Long branchId, 
                                        @RequestParam(required = false) String startDate,
                                        @RequestParam(required = false) String endDate) {
-        
-        LocalDateTime start = startDate != null ? LocalDate.parse(startDate).atStartOfDay() : LocalDate.now().withDayOfMonth(1).atStartOfDay();
-        LocalDateTime end = endDate != null ? LocalDate.parse(endDate).atTime(23, 59, 59) : LocalDateTime.now();
+        if (branchId != null && branchId <= 0) {
+            branchId = null;
+        }
+        LocalDate startLd = (startDate != null && !startDate.isBlank())
+                ? LocalDate.parse(startDate)
+                : LocalDate.of(2000, 1, 1);
+        LocalDate endLd = (endDate != null && !endDate.isBlank())
+                ? LocalDate.parse(endDate)
+                : LocalDate.now();
 
-        List<SaleDetail> details;
+        String branchName = "Semua Cabang";
         if (branchId != null) {
-            details = saleDetailRepository.findBySaleBranchIdAndCreatedAtBetween(branchId, start, end);
-        } else {
-            details = saleDetailRepository.findByCreatedAtBetween(start, end);
+            branchName = branchRepository.findById(branchId).map(Branch::getName).orElse("Cabang");
         }
 
-        List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branchId, start, end);
+        BranchComparisonData data = buildBranchProfitLoss(branchId, branchName, startLd, endLd);
 
-        BigDecimal totalSales = BigDecimal.ZERO;
-        BigDecimal totalCost = BigDecimal.ZERO;
+        return ProfitLossData.builder()
+                .branchId(data.getBranchId())
+                .branchName(data.getBranchName())
+                .grossSales(data.getGrossSales())
+                .totalRefunds(data.getTotalRefunds())
+                .totalSales(data.getTotalSales())
+                .grossCost(data.getGrossCost())
+                .totalReturnCost(data.getTotalReturnCost())
+                .totalCost(data.getTotalCost())
+                .grossProfit(data.getGrossProfit())
+                .totalExpenses(data.getTotalExpenses())
+                .netProfit(data.getNetProfit())
+                .marginPercentage(data.getMarginPercentage())
+                .netMarginPercentage(data.getNetMarginPercentage())
+                .transactionCount(data.getTransactionCount())
+                .itemsBreakdown(data.getItemsBreakdown())
+                .returnsBreakdown(data.getReturnsBreakdown())
+                .expensesBreakdown(data.getExpensesBreakdown())
+                .build();
+    }
+
+    private BranchComparisonData buildBranchProfitLoss(Long branchId, String branchName, LocalDate startLd, LocalDate endLd) {
+        LocalDateTime start = startLd.atStartOfDay();
+        LocalDateTime end = endLd.atTime(23, 59, 59, 999999999);
+
+        List<SaleDetail> details = saleDetailRepository.findCompletedByBranchAndSaleDateBetween(branchId, start, end);
+        List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branchId, start, end);
+        List<Expense> expenses = expenseRepository.findExpensesWithFilters(branchId, startLd, endLd);
+
+        BigDecimal grossSales = BigDecimal.ZERO;
+        BigDecimal grossCost = BigDecimal.ZERO;
+
+        Map<String, ItemProfitBreakdown> itemMap = new LinkedHashMap<>();
 
         for (SaleDetail detail : details) {
-            totalSales = totalSales.add(detail.getSubtotal());
+            BigDecimal rev = detail.getSubtotal() != null ? detail.getSubtotal() : BigDecimal.ZERO;
             BigDecimal purchasePrice = detail.getPurchasePrice() != null ? detail.getPurchasePrice() : BigDecimal.ZERO;
-            BigDecimal cost = purchasePrice.multiply(detail.getQuantity());
-            totalCost = totalCost.add(cost);
+            BigDecimal qty = detail.getQuantity() != null ? detail.getQuantity() : BigDecimal.ZERO;
+            BigDecimal cost = purchasePrice.multiply(qty);
+
+            grossSales = grossSales.add(rev);
+            grossCost = grossCost.add(cost);
+
+            String prodName = Boolean.TRUE.equals(detail.getIsCompound())
+                    ? (detail.getCompoundName() != null ? "[Racikan] " + detail.getCompoundName() : "[Racikan] Obat Racikan")
+                    : (detail.getProduct() != null ? detail.getProduct().getName() : "Produk");
+            String sku = detail.getProduct() != null && detail.getProduct().getSku() != null
+                    ? detail.getProduct().getSku()
+                    : (Boolean.TRUE.equals(detail.getIsCompound()) ? "RACIKAN" : "-");
+            String key = sku + "::" + prodName;
+
+            ItemProfitBreakdown existing = itemMap.get(key);
+            if (existing == null) {
+                itemMap.put(key, ItemProfitBreakdown.builder()
+                        .productName(prodName)
+                        .sku(sku)
+                        .quantitySold(qty)
+                        .totalRevenue(rev)
+                        .totalCost(cost)
+                        .grossProfit(rev.subtract(cost))
+                        .build());
+            } else {
+                BigDecimal newQty = existing.getQuantitySold().add(qty);
+                BigDecimal newRev = existing.getTotalRevenue().add(rev);
+                BigDecimal newCost = existing.getTotalCost().add(cost);
+                existing.setQuantitySold(newQty);
+                existing.setTotalRevenue(newRev);
+                existing.setTotalCost(newCost);
+                existing.setGrossProfit(newRev.subtract(newCost));
+            }
         }
 
         BigDecimal totalRefunds = BigDecimal.ZERO;
         BigDecimal totalReturnCost = BigDecimal.ZERO;
+        List<ReturnBreakdown> returnsList = new ArrayList<>();
 
         for (SalesReturnDetail rd : returnDetails) {
-            totalRefunds = totalRefunds.add(rd.getRefundAmount());
-            BigDecimal cost = rd.getSaleDetail().getPurchasePrice().multiply(rd.getQuantity());
+            BigDecimal refAmt = rd.getRefundAmount() != null ? rd.getRefundAmount() : BigDecimal.ZERO;
+            BigDecimal rdQty = rd.getQuantity() != null ? rd.getQuantity() : BigDecimal.ZERO;
+            BigDecimal rdPurchasePrice = (rd.getSaleDetail() != null && rd.getSaleDetail().getPurchasePrice() != null)
+                    ? rd.getSaleDetail().getPurchasePrice()
+                    : BigDecimal.ZERO;
+            BigDecimal cost = rdPurchasePrice.multiply(rdQty);
+
+            totalRefunds = totalRefunds.add(refAmt);
             totalReturnCost = totalReturnCost.add(cost);
+
+            String prodName = (rd.getSaleDetail() != null && rd.getSaleDetail().getProduct() != null)
+                    ? rd.getSaleDetail().getProduct().getName()
+                    : "Retur Produk";
+
+            returnsList.add(ReturnBreakdown.builder()
+                    .returnId(rd.getSalesReturn() != null ? rd.getSalesReturn().getId() : rd.getId())
+                    .returnDate(rd.getCreatedAt())
+                    .productName(prodName)
+                    .quantity(rdQty)
+                    .refundAmount(refAmt)
+                    .returnCost(cost)
+                    .build());
         }
 
-        totalSales = totalSales.subtract(totalRefunds);
-        totalCost = totalCost.subtract(totalReturnCost);
-
+        BigDecimal totalSales = grossSales.subtract(totalRefunds);
+        BigDecimal totalCost = grossCost.subtract(totalReturnCost);
         BigDecimal grossProfit = totalSales.subtract(totalCost);
-        BigDecimal margin = totalSales.compareTo(BigDecimal.ZERO) > 0 
+
+        BigDecimal totalExpenses = BigDecimal.ZERO;
+        List<ExpenseBreakdown> expensesList = new ArrayList<>();
+        for (Expense exp : expenses) {
+            BigDecimal amt = exp.getAmount() != null ? exp.getAmount() : BigDecimal.ZERO;
+            totalExpenses = totalExpenses.add(amt);
+            expensesList.add(ExpenseBreakdown.builder()
+                    .id(exp.getId())
+                    .expenseDate(exp.getExpenseDate())
+                    .branchName(exp.getBranch() != null ? exp.getBranch().getName() : branchName)
+                    .category(exp.getCategory())
+                    .expenseType(exp.getExpenseType())
+                    .notes(exp.getNotes())
+                    .amount(amt)
+                    .build());
+        }
+
+        BigDecimal netProfit = grossProfit.subtract(totalExpenses);
+
+        BigDecimal margin = totalSales.compareTo(BigDecimal.ZERO) > 0
                 ? grossProfit.divide(totalSales, 4, RoundingMode.HALF_UP).multiply(new BigDecimal(100))
                 : BigDecimal.ZERO;
+        BigDecimal netMargin = totalSales.compareTo(BigDecimal.ZERO) > 0
+                ? netProfit.divide(totalSales, 4, RoundingMode.HALF_UP).multiply(new BigDecimal(100))
+                : BigDecimal.ZERO;
 
-        return ProfitLossData.builder()
+        List<ItemProfitBreakdown> sortedItems = new ArrayList<>(itemMap.values());
+        sortedItems.sort((a, b) -> b.getGrossProfit().compareTo(a.getGrossProfit()));
+
+        return BranchComparisonData.builder()
+                .branchId(branchId)
+                .branchName(branchName)
+                .grossSales(grossSales)
+                .totalRefunds(totalRefunds)
                 .totalSales(totalSales)
+                .grossCost(grossCost)
+                .totalReturnCost(totalReturnCost)
                 .totalCost(totalCost)
                 .grossProfit(grossProfit)
+                .totalExpenses(totalExpenses)
+                .netProfit(netProfit)
                 .marginPercentage(margin)
+                .netMarginPercentage(netMargin)
                 .transactionCount(details.stream().map(d -> d.getSale().getId()).distinct().count())
+                .itemsBreakdown(sortedItems)
+                .returnsBreakdown(returnsList)
+                .expensesBreakdown(expensesList)
                 .build();
     }
 
     @Data
     @Builder
     public static class ProfitLossData {
+        private Long branchId;
+        private String branchName;
+        private BigDecimal grossSales;
+        private BigDecimal totalRefunds;
         private BigDecimal totalSales;
+        private BigDecimal grossCost;
+        private BigDecimal totalReturnCost;
         private BigDecimal totalCost;
         private BigDecimal grossProfit;
+        private BigDecimal totalExpenses;
+        private BigDecimal netProfit;
         private BigDecimal marginPercentage;
+        private BigDecimal netMarginPercentage;
         private long transactionCount;
+        private List<ItemProfitBreakdown> itemsBreakdown;
+        private List<ReturnBreakdown> returnsBreakdown;
+        private List<ExpenseBreakdown> expensesBreakdown;
     }
 
     @GetMapping("/sales-trend")
