@@ -25,6 +25,34 @@ public class DebtController {
         return debtService.getDebts(branchId, type);
     }
 
+    @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
+    public Debt createManualDebt(@RequestBody CreateManualDebtRequest request) {
+        return debtService.createManualDebt(
+                request.getType(),
+                request.getBranchId(),
+                request.getPartyName(),
+                request.getReferenceNumber(),
+                request.getDueDate(),
+                request.getTotalAmount(),
+                request.getPaidAmount(),
+                request.getNotes()
+        );
+    }
+
+    @PutMapping("/{id}/adjust")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
+    public Debt adjustDebt(@PathVariable Long id, @RequestBody AdjustDebtRequest request) {
+        return debtService.adjustDebt(
+                id,
+                request.getTotalAmount(),
+                request.getDueDate(),
+                request.getPartyName(),
+                request.getReferenceNumber(),
+                request.getAdjustmentNotes()
+        );
+    }
+
     @GetMapping("/{id}/payments")
     public List<DebtPayment> getPayments(@PathVariable Long id) {
         return debtService.getPayments(id);
@@ -34,6 +62,27 @@ public class DebtController {
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'STAFF', 'CASHIER', 'KASIR')")
     public DebtPayment pay(@PathVariable Long id, @RequestBody PayRequest request) {
         return debtService.recordPayment(id, request.getAmount(), request.getPaymentMethod(), request.getNotes());
+    }
+
+    @Data
+    public static class CreateManualDebtRequest {
+        private String type; // HUTANG_PEMBELIAN or HUTANG_PENJUALAN
+        private Long branchId;
+        private String partyName;
+        private String referenceNumber;
+        private java.time.LocalDate dueDate;
+        private BigDecimal totalAmount;
+        private BigDecimal paidAmount;
+        private String notes;
+    }
+
+    @Data
+    public static class AdjustDebtRequest {
+        private BigDecimal totalAmount;
+        private java.time.LocalDate dueDate;
+        private String partyName;
+        private String referenceNumber;
+        private String adjustmentNotes;
     }
 
     @Data

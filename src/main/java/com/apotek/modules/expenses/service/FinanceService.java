@@ -127,10 +127,14 @@ public class FinanceService {
 
             if ("HUTANG_PEMBELIAN".equalsIgnoreCase(d.getType())) {
                 totalPayableDebt = totalPayableDebt.add(remaining);
-                String invNum = (d.getPurchase() != null && d.getPurchase().getInvoiceNumber() != null && !d.getPurchase().getInvoiceNumber().isBlank())
+                String invNum = (d.getReferenceNumber() != null && !d.getReferenceNumber().isBlank())
+                        ? d.getReferenceNumber()
+                        : (d.getPurchase() != null && d.getPurchase().getInvoiceNumber() != null && !d.getPurchase().getInvoiceNumber().isBlank())
                         ? d.getPurchase().getInvoiceNumber()
                         : "#PUR-" + (d.getPurchase() != null ? d.getPurchase().getId() : d.getId());
-                String suppName = (d.getPurchase() != null && d.getPurchase().getSupplier() != null)
+                String suppName = (d.getPartyName() != null && !d.getPartyName().isBlank())
+                        ? d.getPartyName()
+                        : (d.getPurchase() != null && d.getPurchase().getSupplier() != null)
                         ? d.getPurchase().getSupplier().getName()
                         : "Supplier";
                 LocalDate pDate = (d.getPurchase() != null && d.getPurchase().getPurchaseDate() != null)
@@ -154,8 +158,12 @@ public class FinanceService {
                         .build());
             } else if ("HUTANG_PENJUALAN".equalsIgnoreCase(d.getType())) {
                 totalReceivableDebt = totalReceivableDebt.add(remaining);
-                String invNum = d.getSale() != null ? "#SAL-" + d.getSale().getId() : "#DEBT-" + d.getId();
-                String custName = (d.getSale() != null && d.getSale().getCustomer() != null && d.getSale().getCustomer().getName() != null)
+                String invNum = (d.getReferenceNumber() != null && !d.getReferenceNumber().isBlank())
+                        ? d.getReferenceNumber()
+                        : (d.getSale() != null ? "#SAL-" + d.getSale().getId() : "#DEBT-" + d.getId());
+                String custName = (d.getPartyName() != null && !d.getPartyName().isBlank())
+                        ? d.getPartyName()
+                        : (d.getSale() != null && d.getSale().getCustomer() != null && d.getSale().getCustomer().getName() != null)
                         ? d.getSale().getCustomer().getName()
                         : "Pelanggan Umum";
                 LocalDate sDate = (d.getSale() != null && d.getSale().getSaleDate() != null)

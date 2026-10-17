@@ -56,6 +56,12 @@ public class Debt {
 
     private String notes;
 
+    @Column(name = "reference_number")
+    private String referenceNumber;
+
+    @Column(name = "party_name")
+    private String partyName;
+
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
 
@@ -85,6 +91,10 @@ public class Debt {
     public void setStatus(String status) { this.status = status; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getReferenceNumber() { return referenceNumber; }
+    public void setReferenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; }
+    public String getPartyName() { return partyName; }
+    public void setPartyName(String partyName) { this.partyName = partyName; }
     public String getTenantId() { return tenantId; }
     public void setTenantId(String tenantId) { this.tenantId = tenantId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
@@ -111,6 +121,8 @@ public class Debt {
         private BigDecimal paidAmount;
         private String status;
         private String notes;
+        private String referenceNumber;
+        private String partyName;
         private String tenantId;
 
         public DebtBuilder type(String type) { this.type = type; return this; }
@@ -122,6 +134,8 @@ public class Debt {
         public DebtBuilder paidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; return this; }
         public DebtBuilder status(String status) { this.status = status; return this; }
         public DebtBuilder notes(String notes) { this.notes = notes; return this; }
+        public DebtBuilder referenceNumber(String referenceNumber) { this.referenceNumber = referenceNumber; return this; }
+        public DebtBuilder partyName(String partyName) { this.partyName = partyName; return this; }
         public DebtBuilder tenantId(String tenantId) { this.tenantId = tenantId; return this; }
 
         public Debt build() {
@@ -135,6 +149,8 @@ public class Debt {
             debt.setPaidAmount(paidAmount);
             debt.setStatus(status);
             debt.setNotes(notes);
+            debt.setReferenceNumber(referenceNumber);
+            debt.setPartyName(partyName);
             debt.setTenantId(tenantId);
             return debt;
         }

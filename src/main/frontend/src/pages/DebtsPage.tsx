@@ -12,7 +12,9 @@ import {
   DollarSign, 
   Printer, 
   FileText,
-  Building
+  Building,
+  Plus,
+  SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -28,6 +30,29 @@ const DebtsPage: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [paymentNotes, setPaymentNotes] = useState('');
+
+  // Create Manual Debt modal state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [manualType, setManualType] = useState<'HUTANG_PEMBELIAN' | 'HUTANG_PENJUALAN'>('HUTANG_PEMBELIAN');
+  const [manualBranchId, setManualBranchId] = useState('');
+  const [manualPartyName, setManualPartyName] = useState('');
+  const [manualRefNumber, setManualRefNumber] = useState('');
+  const [manualDueDate, setManualDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [manualTotalAmount, setManualTotalAmount] = useState('');
+  const [manualPaidAmount, setManualPaidAmount] = useState('0');
+  const [manualNotes, setManualNotes] = useState('');
+
+  // Adjustment modal state
+  const [adjustingDebt, setAdjustingDebt] = useState<any>(null);
+  const [adjustTotalAmount, setAdjustTotalAmount] = useState('');
+  const [adjustDueDate, setAdjustDueDate] = useState('');
+  const [adjustPartyName, setAdjustPartyName] = useState('');
+  const [adjustRefNumber, setAdjustRefNumber] = useState('');
+  const [adjustNotes, setAdjustNotes] = useState('');
 
   // Print receipt state
   const [printPayment, setPrintPayment] = useState<any>(null);
@@ -47,13 +72,40 @@ const DebtsPage: React.FC = () => {
     queryFn: () => api.get('/branches').then(res => res.data)
   });
 
+  const { data: suppliers } = useQuery<any[]>({
+    queryKey: ['suppliers'],
+    queryFn: () => api.get('/suppliers').then(res => res.data)
+  });
+
+  const { data: customers } = useQuery<any[]>({
+    queryKey: ['customers'],
+    queryFn: () => api.get('/customers').then(res => res.data)
+  });
+
   const { data: paymentsHistory } = useQuery<any[]>({
     queryKey: ['debt-payments', selectedDebt?.id],
     queryFn: () => api.get(`/debts/${selectedDebt?.id}/payments`).then(res => res.data),
     enabled: !!selectedDebt
   });
 
-  // Mutation
+  // Helper functions for partner & reference display
+  const getPartnerName = (d: any) => {
+    if (!d) return '-';
+    if (d.partyName && d.partyName.trim() !== '') return d.partyName;
+    return d.type === 'HUTANG_PENJUALAN'
+      ? d.sale?.customer?.name || 'Walk-in Customer'
+      : d.purchase?.supplier?.name || 'Supplier';
+  };
+
+  const getRefNum = (d: any) => {
+    if (!d) return '-';
+    if (d.referenceNumber && d.referenceNumber.trim() !== '') return d.referenceNumber;
+    return d.type === 'HUTANG_PENJUALAN'
+      ? (d.sale?.id ? `#SAL-${d.sale.id}` : `#DEBT-${d.id}`)
+      : (d.purchase?.invoiceNumber || (d.purchase?.id ? `#PUR-${d.purchase.id}` : `#DEBT-${d.id}`));
+  };
+
+  // Payment Mutation
   const paymentMutation = useMutation({
     mutationFn: (data: { debtId: number; amount: number; paymentMethod: string; notes: string }) => {
       return api.post(`/debts/${data.debtId}/payments`, {
@@ -65,14 +117,117 @@ const DebtsPage: React.FC = () => {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['debt-payments', selectedDebt?.id] });
+      queryClient.invalidateQueries({ queryKey: ['branch-comparison'] });
       setPrintPayment(res.data); // Open print layout
       setPaymentAmount('');
       setPaymentNotes('');
     },
     onError: (err: any) => {
-      alert(err.response?.data || 'Gagal merekam pelunasan');
+      alert(err.response?.data?.message || err.response?.data || 'Gagal merekam pelunasan');
     }
   });
+
+  // Create Manual Debt Mutation
+  const createManualMutation = useMutation({
+    mutationFn: (payload: any) => api.post('/debts', payload),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['branch-comparison'] });
+      const created = res.data;
+      if (created?.type === 'HUTANG_PEMBELIAN') {
+        setActiveTab('payable');
+      } else {
+        setActiveTab('receivable');
+      }
+      setIsCreateModalOpen(false);
+      setManualPartyName('');
+      setManualRefNumber('');
+      setManualTotalAmount('');
+      setManualPaidAmount('0');
+      setManualNotes('');
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || err.response?.data || 'Gagal menyimpan hutang manual');
+    }
+  });
+
+  // Adjust Debt Mutation
+  const adjustDebtMutation = useMutation({
+    mutationFn: (data: { id: number; payload: any }) => api.put(`/debts/${data.id}/adjust`, data.payload),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['branch-comparison'] });
+      if (selectedDebt && selectedDebt.id === res.data?.id) {
+        setSelectedDebt(res.data);
+      }
+      setAdjustingDebt(null);
+      setAdjustNotes('');
+    },
+    onError: (err: any) => {
+      alert(err.response?.data?.message || err.response?.data || 'Gagal melakukan adjustment hutang');
+    }
+  });
+
+  const openCreateModal = () => {
+    setManualType(activeTab === 'payable' ? 'HUTANG_PEMBELIAN' : 'HUTANG_PENJUALAN');
+    if (!manualBranchId && branches && branches.length > 0) {
+      setManualBranchId(String(branches[0].id));
+    }
+    setIsCreateModalOpen(true);
+  };
+
+  const openAdjustModal = (d: any) => {
+    setAdjustingDebt(d);
+    setAdjustTotalAmount(String(d.totalAmount || 0));
+    setAdjustDueDate(d.dueDate || '');
+    setAdjustPartyName(getPartnerName(d));
+    setAdjustRefNumber(getRefNum(d));
+    setAdjustNotes('');
+  };
+
+  const handleCreateManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const total = parseFloat(manualTotalAmount);
+    const paid = parseFloat(manualPaidAmount || '0');
+    if (isNaN(total) || total <= 0) {
+      alert('Total nominal tagihan harus lebih besar dari 0');
+      return;
+    }
+    createManualMutation.mutate({
+      type: manualType,
+      branchId: manualBranchId ? Number(manualBranchId) : (branches?.[0]?.id || null),
+      partyName: manualPartyName,
+      referenceNumber: manualRefNumber,
+      dueDate: manualDueDate,
+      totalAmount: total,
+      paidAmount: isNaN(paid) ? 0 : paid,
+      notes: manualNotes
+    });
+  };
+
+  const handleAdjustSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustingDebt) return;
+    const newTotal = parseFloat(adjustTotalAmount);
+    if (isNaN(newTotal) || newTotal < 0) {
+      alert('Nominal total tagihan baru tidak valid');
+      return;
+    }
+    if (newTotal < Number(adjustingDebt.paidAmount || 0)) {
+      alert(`Total tagihan baru tidak boleh kurang dari nominal yang sudah dibayar (Rp ${Number(adjustingDebt.paidAmount || 0).toLocaleString()})`);
+      return;
+    }
+    adjustDebtMutation.mutate({
+      id: adjustingDebt.id,
+      payload: {
+        totalAmount: newTotal,
+        dueDate: adjustDueDate || null,
+        partyName: adjustPartyName,
+        referenceNumber: adjustRefNumber,
+        adjustmentNotes: adjustNotes
+      }
+    });
+  };
 
   // Calculations
   const allDebts = debts || [];
@@ -85,14 +240,8 @@ const DebtsPage: React.FC = () => {
   if (searchTerm) {
     const search = searchTerm.toLowerCase();
     filtered = filtered.filter(d => {
-      const partnerName = d.type === 'HUTANG_PENJUALAN' 
-        ? d.sale?.customer?.name?.toLowerCase() || 'umum' 
-        : d.purchase?.supplier?.name?.toLowerCase() || '';
-      
-      const invoiceNum = d.type === 'HUTANG_PENJUALAN'
-        ? `sal-${d.sale?.id}`.toLowerCase()
-        : d.purchase?.invoiceNumber?.toLowerCase() || '';
-
+      const partnerName = getPartnerName(d).toLowerCase();
+      const invoiceNum = getRefNum(d).toLowerCase();
       const notes = d.notes?.toLowerCase() || '';
 
       return partnerName.includes(search) || invoiceNum.includes(search) || notes.includes(search);
@@ -152,7 +301,16 @@ const DebtsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Manajemen Hutang & Piutang</h1>
-          <p className="text-slate-500 text-sm">Kelola piutang penjualan pelanggan dan hutang pembelian supplier secara real-time.</p>
+          <p className="text-slate-500 text-sm">Kelola piutang penjualan pelanggan, hutang supplier, input hutang manual, dan adjustment tagihan.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={openCreateModal}
+            className="h-10 px-4 rounded-xl font-bold text-xs flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Input Hutang / Piutang Manual
+          </Button>
         </div>
       </div>
 
@@ -291,21 +449,29 @@ const DebtsPage: React.FC = () => {
               ) : (
                 currentEntries.map((d: any) => {
                   const sisa = d.totalAmount - d.paidAmount;
-                  const partnerName = d.type === 'HUTANG_PENJUALAN'
-                    ? d.sale?.customer?.name || 'Walk-in Customer'
-                    : d.purchase?.supplier?.name || 'Supplier';
-
+                  const partnerName = getPartnerName(d);
                   const dateStr = d.createdAt ? d.createdAt.split('T')[0] : '-';
-                  const refNum = d.type === 'HUTANG_PENJUALAN'
-                    ? `#SAL-${d.sale?.id}`
-                    : d.purchase?.invoiceNumber || `#PUR-${d.purchase?.id}`;
+                  const refNum = getRefNum(d);
+                  const isManual = !d.sale && !d.purchase;
 
                   return (
                     <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 pl-6 font-semibold text-slate-800">{refNum}</td>
+                      <td className="p-4 pl-6">
+                        <div className="font-semibold text-slate-800">{refNum}</div>
+                        {isManual && (
+                          <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 border border-indigo-100">
+                            Input Manual
+                          </span>
+                        )}
+                      </td>
                       <td className="p-4">
                         <div className="font-bold text-slate-700">{partnerName}</div>
                         <div className="text-[10px] text-slate-400 uppercase tracking-widest">{d.type === 'HUTANG_PENJUALAN' ? 'Customer' : 'Supplier'}</div>
+                        {d.notes && (
+                          <div className="text-[11px] text-slate-500 italic mt-0.5 max-w-xs truncate" title={d.notes}>
+                            {d.notes}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">
@@ -330,19 +496,30 @@ const DebtsPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-4 text-center pr-6">
-                        <Button
-                          variant={d.status === 'PAID' ? 'outline' : 'primary'}
-                          className={`h-8 px-4 rounded-xl text-xs font-bold ${
-                            d.status === 'PAID'
-                              ? 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                              : activeTab === 'receivable'
-                              ? 'bg-emerald-600 hover:bg-emerald-700'
-                              : 'bg-rose-600 hover:bg-rose-700'
-                          }`}
-                          onClick={() => setSelectedDebt(d)}
-                        >
-                          {d.status === 'PAID' ? 'Detail & Histori' : 'Bayar / Cicil'}
-                        </Button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Button
+                            variant={d.status === 'PAID' ? 'outline' : 'primary'}
+                            className={`h-8 px-3 rounded-xl text-xs font-bold ${
+                              d.status === 'PAID'
+                                ? 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                                : activeTab === 'receivable'
+                                ? 'bg-emerald-600 hover:bg-emerald-700'
+                                : 'bg-rose-600 hover:bg-rose-700'
+                            }`}
+                            onClick={() => setSelectedDebt(d)}
+                          >
+                            {d.status === 'PAID' ? 'Detail' : 'Bayar / Cicil'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            title="Adjustment / Penyesuaian Tagihan"
+                            className="h-8 px-2.5 rounded-xl text-xs font-bold border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center gap-1"
+                            onClick={() => openAdjustModal(d)}
+                          >
+                            <SlidersHorizontal className="w-3.5 h-3.5" />
+                            Adjust
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -397,6 +574,272 @@ const DebtsPage: React.FC = () => {
         )}
       </div>
 
+      {/* Create Manual Debt Dialog */}
+      <Dialog
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        title="Input Hutang / Piutang Manual (Tanpa Pembelian/Penjualan)"
+        size="md"
+      >
+        <form onSubmit={handleCreateManualSubmit} className="space-y-4">
+          <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-800">
+            Gunakan fitur ini untuk mencatat <strong>hutang lama/saldo awal</strong>, <strong>hutang operasional non-obat</strong>, atau <strong>piutang customer manual</strong> tanpa menambah/mengurangi stok produk.
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Jenis Tagihan</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setManualType('HUTANG_PEMBELIAN')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  manualType === 'HUTANG_PEMBELIAN'
+                    ? 'bg-rose-50 border-rose-400 text-rose-800 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <div className="text-xs font-extrabold">Hutang Supplier / Apotek</div>
+                <div className="text-[10px] opacity-80">Kewajiban bayar ke PBF/pihak luar</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setManualType('HUTANG_PENJUALAN')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  manualType === 'HUTANG_PENJUALAN'
+                    ? 'bg-emerald-50 border-emerald-400 text-emerald-800 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <div className="text-xs font-extrabold">Piutang Customer</div>
+                <div className="text-[10px] opacity-80">Tagihan pelanggan ke apotek</div>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">Cabang</label>
+              <select
+                required
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                value={manualBranchId}
+                onChange={(e) => setManualBranchId(e.target.value)}
+              >
+                {branches?.map(b => (
+                  <option key={b.id} value={b.id.toString()}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">Tanggal Jatuh Tempo</label>
+              <Input
+                type="date"
+                required
+                value={manualDueDate}
+                onChange={(e) => setManualDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">
+                {manualType === 'HUTANG_PEMBELIAN' ? 'Nama Supplier / Kreditur' : 'Nama Customer / Pelanggan'}
+              </label>
+              <Input
+                list={manualType === 'HUTANG_PEMBELIAN' ? 'manual-suppliers-list' : 'manual-customers-list'}
+                placeholder={manualType === 'HUTANG_PEMBELIAN' ? 'Ketik atau pilih supplier...' : 'Ketik atau pilih customer...'}
+                required
+                value={manualPartyName}
+                onChange={(e) => setManualPartyName(e.target.value)}
+              />
+              <datalist id="manual-suppliers-list">
+                {suppliers?.map((s: any) => (
+                  <option key={s.id} value={s.name} />
+                ))}
+              </datalist>
+              <datalist id="manual-customers-list">
+                {customers?.map((c: any) => (
+                  <option key={c.id} value={c.name} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">No. Faktur / Referensi (Opsional)</label>
+              <Input
+                placeholder="Kosongkan untuk nomor otomatis"
+                value={manualRefNumber}
+                onChange={(e) => setManualRefNumber(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">Total Nominal Tagihan (Rp)</label>
+              <Input
+                type="number"
+                min="1"
+                placeholder="Contoh: 1500000"
+                required
+                value={manualTotalAmount}
+                onChange={(e) => setManualTotalAmount(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">Sudah Dibayar / DP Awal (Rp)</label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={manualPaidAmount}
+                onChange={(e) => setManualPaidAmount(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-700">Catatan / Keterangan Hutang</label>
+            <Input
+              placeholder="Contoh: Saldo awal faktur PBF Kimia Farma / Tagihan alat"
+              value={manualNotes}
+              onChange={(e) => setManualNotes(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              disabled={createManualMutation.isPending}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold"
+            >
+              {createManualMutation.isPending ? 'Menyimpan...' : 'Simpan Hutang Manual'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Adjustment Debt Dialog */}
+      <Dialog
+        isOpen={!!adjustingDebt}
+        onClose={() => setAdjustingDebt(null)}
+        title="Adjustment / Penyesuaian Nominal Hutang"
+        size="md"
+      >
+        {adjustingDebt && (() => {
+          const oldTotal = Number(adjustingDebt.totalAmount || 0);
+          const paid = Number(adjustingDebt.paidAmount || 0);
+          const parsedNewTotal = parseFloat(adjustTotalAmount);
+          const validNewTotal = !isNaN(parsedNewTotal) ? parsedNewTotal : oldTotal;
+          const diff = validNewTotal - oldTotal;
+          const newRemaining = Math.max(0, validNewTotal - paid);
+
+          return (
+            <form onSubmit={handleAdjustSubmit} className="space-y-4">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Awal</span>
+                  <span className="text-sm font-bold text-slate-700">Rp {oldTotal.toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Sudah Dibayar</span>
+                  <span className="text-sm font-bold text-emerald-600">Rp {paid.toLocaleString()}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Sisa Tagihan Baru</span>
+                  <span className="text-sm font-black text-rose-600">Rp {newRemaining.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-700">Nama Partner (Supplier/Customer)</label>
+                  <Input
+                    required
+                    value={adjustPartyName}
+                    onChange={(e) => setAdjustPartyName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-700">No. Faktur / Referensi</label>
+                  <Input
+                    required
+                    value={adjustRefNumber}
+                    onChange={(e) => setAdjustRefNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">Total Tagihan Baru (Rp)</label>
+                    <button
+                      type="button"
+                      onClick={() => setAdjustTotalAmount(String(paid))}
+                      className="text-[10px] font-bold text-emerald-600 hover:underline cursor-pointer"
+                    >
+                      Set Lunas (Rp {paid.toLocaleString()})
+                    </button>
+                  </div>
+                  <Input
+                    type="number"
+                    min={paid}
+                    required
+                    value={adjustTotalAmount}
+                    onChange={(e) => setAdjustTotalAmount(e.target.value)}
+                  />
+                  {diff !== 0 && (
+                    <p className={`text-[11px] font-bold ${diff < 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      Selisih Adjustment: {diff > 0 ? '+' : ''}Rp {diff.toLocaleString()}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-700">Tanggal Jatuh Tempo</label>
+                  <Input
+                    type="date"
+                    required
+                    value={adjustDueDate}
+                    onChange={(e) => setAdjustDueDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-800">Alasan / Catatan Adjustment (Wajib)</label>
+                <Input
+                  required
+                  placeholder="Contoh: Potongan retur 2 box / Diskon CN supplier / Koreksi nominal"
+                  value={adjustNotes}
+                  onChange={(e) => setAdjustNotes(e.target.value)}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setAdjustingDebt(null)}>
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={adjustDebtMutation.isPending}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold"
+                >
+                  {adjustDebtMutation.isPending ? 'Menyimpan...' : 'Simpan Adjustment'}
+                </Button>
+              </div>
+            </form>
+          );
+        })()}
+      </Dialog>
+
       {/* Payment / Detail Dialog */}
       <Dialog
         isOpen={!!selectedDebt}
@@ -410,26 +853,35 @@ const DebtsPage: React.FC = () => {
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mitra / Partner</span>
-                <p className="font-bold text-slate-800">
-                  {selectedDebt.type === 'HUTANG_PENJUALAN'
-                    ? selectedDebt.sale?.customer?.name || 'Walk-in Customer'
-                    : selectedDebt.purchase?.supplier?.name || 'Supplier'}
-                </p>
+                <p className="font-bold text-slate-800">{getPartnerName(selectedDebt)}</p>
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">No. Ref Transaksi</span>
-                <p className="font-mono text-xs font-bold text-slate-700">
-                  {selectedDebt.type === 'HUTANG_PENJUALAN' ? `#SAL-${selectedDebt.sale?.id}` : selectedDebt.purchase?.invoiceNumber || `#PUR-${selectedDebt.purchase?.id}`}
-                </p>
+                <p className="font-mono text-xs font-bold text-slate-700">{getRefNum(selectedDebt)}</p>
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Hutang</span>
-                <p className="font-bold text-slate-800">Rp {selectedDebt.totalAmount.toLocaleString()}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-slate-800">Rp {selectedDebt.totalAmount.toLocaleString()}</p>
+                  <button
+                    type="button"
+                    onClick={() => openAdjustModal(selectedDebt)}
+                    className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 hover:bg-indigo-100 cursor-pointer"
+                  >
+                    Adjust Nominal
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sisa Tagihan</span>
                 <p className="font-black text-rose-600">Rp {(selectedDebt.totalAmount - selectedDebt.paidAmount).toLocaleString()}</p>
               </div>
+              {selectedDebt.notes && (
+                <div className="col-span-2 pt-2 border-t border-slate-200/60">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Catatan & Riwayat Adjustment</span>
+                  <p className="text-xs text-slate-600 mt-0.5 whitespace-pre-wrap">{selectedDebt.notes}</p>
+                </div>
+              )}
             </div>
 
             {/* Input payment form if NOT paid */}
@@ -562,15 +1014,11 @@ const DebtsPage: React.FC = () => {
                   <div className="text-center font-bold">INFO HUTANG</div>
                   <div className="flex justify-between">
                     <span>Partner</span>
-                    <span className="font-bold">
-                      {selectedDebt?.type === 'HUTANG_PENJUALAN'
-                        ? selectedDebt?.sale?.customer?.name || 'Walk-in Customer'
-                        : selectedDebt?.purchase?.supplier?.name || 'Supplier'}
-                    </span>
+                    <span className="font-bold">{getPartnerName(selectedDebt)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Ref Transaksi</span>
-                    <span>{selectedDebt?.type === 'HUTANG_PENJUALAN' ? `#SAL-${selectedDebt?.sale?.id}` : selectedDebt?.purchase?.invoiceNumber || `#PUR-${selectedDebt?.purchase?.id}`}</span>
+                    <span>{getRefNum(selectedDebt)}</span>
                   </div>
                 </div>
 
