@@ -100,6 +100,7 @@ public class ReportController {
         private String type;
         private String invoiceNumber;
         private String supplierName;
+        private String customerName;
         private String branchName;
         private LocalDate purchaseDate;
         private LocalDate dueDate;
@@ -215,7 +216,9 @@ public class ReportController {
         List<SaleDetail> details = saleDetailRepository.findCompletedByBranchAndSaleDateBetween(branchId, start, end);
         List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branchId, start, end);
         List<Expense> expenses = expenseRepository.findExpensesWithFilters(branchId, startLd, endLd);
-        List<Debt> unpaidDebts = debtRepository.findAllUnpaidDebts(branchId);
+        List<Debt> unpaidDebts = (branchId != null)
+                ? debtRepository.findByBranchIdOrderByDueDateDesc(branchId)
+                : debtRepository.findAll();
 
         BigDecimal grossSales = BigDecimal.ZERO;
         BigDecimal grossCost = BigDecimal.ZERO;
@@ -315,6 +318,9 @@ public class ReportController {
         List<DebtBreakdown> receivableDebtsList = new ArrayList<>();
 
         for (Debt d : unpaidDebts) {
+            if ("PAID".equalsIgnoreCase(d.getStatus())) {
+                continue;
+            }
             BigDecimal totalAmt = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
             BigDecimal paidAmt = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
             BigDecimal remaining = totalAmt.subtract(paidAmt);
@@ -339,6 +345,7 @@ public class ReportController {
                         .type(d.getType())
                         .invoiceNumber(invNum)
                         .supplierName(suppName)
+                        .customerName(suppName)
                         .branchName(d.getBranch() != null ? d.getBranch().getName() : branchName)
                         .purchaseDate(pDate)
                         .dueDate(d.getDueDate())
@@ -363,6 +370,7 @@ public class ReportController {
                         .type(d.getType())
                         .invoiceNumber(invNum)
                         .supplierName(custName)
+                        .customerName(custName)
                         .branchName(d.getBranch() != null ? d.getBranch().getName() : branchName)
                         .purchaseDate(sDate)
                         .dueDate(d.getDueDate())

@@ -106,13 +106,18 @@ public class FinanceService {
                 .map(e -> e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<Debt> unpaidDebts = debtRepository.findAllUnpaidDebts(branchId);
+        List<Debt> unpaidDebts = (branchId != null)
+                ? debtRepository.findByBranchIdOrderByDueDateDesc(branchId)
+                : debtRepository.findAll();
         BigDecimal totalPayableDebt = BigDecimal.ZERO;
         BigDecimal totalReceivableDebt = BigDecimal.ZERO;
         List<DebtBreakdown> debtsList = new ArrayList<>();
         List<DebtBreakdown> receivableDebtsList = new ArrayList<>();
 
         for (Debt d : unpaidDebts) {
+            if ("PAID".equalsIgnoreCase(d.getStatus())) {
+                continue;
+            }
             BigDecimal totalAmt = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
             BigDecimal paidAmt = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
             BigDecimal remaining = totalAmt.subtract(paidAmt);
@@ -137,6 +142,7 @@ public class FinanceService {
                         .type(d.getType())
                         .invoiceNumber(invNum)
                         .supplierName(suppName)
+                        .customerName(suppName)
                         .branchName(d.getBranch() != null ? d.getBranch().getName() : "-")
                         .purchaseDate(pDate)
                         .dueDate(d.getDueDate())
@@ -161,6 +167,7 @@ public class FinanceService {
                         .type(d.getType())
                         .invoiceNumber(invNum)
                         .supplierName(custName)
+                        .customerName(custName)
                         .branchName(d.getBranch() != null ? d.getBranch().getName() : "-")
                         .purchaseDate(sDate)
                         .dueDate(d.getDueDate())
@@ -215,6 +222,7 @@ public class FinanceService {
         private String type;
         private String invoiceNumber;
         private String supplierName;
+        private String customerName;
         private String branchName;
         private LocalDate purchaseDate;
         private LocalDate dueDate;

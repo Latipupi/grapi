@@ -250,7 +250,12 @@ const ProfitLossPage: React.FC = () => {
                  <h2 className={`text-2xl font-black ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                    {formatCurrency(report.netProfit)}
                  </h2>
-                 <p className="text-emerald-300 text-[11px] font-semibold">Profit Kotor - Biaya - Hutang Supplier & Customer →</p>
+                 <div className="pt-1 border-t border-white/10 flex flex-col gap-0.5">
+                   <p className="text-rose-300 text-[11px] font-bold">
+                     Pengurangan: -{formatCurrency((report.totalExpenses || 0) + (report.totalPayableDebt || 0) + (report.totalReceivableDebt || 0))}
+                   </p>
+                   <p className="text-emerald-300 text-[10px] font-semibold">Klik rincian pengurangan biaya & hutang →</p>
+                 </div>
                </div>
             </Card>
           </div>
@@ -307,6 +312,15 @@ const ProfitLossPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right font-bold text-purple-700">- {formatCurrency(report.totalReceivableDebt || 0)}</TableCell>
                     </TableRow>
+                    <TableRow className="bg-rose-50/80 cursor-pointer" onClick={() => setDetailTab('net')}>
+                      <TableCell className="font-black text-rose-700 pl-6">
+                        = TOTAL PENGURANGAN PROFIT BERSIH
+                        <span className="block text-[10px] font-semibold text-rose-500">Biaya Operasional + Hutang Supplier + Hutang Customer</span>
+                      </TableCell>
+                      <TableCell className="text-right font-black text-rose-600">
+                        - {formatCurrency((report.totalExpenses || 0) + (report.totalPayableDebt || 0) + (report.totalReceivableDebt || 0))}
+                      </TableCell>
+                    </TableRow>
                     <TableRow className="bg-slate-900 cursor-pointer" onClick={() => setDetailTab('net')}>
                       <TableCell className="font-black text-white pl-6">= PROFIT BERSIH (LABA BERSIH)</TableCell>
                       <TableCell className={`text-right font-black ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -342,7 +356,7 @@ const ProfitLossPage: React.FC = () => {
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    Rincian Pengurangan Biaya & Hutang (Supplier + Customer)
+                    Rincian Pengurangan Biaya & Hutang (-{formatCurrency((report.totalExpenses || 0) + (report.totalPayableDebt || 0) + (report.totalReceivableDebt || 0))})
                   </button>
                 </div>
 
@@ -421,6 +435,31 @@ const ProfitLossPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="p-4 space-y-6">
+                  {/* Ringkasan Pengurangan Profit Bersih */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">1. Profit Kotor (Awal)</p>
+                      <p className="text-base font-black text-emerald-700 mt-0.5">{formatCurrency(report.grossProfit)}</p>
+                      <p className="text-[10px] text-emerald-600 mt-0.5">Omzet - Modal Obat (HPP)</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700">2. Total Pengurangan</p>
+                      <p className="text-base font-black text-rose-600 mt-0.5">
+                        - {formatCurrency((report.totalExpenses || 0) + (report.totalPayableDebt || 0) + (report.totalReceivableDebt || 0))}
+                      </p>
+                      <p className="text-[10px] text-rose-600 mt-0.5">
+                        Biaya ({formatCurrency(report.totalExpenses || 0)}) + Hutang Supplier ({formatCurrency(report.totalPayableDebt || 0)}) + Hutang Customer ({formatCurrency(report.totalReceivableDebt || 0)})
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-slate-900 text-white">
+                      <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-300">3. Profit Bersih (Akhir)</p>
+                      <p className={`text-base font-black mt-0.5 ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {formatCurrency(report.netProfit)}
+                      </p>
+                      <p className="text-[10px] text-slate-300 mt-0.5">Profit Kotor - Total Pengurangan</p>
+                    </div>
+                  </div>
+
                   {/* Section A: Unpaid Supplier Debts */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between px-2">
@@ -500,7 +539,7 @@ const ProfitLossPage: React.FC = () => {
                             report.receivableDebtsBreakdown.map((d, idx) => (
                               <TableRow key={d.id || idx}>
                                 <TableCell className="font-mono font-bold text-slate-800 text-xs">{d.invoiceNumber}</TableCell>
-                                <TableCell className="font-bold text-slate-700 text-xs">{d.customerName}</TableCell>
+                                <TableCell className="font-bold text-slate-700 text-xs">{d.customerName || (d as any).supplierName || 'Customer'}</TableCell>
                                 <TableCell className="text-slate-500 text-xs">{d.dueDate || '-'}</TableCell>
                                 <TableCell className="text-right text-slate-700 text-xs">{formatCurrency(d.totalAmount)}</TableCell>
                                 <TableCell className="text-right text-emerald-600 text-xs">{formatCurrency(d.paidAmount)}</TableCell>
