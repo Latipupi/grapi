@@ -17,6 +17,20 @@ interface ItemBreakdown {
   grossProfit: number;
 }
 
+interface DebtBreakdown {
+  id: number;
+  invoiceNumber: string;
+  supplierName: string;
+  branchName: string;
+  purchaseDate?: string;
+  dueDate?: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: string;
+  notes?: string;
+}
+
 interface ProfitLossData {
   grossSales?: number;
   totalRefunds?: number;
@@ -24,8 +38,11 @@ interface ProfitLossData {
   costOfGoodsSold: number;
   grossProfit: number;
   totalExpenses: number;
+  totalPayableDebt?: number;
+  totalDeductions?: number;
   netProfit: number;
   expenses: { id?: number; expenseDate?: string; category: string; expenseType?: string; amount: number; notes: string; branch?: { name: string } }[];
+  debtsBreakdown?: DebtBreakdown[];
   itemsBreakdown?: ItemBreakdown[];
 }
 
@@ -88,7 +105,7 @@ const ProfitLossPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Laporan Laba Rugi</h1>
           <p className="text-slate-500 text-sm">
-            Analisis transparan Profit Kotor (Pendapatan - Modal HPP) dan Profit Bersih (dikurangi Biaya Operasional).
+            Analisis transparan Profit Kotor (Pendapatan - Modal HPP) dan Profit Bersih (dikurangi Biaya Operasional & Sisa Hutang Supplier).
           </p>
         </div>
         
@@ -185,15 +202,19 @@ const ProfitLossPage: React.FC = () => {
             >
                <div className="space-y-2">
                  <div className="flex items-center justify-between">
-                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Pengurangan Biaya Ops</p>
+                   <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Pengurangan</p>
                    <div className="p-2 bg-rose-50 rounded-lg group-hover:bg-rose-100 transition-colors">
                      <TrendingDown className="w-4 h-4 text-rose-500" />
                    </div>
                  </div>
-                 <h2 className="text-2xl font-black text-rose-600">-{formatCurrency(report.totalExpenses)}</h2>
+                 <h2 className="text-2xl font-black text-rose-600">
+                   -{formatCurrency(report.totalDeductions ?? ((report.totalExpenses || 0) + (report.totalPayableDebt || 0)))}
+                 </h2>
                  <div className="flex items-center justify-between text-[11px]">
-                   <span className="text-slate-400">{report.expenses?.length || 0} Catatan Pengeluaran</span>
-                   <span className="text-rose-600 font-bold underline">Lihat Pengurangan →</span>
+                   <span className="text-slate-500 truncate">
+                     Biaya: {formatCurrency(report.totalExpenses)} | Hutang: {formatCurrency(report.totalPayableDebt || 0)}
+                   </span>
+                   <span className="text-rose-600 font-bold underline shrink-0 ml-1">Rincian →</span>
                  </div>
                </div>
             </Card>
@@ -213,7 +234,7 @@ const ProfitLossPage: React.FC = () => {
                  <h2 className={`text-2xl font-black ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                    {formatCurrency(report.netProfit)}
                  </h2>
-                 <p className="text-emerald-300 text-[11px] font-semibold">Profit Kotor - Biaya Operasional →</p>
+                 <p className="text-emerald-300 text-[11px] font-semibold">Profit Kotor - Biaya Ops - Hutang Supplier →</p>
                </div>
             </Card>
           </div>
@@ -256,6 +277,13 @@ const ProfitLossPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right font-bold text-rose-600">- {formatCurrency(report.totalExpenses)}</TableCell>
                     </TableRow>
+                    <TableRow className="cursor-pointer hover:bg-amber-50/40" onClick={() => setDetailTab('net')}>
+                      <TableCell className="font-medium text-amber-700">
+                        4. Dikurangi: Sisa Hutang Supplier
+                        <span className="block text-[10px] text-slate-400">Hutang pembelian obat belum lunas</span>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-amber-700">- {formatCurrency(report.totalPayableDebt || 0)}</TableCell>
+                    </TableRow>
                     <TableRow className="bg-slate-900 cursor-pointer" onClick={() => setDetailTab('net')}>
                       <TableCell className="font-black text-white pl-6">= PROFIT BERSIH (LABA BERSIH)</TableCell>
                       <TableCell className={`text-right font-black ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -291,7 +319,7 @@ const ProfitLossPage: React.FC = () => {
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    Rincian Pengurangan Biaya Operasional ({report.expenses?.length || 0})
+                    Rincian Pengurangan Biaya & Hutang Supplier
                   </button>
                 </div>
 
@@ -369,53 +397,118 @@ const ProfitLossPage: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <div className="p-0">
-                  <Table>
-                    <TableHeader className="bg-slate-50/50">
-                      <TableRow>
-                        <TableHead>Tanggal</TableHead>
-                        <TableHead>Kategori</TableHead>
-                        <TableHead>Keterangan</TableHead>
-                        <TableHead className="text-right">Nominal Pengurang</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {report.expenses && report.expenses.length > 0 ? (
-                        (() => {
-                          const indexOfLastEntry = currentPage * entriesPerPage;
-                          const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
-                          const currentEntries = report.expenses.slice(indexOfFirstEntry, indexOfLastEntry);
-                          return currentEntries.map((expense, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="text-slate-500 text-xs">
-                                {expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('id-ID') : '-'}
+                <div className="p-4 space-y-6">
+                  {/* Section A: Unpaid Supplier Debts */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-2">
+                      <div>
+                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-800">
+                          A. Sisa Hutang Pembelian ke Supplier (Belum Lunas)
+                        </h4>
+                        <p className="text-[11px] text-slate-400">Faktur pembelian obat tempo (`HUTANG_PEMBELIAN`) yang belum lunas</p>
+                      </div>
+                      <span className="text-xs font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                        -{formatCurrency(report.totalPayableDebt || 0)}
+                      </span>
+                    </div>
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-slate-50/50">
+                          <TableRow>
+                            <TableHead>No. Faktur</TableHead>
+                            <TableHead>Supplier</TableHead>
+                            <TableHead>Jatuh Tempo</TableHead>
+                            <TableHead className="text-right">Total Faktur</TableHead>
+                            <TableHead className="text-right">Terbayar</TableHead>
+                            <TableHead className="text-right">Sisa Hutang (Pengurang)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {report.debtsBreakdown && report.debtsBreakdown.length > 0 ? (
+                            report.debtsBreakdown.map((d, idx) => (
+                              <TableRow key={d.id || idx}>
+                                <TableCell className="font-mono font-bold text-slate-800 text-xs">{d.invoiceNumber}</TableCell>
+                                <TableCell className="font-bold text-slate-700 text-xs">{d.supplierName}</TableCell>
+                                <TableCell className="text-slate-500 text-xs">{d.dueDate || '-'}</TableCell>
+                                <TableCell className="text-right text-slate-700 text-xs">{formatCurrency(d.totalAmount)}</TableCell>
+                                <TableCell className="text-right text-emerald-600 text-xs">{formatCurrency(d.paidAmount)}</TableCell>
+                                <TableCell className="text-right font-black text-amber-700 text-xs">-{formatCurrency(d.remainingAmount)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-4 text-slate-400 text-xs">
+                                Tidak ada sisa hutang pembelian ke supplier yang belum lunas (Rp 0).
                               </TableCell>
-                              <TableCell className="font-bold text-slate-700">{expense.category}</TableCell>
-                              <TableCell className="text-slate-500 text-sm">{expense.notes || '-'}</TableCell>
-                              <TableCell className="text-right font-bold text-rose-600">-{formatCurrency(expense.amount)}</TableCell>
                             </TableRow>
-                          ));
-                        })()
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-6 text-slate-400 text-sm">
-                            Tidak ada pengeluaran biaya operasional pada periode ini (Pengurangan Rp 0).
-                          </TableCell>
-                        </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+
+                  {/* Section B: Operational Expenses */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-2">
+                      <div>
+                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-rose-800">
+                          B. Pengurangan Biaya Operasional
+                        </h4>
+                        <p className="text-[11px] text-slate-400">Gaji, listrik, sewa, dan pengeluaran operasional cabang</p>
+                      </div>
+                      <span className="text-xs font-black text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                        -{formatCurrency(report.totalExpenses || 0)}
+                      </span>
+                    </div>
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-slate-50/50">
+                          <TableRow>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Kategori</TableHead>
+                            <TableHead>Keterangan</TableHead>
+                            <TableHead className="text-right">Nominal Pengurang</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {report.expenses && report.expenses.length > 0 ? (
+                            (() => {
+                              const indexOfLastEntry = currentPage * entriesPerPage;
+                              const indexOfFirstEntry = indexOfLastEntry - entriesPerPage;
+                              const currentEntries = report.expenses.slice(indexOfFirstEntry, indexOfLastEntry);
+                              return currentEntries.map((expense, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell className="text-slate-500 text-xs">
+                                    {expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('id-ID') : '-'}
+                                  </TableCell>
+                                  <TableCell className="font-bold text-slate-700 text-xs">{expense.category}</TableCell>
+                                  <TableCell className="text-slate-500 text-xs">{expense.notes || '-'}</TableCell>
+                                  <TableCell className="text-right font-bold text-rose-600 text-xs">-{formatCurrency(expense.amount)}</TableCell>
+                                </TableRow>
+                              ));
+                            })()
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center py-4 text-slate-400 text-xs">
+                                Tidak ada pengeluaran biaya operasional pada periode ini (Rp 0).
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                      {report.expenses && report.expenses.length > entriesPerPage && (
+                        <Pagination
+                          currentPage={currentPage}
+                          totalPages={Math.ceil(report.expenses.length / entriesPerPage)}
+                          onPageChange={setCurrentPage}
+                          totalEntries={report.expenses.length}
+                          indexOfFirstEntry={(currentPage - 1) * entriesPerPage}
+                          indexOfLastEntry={currentPage * entriesPerPage}
+                          label="Biaya"
+                        />
                       )}
-                    </TableBody>
-                  </Table>
-                  {report.expenses && report.expenses.length > entriesPerPage && (
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={Math.ceil(report.expenses.length / entriesPerPage)}
-                      onPageChange={setCurrentPage}
-                      totalEntries={report.expenses.length}
-                      indexOfFirstEntry={(currentPage - 1) * entriesPerPage}
-                      indexOfLastEntry={currentPage * entriesPerPage}
-                      label="Biaya"
-                    />
-                  )}
+                    </div>
+                  </div>
                 </div>
               )}
             </Card>

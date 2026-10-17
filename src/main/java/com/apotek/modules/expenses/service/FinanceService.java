@@ -2,6 +2,8 @@ package com.apotek.modules.expenses.service;
 import com.apotek.modules.expenses.model.*;
 import com.apotek.modules.expenses.repository.*;
 
+import com.apotek.modules.debt.model.Debt;
+import com.apotek.modules.debt.repository.DebtRepository;
 import com.apotek.modules.sales.model.SaleDetail;
 import com.apotek.modules.sales.model.SalesReturnDetail;
 import com.apotek.modules.sales.repository.SaleDetailRepository;
@@ -28,6 +30,7 @@ public class FinanceService {
     private final SaleDetailRepository saleDetailRepository;
     private final SalesReturnDetailRepository salesReturnDetailRepository;
     private final ExpenseRepository expenseRepository;
+    private final DebtRepository debtRepository;
 
     @Transactional(readOnly = true)
     public ProfitLossReport getProfitLossReport(Long branchId, LocalDate startDate, LocalDate endDate) {
@@ -103,7 +106,45 @@ public class FinanceService {
                 .map(e -> e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal netProfit = grossProfit.subtract(totalExpenses);
+        List<Debt> unpaidDebts = debtRepository.findUnpaidPurchaseDebts(branchId);
+        BigDecimal totalPayableDebt = BigDecimal.ZERO;
+        List<DebtBreakdown> debtsList = new ArrayList<>();
+        for (Debt d : unpaidDebts) {
+            BigDecimal totalAmt = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal paidAmt = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
+            BigDecimal remaining = totalAmt.subtract(paidAmt);
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            totalPayableDebt = totalPayableDebt.add(remaining);
+
+            String invNum = (d.getPurchase() != null && d.getPurchase().getInvoiceNumber() != null && !d.getPurchase().getInvoiceNumber().isBlank())
+                    ? d.getPurchase().getInvoiceNumber()
+                    : "#PUR-" + (d.getPurchase() != null ? d.getPurchase().getId() : d.getId());
+            String suppName = (d.getPurchase() != null && d.getPurchase().getSupplier() != null)
+                    ? d.getPurchase().getSupplier().getName()
+                    : "Supplier";
+            LocalDate pDate = (d.getPurchase() != null && d.getPurchase().getPurchaseDate() != null)
+                    ? d.getPurchase().getPurchaseDate()
+                    : (d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : null);
+
+            debtsList.add(DebtBreakdown.builder()
+                    .id(d.getId())
+                    .invoiceNumber(invNum)
+                    .supplierName(suppName)
+                    .branchName(d.getBranch() != null ? d.getBranch().getName() : "-")
+                    .purchaseDate(pDate)
+                    .dueDate(d.getDueDate())
+                    .totalAmount(totalAmt)
+                    .paidAmount(paidAmt)
+                    .remainingAmount(remaining)
+                    .status(d.getStatus())
+                    .notes(d.getNotes())
+                    .build());
+        }
+
+        BigDecimal totalDeductions = totalExpenses.add(totalPayableDebt);
+        BigDecimal netProfit = grossProfit.subtract(totalDeductions);
 
         List<ItemBreakdown> sortedItems = new ArrayList<>(itemMap.values());
         sortedItems.sort((a, b) -> b.getGrossProfit().compareTo(a.getGrossProfit()));
@@ -115,8 +156,11 @@ public class FinanceService {
                 .costOfGoodsSold(cogs)
                 .grossProfit(grossProfit)
                 .totalExpenses(totalExpenses)
+                .totalPayableDebt(totalPayableDebt)
+                .totalDeductions(totalDeductions)
                 .netProfit(netProfit)
                 .expenses(expenses)
+                .debtsBreakdown(debtsList)
                 .itemsBreakdown(sortedItems)
                 .build();
     }
@@ -134,6 +178,22 @@ public class FinanceService {
 
     @Data
     @Builder
+    public static class DebtBreakdown {
+        private Long id;
+        private String invoiceNumber;
+        private String supplierName;
+        private String branchName;
+        private LocalDate purchaseDate;
+        private LocalDate dueDate;
+        private BigDecimal totalAmount;
+        private BigDecimal paidAmount;
+        private BigDecimal remainingAmount;
+        private String status;
+        private String notes;
+    }
+
+    @Data
+    @Builder
     public static class ProfitLossReport {
         private BigDecimal grossSales;
         private BigDecimal totalRefunds;
@@ -141,8 +201,11 @@ public class FinanceService {
         private BigDecimal costOfGoodsSold;
         private BigDecimal grossProfit;
         private BigDecimal totalExpenses;
+        private BigDecimal totalPayableDebt;
+        private BigDecimal totalDeductions;
         private BigDecimal netProfit;
         private List<Expense> expenses;
+        private List<DebtBreakdown> debtsBreakdown;
         private List<ItemBreakdown> itemsBreakdown;
     }
 }

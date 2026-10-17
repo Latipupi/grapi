@@ -3,6 +3,8 @@ import com.apotek.modules.debt.model.*;
 
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -27,4 +29,14 @@ public interface DebtRepository extends JpaRepository<Debt, Long> {
 
     @EntityGraph(attributePaths = {"sale", "sale.customer", "sale.branch", "purchase", "purchase.supplier", "purchase.branch", "branch"})
     Optional<Debt> findBySaleId(Long saleId);
+
+    @Query("SELECT d FROM Debt d " +
+           "LEFT JOIN FETCH d.purchase p " +
+           "LEFT JOIN FETCH p.supplier " +
+           "LEFT JOIN FETCH d.branch " +
+           "WHERE (:branchId IS NULL OR d.branch.id = :branchId) " +
+           "AND d.type = 'HUTANG_PEMBELIAN' " +
+           "AND d.status <> 'PAID' " +
+           "ORDER BY d.dueDate ASC")
+    List<Debt> findUnpaidPurchaseDebts(@Param("branchId") Long branchId);
 }

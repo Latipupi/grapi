@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.apotek.modules.debt.model.Debt;
+import com.apotek.modules.debt.repository.DebtRepository;
 import com.apotek.modules.expenses.model.Expense;
 import com.apotek.modules.expenses.repository.ExpenseRepository;
 import com.apotek.modules.masterdata.dto.CustomerLoyaltyReportDTO;
@@ -42,6 +44,7 @@ public class ReportController {
     private final SalesReturnRepository salesReturnRepository;
     private final SalesReturnDetailRepository salesReturnDetailRepository;
     private final ExpenseRepository expenseRepository;
+    private final DebtRepository debtRepository;
     private final CustomerService customerService;
 
     @GetMapping("/customer-loyalty")
@@ -92,6 +95,22 @@ public class ReportController {
 
     @Data
     @Builder
+    public static class DebtBreakdown {
+        private Long id;
+        private String invoiceNumber;
+        private String supplierName;
+        private String branchName;
+        private LocalDate purchaseDate;
+        private LocalDate dueDate;
+        private BigDecimal totalAmount;
+        private BigDecimal paidAmount;
+        private BigDecimal remainingAmount;
+        private String status;
+        private String notes;
+    }
+
+    @Data
+    @Builder
     public static class BranchComparisonData {
         private Long branchId;
         private String branchName;
@@ -103,6 +122,8 @@ public class ReportController {
         private BigDecimal totalCost;
         private BigDecimal grossProfit;
         private BigDecimal totalExpenses;
+        private BigDecimal totalPayableDebt;
+        private BigDecimal totalDeductions;
         private BigDecimal netProfit;
         private BigDecimal marginPercentage;
         private BigDecimal netMarginPercentage;
@@ -110,6 +131,7 @@ public class ReportController {
         private List<ItemProfitBreakdown> itemsBreakdown;
         private List<ReturnBreakdown> returnsBreakdown;
         private List<ExpenseBreakdown> expensesBreakdown;
+        private List<DebtBreakdown> debtsBreakdown;
     }
 
     @GetMapping("/branch-comparison")
@@ -168,6 +190,8 @@ public class ReportController {
                 .totalCost(data.getTotalCost())
                 .grossProfit(data.getGrossProfit())
                 .totalExpenses(data.getTotalExpenses())
+                .totalPayableDebt(data.getTotalPayableDebt())
+                .totalDeductions(data.getTotalDeductions())
                 .netProfit(data.getNetProfit())
                 .marginPercentage(data.getMarginPercentage())
                 .netMarginPercentage(data.getNetMarginPercentage())
@@ -175,6 +199,7 @@ public class ReportController {
                 .itemsBreakdown(data.getItemsBreakdown())
                 .returnsBreakdown(data.getReturnsBreakdown())
                 .expensesBreakdown(data.getExpensesBreakdown())
+                .debtsBreakdown(data.getDebtsBreakdown())
                 .build();
     }
 
@@ -185,6 +210,7 @@ public class ReportController {
         List<SaleDetail> details = saleDetailRepository.findCompletedByBranchAndSaleDateBetween(branchId, start, end);
         List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branchId, start, end);
         List<Expense> expenses = expenseRepository.findExpensesWithFilters(branchId, startLd, endLd);
+        List<Debt> unpaidDebts = debtRepository.findUnpaidPurchaseDebts(branchId);
 
         BigDecimal grossSales = BigDecimal.ZERO;
         BigDecimal grossCost = BigDecimal.ZERO;
@@ -278,7 +304,44 @@ public class ReportController {
                     .build());
         }
 
-        BigDecimal netProfit = grossProfit.subtract(totalExpenses);
+        BigDecimal totalPayableDebt = BigDecimal.ZERO;
+        List<DebtBreakdown> debtsList = new ArrayList<>();
+        for (Debt d : unpaidDebts) {
+            BigDecimal totalAmt = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal paidAmt = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
+            BigDecimal remaining = totalAmt.subtract(paidAmt);
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            totalPayableDebt = totalPayableDebt.add(remaining);
+
+            String invNum = (d.getPurchase() != null && d.getPurchase().getInvoiceNumber() != null && !d.getPurchase().getInvoiceNumber().isBlank())
+                    ? d.getPurchase().getInvoiceNumber()
+                    : "#PUR-" + (d.getPurchase() != null ? d.getPurchase().getId() : d.getId());
+            String suppName = (d.getPurchase() != null && d.getPurchase().getSupplier() != null)
+                    ? d.getPurchase().getSupplier().getName()
+                    : "Supplier";
+            LocalDate pDate = (d.getPurchase() != null && d.getPurchase().getPurchaseDate() != null)
+                    ? d.getPurchase().getPurchaseDate()
+                    : (d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : null);
+
+            debtsList.add(DebtBreakdown.builder()
+                    .id(d.getId())
+                    .invoiceNumber(invNum)
+                    .supplierName(suppName)
+                    .branchName(d.getBranch() != null ? d.getBranch().getName() : branchName)
+                    .purchaseDate(pDate)
+                    .dueDate(d.getDueDate())
+                    .totalAmount(totalAmt)
+                    .paidAmount(paidAmt)
+                    .remainingAmount(remaining)
+                    .status(d.getStatus())
+                    .notes(d.getNotes())
+                    .build());
+        }
+
+        BigDecimal totalDeductions = totalExpenses.add(totalPayableDebt);
+        BigDecimal netProfit = grossProfit.subtract(totalDeductions);
 
         BigDecimal margin = totalSales.compareTo(BigDecimal.ZERO) > 0
                 ? grossProfit.divide(totalSales, 4, RoundingMode.HALF_UP).multiply(new BigDecimal(100))
@@ -301,6 +364,8 @@ public class ReportController {
                 .totalCost(totalCost)
                 .grossProfit(grossProfit)
                 .totalExpenses(totalExpenses)
+                .totalPayableDebt(totalPayableDebt)
+                .totalDeductions(totalDeductions)
                 .netProfit(netProfit)
                 .marginPercentage(margin)
                 .netMarginPercentage(netMargin)
@@ -308,6 +373,7 @@ public class ReportController {
                 .itemsBreakdown(sortedItems)
                 .returnsBreakdown(returnsList)
                 .expensesBreakdown(expensesList)
+                .debtsBreakdown(debtsList)
                 .build();
     }
 
@@ -324,6 +390,8 @@ public class ReportController {
         private BigDecimal totalCost;
         private BigDecimal grossProfit;
         private BigDecimal totalExpenses;
+        private BigDecimal totalPayableDebt;
+        private BigDecimal totalDeductions;
         private BigDecimal netProfit;
         private BigDecimal marginPercentage;
         private BigDecimal netMarginPercentage;
@@ -331,6 +399,7 @@ public class ReportController {
         private List<ItemProfitBreakdown> itemsBreakdown;
         private List<ReturnBreakdown> returnsBreakdown;
         private List<ExpenseBreakdown> expensesBreakdown;
+        private List<DebtBreakdown> debtsBreakdown;
     }
 
     @GetMapping("/sales-trend")
