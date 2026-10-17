@@ -33,10 +33,11 @@ public interface DebtRepository extends JpaRepository<Debt, Long> {
     @Query("SELECT d FROM Debt d " +
            "LEFT JOIN FETCH d.purchase p " +
            "LEFT JOIN FETCH p.supplier " +
+           "LEFT JOIN FETCH d.sale s " +
+           "LEFT JOIN FETCH s.customer " +
            "LEFT JOIN FETCH d.branch " +
            "WHERE (:branchId IS NULL OR d.branch.id = :branchId) " +
-           "AND d.type = 'HUTANG_PEMBELIAN' " +
            "AND d.status <> 'PAID' " +
            "ORDER BY d.dueDate ASC")
-    List<Debt> findUnpaidPurchaseDebts(@Param("branchId") Long branchId);
+    List<Debt> findAllUnpaidDebts(@Param("branchId") Long branchId);
 }

@@ -97,6 +97,7 @@ public class ReportController {
     @Builder
     public static class DebtBreakdown {
         private Long id;
+        private String type;
         private String invoiceNumber;
         private String supplierName;
         private String branchName;
@@ -123,6 +124,7 @@ public class ReportController {
         private BigDecimal grossProfit;
         private BigDecimal totalExpenses;
         private BigDecimal totalPayableDebt;
+        private BigDecimal totalReceivableDebt;
         private BigDecimal totalDeductions;
         private BigDecimal netProfit;
         private BigDecimal marginPercentage;
@@ -132,6 +134,7 @@ public class ReportController {
         private List<ReturnBreakdown> returnsBreakdown;
         private List<ExpenseBreakdown> expensesBreakdown;
         private List<DebtBreakdown> debtsBreakdown;
+        private List<DebtBreakdown> receivableDebtsBreakdown;
     }
 
     @GetMapping("/branch-comparison")
@@ -191,6 +194,7 @@ public class ReportController {
                 .grossProfit(data.getGrossProfit())
                 .totalExpenses(data.getTotalExpenses())
                 .totalPayableDebt(data.getTotalPayableDebt())
+                .totalReceivableDebt(data.getTotalReceivableDebt())
                 .totalDeductions(data.getTotalDeductions())
                 .netProfit(data.getNetProfit())
                 .marginPercentage(data.getMarginPercentage())
@@ -200,6 +204,7 @@ public class ReportController {
                 .returnsBreakdown(data.getReturnsBreakdown())
                 .expensesBreakdown(data.getExpensesBreakdown())
                 .debtsBreakdown(data.getDebtsBreakdown())
+                .receivableDebtsBreakdown(data.getReceivableDebtsBreakdown())
                 .build();
     }
 
@@ -210,7 +215,7 @@ public class ReportController {
         List<SaleDetail> details = saleDetailRepository.findCompletedByBranchAndSaleDateBetween(branchId, start, end);
         List<SalesReturnDetail> returnDetails = salesReturnDetailRepository.findByBranchIdAndCreatedAtBetween(branchId, start, end);
         List<Expense> expenses = expenseRepository.findExpensesWithFilters(branchId, startLd, endLd);
-        List<Debt> unpaidDebts = debtRepository.findUnpaidPurchaseDebts(branchId);
+        List<Debt> unpaidDebts = debtRepository.findAllUnpaidDebts(branchId);
 
         BigDecimal grossSales = BigDecimal.ZERO;
         BigDecimal grossCost = BigDecimal.ZERO;
@@ -305,7 +310,10 @@ public class ReportController {
         }
 
         BigDecimal totalPayableDebt = BigDecimal.ZERO;
+        BigDecimal totalReceivableDebt = BigDecimal.ZERO;
         List<DebtBreakdown> debtsList = new ArrayList<>();
+        List<DebtBreakdown> receivableDebtsList = new ArrayList<>();
+
         for (Debt d : unpaidDebts) {
             BigDecimal totalAmt = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
             BigDecimal paidAmt = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
@@ -313,34 +321,61 @@ public class ReportController {
             if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
-            totalPayableDebt = totalPayableDebt.add(remaining);
 
-            String invNum = (d.getPurchase() != null && d.getPurchase().getInvoiceNumber() != null && !d.getPurchase().getInvoiceNumber().isBlank())
-                    ? d.getPurchase().getInvoiceNumber()
-                    : "#PUR-" + (d.getPurchase() != null ? d.getPurchase().getId() : d.getId());
-            String suppName = (d.getPurchase() != null && d.getPurchase().getSupplier() != null)
-                    ? d.getPurchase().getSupplier().getName()
-                    : "Supplier";
-            LocalDate pDate = (d.getPurchase() != null && d.getPurchase().getPurchaseDate() != null)
-                    ? d.getPurchase().getPurchaseDate()
-                    : (d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : null);
+            if ("HUTANG_PEMBELIAN".equalsIgnoreCase(d.getType())) {
+                totalPayableDebt = totalPayableDebt.add(remaining);
+                String invNum = (d.getPurchase() != null && d.getPurchase().getInvoiceNumber() != null && !d.getPurchase().getInvoiceNumber().isBlank())
+                        ? d.getPurchase().getInvoiceNumber()
+                        : "#PUR-" + (d.getPurchase() != null ? d.getPurchase().getId() : d.getId());
+                String suppName = (d.getPurchase() != null && d.getPurchase().getSupplier() != null)
+                        ? d.getPurchase().getSupplier().getName()
+                        : "Supplier";
+                LocalDate pDate = (d.getPurchase() != null && d.getPurchase().getPurchaseDate() != null)
+                        ? d.getPurchase().getPurchaseDate()
+                        : (d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : null);
 
-            debtsList.add(DebtBreakdown.builder()
-                    .id(d.getId())
-                    .invoiceNumber(invNum)
-                    .supplierName(suppName)
-                    .branchName(d.getBranch() != null ? d.getBranch().getName() : branchName)
-                    .purchaseDate(pDate)
-                    .dueDate(d.getDueDate())
-                    .totalAmount(totalAmt)
-                    .paidAmount(paidAmt)
-                    .remainingAmount(remaining)
-                    .status(d.getStatus())
-                    .notes(d.getNotes())
-                    .build());
+                debtsList.add(DebtBreakdown.builder()
+                        .id(d.getId())
+                        .type(d.getType())
+                        .invoiceNumber(invNum)
+                        .supplierName(suppName)
+                        .branchName(d.getBranch() != null ? d.getBranch().getName() : branchName)
+                        .purchaseDate(pDate)
+                        .dueDate(d.getDueDate())
+                        .totalAmount(totalAmt)
+                        .paidAmount(paidAmt)
+                        .remainingAmount(remaining)
+                        .status(d.getStatus())
+                        .notes(d.getNotes())
+                        .build());
+            } else if ("HUTANG_PENJUALAN".equalsIgnoreCase(d.getType())) {
+                totalReceivableDebt = totalReceivableDebt.add(remaining);
+                String invNum = d.getSale() != null ? "#SAL-" + d.getSale().getId() : "#DEBT-" + d.getId();
+                String custName = (d.getSale() != null && d.getSale().getCustomer() != null && d.getSale().getCustomer().getName() != null)
+                        ? d.getSale().getCustomer().getName()
+                        : "Pelanggan Umum";
+                LocalDate sDate = (d.getSale() != null && d.getSale().getSaleDate() != null)
+                        ? d.getSale().getSaleDate().toLocalDate()
+                        : (d.getCreatedAt() != null ? d.getCreatedAt().toLocalDate() : null);
+
+                receivableDebtsList.add(DebtBreakdown.builder()
+                        .id(d.getId())
+                        .type(d.getType())
+                        .invoiceNumber(invNum)
+                        .supplierName(custName)
+                        .branchName(d.getBranch() != null ? d.getBranch().getName() : branchName)
+                        .purchaseDate(sDate)
+                        .dueDate(d.getDueDate())
+                        .totalAmount(totalAmt)
+                        .paidAmount(paidAmt)
+                        .remainingAmount(remaining)
+                        .status(d.getStatus())
+                        .notes(d.getNotes())
+                        .build());
+            }
         }
 
-        BigDecimal totalDeductions = totalExpenses.add(totalPayableDebt);
+        BigDecimal totalDeductions = totalExpenses.add(totalPayableDebt).add(totalReceivableDebt);
         BigDecimal netProfit = grossProfit.subtract(totalDeductions);
 
         BigDecimal margin = totalSales.compareTo(BigDecimal.ZERO) > 0
@@ -365,6 +400,7 @@ public class ReportController {
                 .grossProfit(grossProfit)
                 .totalExpenses(totalExpenses)
                 .totalPayableDebt(totalPayableDebt)
+                .totalReceivableDebt(totalReceivableDebt)
                 .totalDeductions(totalDeductions)
                 .netProfit(netProfit)
                 .marginPercentage(margin)
@@ -374,6 +410,7 @@ public class ReportController {
                 .returnsBreakdown(returnsList)
                 .expensesBreakdown(expensesList)
                 .debtsBreakdown(debtsList)
+                .receivableDebtsBreakdown(receivableDebtsList)
                 .build();
     }
 
@@ -391,6 +428,7 @@ public class ReportController {
         private BigDecimal grossProfit;
         private BigDecimal totalExpenses;
         private BigDecimal totalPayableDebt;
+        private BigDecimal totalReceivableDebt;
         private BigDecimal totalDeductions;
         private BigDecimal netProfit;
         private BigDecimal marginPercentage;
@@ -400,6 +438,7 @@ public class ReportController {
         private List<ReturnBreakdown> returnsBreakdown;
         private List<ExpenseBreakdown> expensesBreakdown;
         private List<DebtBreakdown> debtsBreakdown;
+        private List<DebtBreakdown> receivableDebtsBreakdown;
     }
 
     @GetMapping("/sales-trend")

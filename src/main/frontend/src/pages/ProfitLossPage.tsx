@@ -31,6 +31,20 @@ interface DebtBreakdown {
   notes?: string;
 }
 
+interface ReceivableDebtBreakdown {
+  id: number;
+  invoiceNumber: string;
+  customerName: string;
+  branchName: string;
+  saleDate?: string;
+  dueDate?: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  status: string;
+  notes?: string;
+}
+
 interface ProfitLossData {
   grossSales?: number;
   totalRefunds?: number;
@@ -39,10 +53,12 @@ interface ProfitLossData {
   grossProfit: number;
   totalExpenses: number;
   totalPayableDebt?: number;
+  totalReceivableDebt?: number;
   totalDeductions?: number;
   netProfit: number;
   expenses: { id?: number; expenseDate?: string; category: string; expenseType?: string; amount: number; notes: string; branch?: { name: string } }[];
   debtsBreakdown?: DebtBreakdown[];
+  receivableDebtsBreakdown?: ReceivableDebtBreakdown[];
   itemsBreakdown?: ItemBreakdown[];
 }
 
@@ -105,7 +121,7 @@ const ProfitLossPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Laporan Laba Rugi</h1>
           <p className="text-slate-500 text-sm">
-            Analisis transparan Profit Kotor (Pendapatan - Modal HPP) dan Profit Bersih (dikurangi Biaya Operasional & Sisa Hutang Supplier).
+            Analisis transparan Profit Kotor (Pendapatan - Modal HPP) dan Profit Bersih (dikurangi Biaya Operasional, Hutang Supplier & Hutang Customer).
           </p>
         </div>
         
@@ -208,11 +224,11 @@ const ProfitLossPage: React.FC = () => {
                    </div>
                  </div>
                  <h2 className="text-2xl font-black text-rose-600">
-                   -{formatCurrency(report.totalDeductions ?? ((report.totalExpenses || 0) + (report.totalPayableDebt || 0)))}
+                   -{formatCurrency(report.totalDeductions ?? ((report.totalExpenses || 0) + (report.totalPayableDebt || 0) + (report.totalReceivableDebt || 0)))}
                  </h2>
                  <div className="flex items-center justify-between text-[11px]">
                    <span className="text-slate-500 truncate">
-                     Biaya: {formatCurrency(report.totalExpenses)} | Hutang: {formatCurrency(report.totalPayableDebt || 0)}
+                     Biaya: {formatCurrency(report.totalExpenses)} | Hutang: {formatCurrency((report.totalPayableDebt || 0) + (report.totalReceivableDebt || 0))}
                    </span>
                    <span className="text-rose-600 font-bold underline shrink-0 ml-1">Rincian →</span>
                  </div>
@@ -234,7 +250,7 @@ const ProfitLossPage: React.FC = () => {
                  <h2 className={`text-2xl font-black ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                    {formatCurrency(report.netProfit)}
                  </h2>
-                 <p className="text-emerald-300 text-[11px] font-semibold">Profit Kotor - Biaya Ops - Hutang Supplier →</p>
+                 <p className="text-emerald-300 text-[11px] font-semibold">Profit Kotor - Biaya - Hutang Supplier & Customer →</p>
                </div>
             </Card>
           </div>
@@ -284,6 +300,13 @@ const ProfitLossPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right font-bold text-amber-700">- {formatCurrency(report.totalPayableDebt || 0)}</TableCell>
                     </TableRow>
+                    <TableRow className="cursor-pointer hover:bg-purple-50/40" onClick={() => setDetailTab('net')}>
+                      <TableCell className="font-medium text-purple-700">
+                        5. Dikurangi: Sisa Hutang Customer
+                        <span className="block text-[10px] text-slate-400">Piutang penjualan customer belum lunas</span>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-purple-700">- {formatCurrency(report.totalReceivableDebt || 0)}</TableCell>
+                    </TableRow>
                     <TableRow className="bg-slate-900 cursor-pointer" onClick={() => setDetailTab('net')}>
                       <TableCell className="font-black text-white pl-6">= PROFIT BERSIH (LABA BERSIH)</TableCell>
                       <TableCell className={`text-right font-black ${report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -319,7 +342,7 @@ const ProfitLossPage: React.FC = () => {
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    Rincian Pengurangan Biaya & Hutang Supplier
+                    Rincian Pengurangan Biaya & Hutang (Supplier + Customer)
                   </button>
                 </div>
 
@@ -447,12 +470,61 @@ const ProfitLossPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Section B: Operational Expenses */}
+                  {/* Section B: Unpaid Customer Receivable Debts */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-2">
+                      <div>
+                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-purple-800">
+                          B. Sisa Hutang Customer / Piutang Penjualan (Belum Lunas)
+                        </h4>
+                        <p className="text-[11px] text-slate-400">Transaksi penjualan tempo customer (`HUTANG_PENJUALAN`) yang belum dibayar lunas</p>
+                      </div>
+                      <span className="text-xs font-black text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                        -{formatCurrency(report.totalReceivableDebt || 0)}
+                      </span>
+                    </div>
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                      <Table>
+                        <TableHeader className="bg-slate-50/50">
+                          <TableRow>
+                            <TableHead>No. Invoice</TableHead>
+                            <TableHead>Nama Customer</TableHead>
+                            <TableHead>Jatuh Tempo</TableHead>
+                            <TableHead className="text-right">Total Belanja</TableHead>
+                            <TableHead className="text-right">Terbayar</TableHead>
+                            <TableHead className="text-right">Sisa Hutang Customer (Pengurang)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {report.receivableDebtsBreakdown && report.receivableDebtsBreakdown.length > 0 ? (
+                            report.receivableDebtsBreakdown.map((d, idx) => (
+                              <TableRow key={d.id || idx}>
+                                <TableCell className="font-mono font-bold text-slate-800 text-xs">{d.invoiceNumber}</TableCell>
+                                <TableCell className="font-bold text-slate-700 text-xs">{d.customerName}</TableCell>
+                                <TableCell className="text-slate-500 text-xs">{d.dueDate || '-'}</TableCell>
+                                <TableCell className="text-right text-slate-700 text-xs">{formatCurrency(d.totalAmount)}</TableCell>
+                                <TableCell className="text-right text-emerald-600 text-xs">{formatCurrency(d.paidAmount)}</TableCell>
+                                <TableCell className="text-right font-black text-purple-700 text-xs">-{formatCurrency(d.remainingAmount)}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-4 text-slate-400 text-xs">
+                                Tidak ada sisa hutang customer / piutang penjualan yang belum lunas (Rp 0).
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+
+                  {/* Section C: Operational Expenses */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between px-2">
                       <div>
                         <h4 className="text-xs font-extrabold uppercase tracking-wider text-rose-800">
-                          B. Pengurangan Biaya Operasional
+                          C. Pengurangan Biaya Operasional
                         </h4>
                         <p className="text-[11px] text-slate-400">Gaji, listrik, sewa, dan pengeluaran operasional cabang</p>
                       </div>

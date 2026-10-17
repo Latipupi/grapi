@@ -156,6 +156,7 @@ const ReportsPage: React.FC = () => {
         totalProfit: 0,
         totalExpenses: 0,
         totalPayableDebt: 0,
+        totalReceivableDebt: 0,
         totalDeductions: 0,
         totalNetProfit: 0,
         totalTransactions: 0,
@@ -169,6 +170,7 @@ const ReportsPage: React.FC = () => {
     let totalProfit = 0;
     let totalExpenses = 0;
     let totalPayableDebt = 0;
+    let totalReceivableDebt = 0;
     let totalDeductions = 0;
     let totalNetProfit = 0;
     let totalTransactions = 0;
@@ -177,6 +179,7 @@ const ReportsPage: React.FC = () => {
     const allReturns: any[] = [];
     const allExpenses: any[] = [];
     const allDebts: any[] = [];
+    const allReceivableDebts: any[] = [];
 
     branchComparison.forEach(b => {
       grossSales += Number(b.grossSales ?? b.totalSales ?? 0);
@@ -186,10 +189,12 @@ const ReportsPage: React.FC = () => {
       totalProfit += Number(b.grossProfit || 0);
       const exp = Number(b.totalExpenses || 0);
       const debt = Number(b.totalPayableDebt || 0);
+      const recDebt = Number(b.totalReceivableDebt || 0);
       totalExpenses += exp;
       totalPayableDebt += debt;
-      totalDeductions += Number(b.totalDeductions ?? (exp + debt));
-      totalNetProfit += Number(b.netProfit ?? (Number(b.grossProfit || 0) - exp - debt));
+      totalReceivableDebt += recDebt;
+      totalDeductions += Number(b.totalDeductions ?? (exp + debt + recDebt));
+      totalNetProfit += Number(b.netProfit ?? (Number(b.grossProfit || 0) - exp - debt - recDebt));
       totalTransactions += Number(b.transactionCount || 0);
 
       if (Array.isArray(b.itemsBreakdown)) {
@@ -222,6 +227,9 @@ const ReportsPage: React.FC = () => {
       if (Array.isArray(b.debtsBreakdown)) {
         allDebts.push(...b.debtsBreakdown);
       }
+      if (Array.isArray(b.receivableDebtsBreakdown)) {
+        allReceivableDebts.push(...b.receivableDebtsBreakdown);
+      }
     });
 
     const combinedItems = Array.from(itemMap.values()).sort((a, b) => b.grossProfit - a.grossProfit);
@@ -234,6 +242,7 @@ const ReportsPage: React.FC = () => {
       totalProfit,
       totalExpenses,
       totalPayableDebt,
+      totalReceivableDebt,
       totalDeductions,
       totalNetProfit,
       totalTransactions,
@@ -246,6 +255,7 @@ const ReportsPage: React.FC = () => {
         grossProfit: totalProfit,
         totalExpenses,
         totalPayableDebt,
+        totalReceivableDebt,
         totalDeductions,
         netProfit: totalNetProfit,
         transactionCount: totalTransactions,
@@ -253,6 +263,7 @@ const ReportsPage: React.FC = () => {
         returnsBreakdown: allReturns,
         expensesBreakdown: allExpenses,
         debtsBreakdown: allDebts,
+        receivableDebtsBreakdown: allReceivableDebts,
       }
     };
   }, [branchComparison]);
@@ -1070,7 +1081,7 @@ const ReportsPage: React.FC = () => {
                       </h3>
                     )}
                     <p className="text-[10px] text-rose-300/90 mt-0.5 truncate">
-                      Pengurangan: -{formatRupiah((salesProfitLoss?.totalExpenses || 0) + (salesProfitLoss?.totalPayableDebt || 0))}
+                      Pengurangan: -{formatRupiah(salesProfitLoss?.totalDeductions ?? ((salesProfitLoss?.totalExpenses || 0) + (salesProfitLoss?.totalPayableDebt || 0) + (salesProfitLoss?.totalReceivableDebt || 0)))}
                     </p>
                   </div>
                 </button>
@@ -1430,7 +1441,7 @@ const ReportsPage: React.FC = () => {
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-sky-500/20" />
                 </button>
 
-                {/* Clickable Total Pengurangan (Biaya + Hutang Supplier) */}
+                {/* Clickable Total Pengurangan (Biaya + Hutang Supplier + Hutang Customer) */}
                 <button
                   type="button"
                   onClick={() => {
@@ -1451,7 +1462,7 @@ const ReportsPage: React.FC = () => {
                     </div>
                     <h3 className="text-xl font-black text-rose-600 mt-0.5 truncate">-{formatRupiah(consolidationMetrics.totalDeductions)}</h3>
                     <p className="text-[10px] text-slate-400 mt-0.5 truncate">
-                      Biaya: -{formatRupiah(consolidationMetrics.totalExpenses)} • Hutang: -{formatRupiah(consolidationMetrics.totalPayableDebt)}
+                      Biaya: -{formatRupiah(consolidationMetrics.totalExpenses)} • Hutang: -{formatRupiah(consolidationMetrics.totalPayableDebt + consolidationMetrics.totalReceivableDebt)}
                     </p>
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-rose-500/20" />
@@ -1482,7 +1493,7 @@ const ReportsPage: React.FC = () => {
                     )}>
                       {formatRupiah(consolidationMetrics.totalNetProfit)}
                     </h3>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Profit Kotor - Biaya Ops - Hutang Supplier</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Profit Kotor - Biaya - Hutang Supplier & Customer</p>
                   </div>
                 </button>
               </div>
@@ -1567,7 +1578,7 @@ const ReportsPage: React.FC = () => {
                   <div>
                     <h3 className="font-extrabold text-slate-800">Detail Kontribusi Cabang</h3>
                     <p className="text-xs text-slate-400">
-                      Klik angka <span className="font-bold text-emerald-600">Profit Kotor</span> untuk melihat asal hitungan & HPP obat, atau klik <span className="font-bold text-indigo-600">Profit Bersih</span> untuk melihat rincian pengurangan biaya & hutang supplier.
+                      Klik angka <span className="font-bold text-emerald-600">Profit Kotor</span> untuk melihat asal hitungan & HPP obat, atau klik <span className="font-bold text-indigo-600">Profit Bersih</span> untuk melihat rincian pengurangan biaya, hutang supplier & hutang customer.
                     </p>
                   </div>
                 </div>
@@ -1592,7 +1603,8 @@ const ReportsPage: React.FC = () => {
                         const totalCostVal = branch.totalCost ?? (branch.totalSales - branch.grossProfit);
                         const totalExpensesVal = Number(branch.totalExpenses ?? 0);
                         const totalPayableDebtVal = Number(branch.totalPayableDebt ?? 0);
-                        const totalDeductionsVal = Number(branch.totalDeductions ?? (totalExpensesVal + totalPayableDebtVal));
+                        const totalReceivableDebtVal = Number(branch.totalReceivableDebt ?? 0);
+                        const totalDeductionsVal = Number(branch.totalDeductions ?? (totalExpensesVal + totalPayableDebtVal + totalReceivableDebtVal));
                         const netProfitVal = Number(branch.netProfit ?? (branch.grossProfit - totalDeductionsVal));
                         return (
                           <TableRow key={branch.branchId} className="hover:bg-slate-50/50 transition-colors">
@@ -1633,11 +1645,11 @@ const ReportsPage: React.FC = () => {
                                   setSelectedBreakdown({ data: branch, tab: 'net' });
                                 }}
                                 className="hover:underline cursor-pointer text-right inline-flex flex-col items-end"
-                                title="Klik untuk melihat rincian biaya operasional & sisa hutang supplier"
+                                title="Klik untuk melihat rincian biaya operasional, hutang supplier & hutang customer"
                               >
                                 <span className="font-bold">-{formatRupiah(totalDeductionsVal)}</span>
                                 <span className="text-[10px] text-slate-400 font-medium">
-                                  Biaya: {formatRupiah(totalExpensesVal)} | Hutang: {formatRupiah(totalPayableDebtVal)}
+                                  Biaya: {formatRupiah(totalExpensesVal)} | Hutang: {formatRupiah(totalPayableDebtVal + totalReceivableDebtVal)}
                                 </span>
                               </button>
                             </TableCell>
@@ -1883,7 +1895,7 @@ const ReportsPage: React.FC = () => {
                     {/* Step-by-step Net Profit Formula Box */}
                     <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
                       <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
-                        Alur Perhitungan Profit Bersih & Pengurangan (Biaya + Hutang)
+                        Alur Perhitungan Profit Bersih & Pengurangan (Biaya + Hutang Supplier + Hutang Customer)
                       </h4>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
@@ -1906,6 +1918,13 @@ const ReportsPage: React.FC = () => {
                             <p className="text-[11px] text-slate-400">Total sisa tagihan faktur pembelian obat ke supplier yang belum dibayar</p>
                           </div>
                           <span className="font-black">-{formatRupiah(selectedBreakdown.data.totalPayableDebt || 0)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-purple-700">
+                          <div>
+                            <span className="font-bold">4. Dikurangi: Sisa Hutang Customer / Piutang Penjualan (Belum Lunas)</span>
+                            <p className="text-[11px] text-slate-400">Total sisa tagihan belanja tempo customer yang belum dibayar lunas</p>
+                          </div>
+                          <span className="font-black">-{formatRupiah(selectedBreakdown.data.totalReceivableDebt || 0)}</span>
                         </div>
                         <div className="flex justify-between items-center pt-2 px-3 py-2.5 bg-slate-900 text-white rounded-xl shadow-sm">
                           <span className="font-black uppercase tracking-wide text-xs sm:text-sm">HASIL: PROFIT BERSIH (LABA BERSIH)</span>
@@ -1931,7 +1950,7 @@ const ReportsPage: React.FC = () => {
                           </p>
                         </div>
                         <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-xs font-black">
-                          Total Hutang: -{formatRupiah(selectedBreakdown.data.totalPayableDebt || 0)}
+                          Total Hutang Supplier: -{formatRupiah(selectedBreakdown.data.totalPayableDebt || 0)}
                         </span>
                       </div>
 
@@ -1975,12 +1994,68 @@ const ReportsPage: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Customer Receivable Debts Breakdown Table */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-extrabold text-slate-800">
+                            B. Rincian Pengurangan Sisa Hutang Customer / Piutang Penjualan (Belum Lunas)
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            Daftar transaksi belanja tempo customer (`HUTANG_PENJUALAN`) yang belum dibayar lunas
+                          </p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-xs font-black">
+                          Total Hutang Customer: -{formatRupiah(selectedBreakdown.data.totalReceivableDebt || 0)}
+                        </span>
+                      </div>
+
+                      <div className="border border-slate-100 rounded-2xl overflow-hidden max-h-64 overflow-y-auto">
+                        <table className="w-full text-xs sm:text-sm">
+                          <thead className="bg-slate-50 sticky top-0 border-b border-slate-100 text-slate-500 font-bold">
+                            <tr>
+                              <th className="py-2.5 px-4 text-left">No. Invoice</th>
+                              <th className="py-2.5 px-4 text-left">Nama Customer</th>
+                              <th className="py-2.5 px-4 text-left">Cabang</th>
+                              <th className="py-2.5 px-4 text-left">Jatuh Tempo</th>
+                              <th className="py-2.5 px-4 text-right">Total Belanja</th>
+                              <th className="py-2.5 px-4 text-right">Sudah Dibayar</th>
+                              <th className="py-2.5 px-4 text-right">Sisa Hutang Customer (Pengurang)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {selectedBreakdown.data.receivableDebtsBreakdown && selectedBreakdown.data.receivableDebtsBreakdown.length > 0 ? (
+                              selectedBreakdown.data.receivableDebtsBreakdown.map((debt: any, idx: number) => (
+                                <tr key={debt.id || idx} className="hover:bg-slate-50/60">
+                                  <td className="py-2.5 px-4 font-mono font-bold text-slate-800">{debt.invoiceNumber}</td>
+                                  <td className="py-2.5 px-4 font-bold text-slate-700">{debt.customerName}</td>
+                                  <td className="py-2.5 px-4 text-slate-600">{debt.branchName || '-'}</td>
+                                  <td className="py-2.5 px-4 text-slate-500">{debt.dueDate || '-'}</td>
+                                  <td className="py-2.5 px-4 text-right font-semibold text-slate-700">{formatRupiah(debt.totalAmount)}</td>
+                                  <td className="py-2.5 px-4 text-right font-medium text-emerald-600">{formatRupiah(debt.paidAmount)}</td>
+                                  <td className="py-2.5 px-4 text-right font-black text-purple-700">
+                                    -{formatRupiah(debt.remainingAmount)}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={7} className="py-6 text-center text-slate-400 italic">
+                                  Tidak ada sisa hutang customer / piutang penjualan yang belum lunas (Rp 0).
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
                     {/* Expenses Breakdown Table */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-sm font-extrabold text-slate-800">
-                            B. Rincian Pengurangan Biaya Operasional
+                            C. Rincian Pengurangan Biaya Operasional
                           </h4>
                           <p className="text-xs text-slate-400">
                             Daftar pengeluaran operasional yang mengurangi Profit Kotor pada periode ini
