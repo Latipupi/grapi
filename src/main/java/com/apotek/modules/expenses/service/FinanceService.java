@@ -6,6 +6,8 @@ import com.apotek.modules.debt.model.Debt;
 import com.apotek.modules.debt.repository.DebtRepository;
 import com.apotek.modules.inventory.model.InventoryBatch;
 import com.apotek.modules.inventory.repository.InventoryBatchRepository;
+import com.apotek.modules.masterdata.model.Branch;
+import com.apotek.modules.masterdata.repository.BranchRepository;
 import com.apotek.modules.purchasing.model.Purchase;
 import com.apotek.modules.purchasing.repository.PurchaseRepository;
 import com.apotek.modules.sales.model.Sale;
@@ -14,8 +16,10 @@ import com.apotek.modules.sales.model.SalesReturnDetail;
 import com.apotek.modules.sales.repository.SaleDetailRepository;
 import com.apotek.modules.sales.repository.SaleRepository;
 import com.apotek.modules.sales.repository.SalesReturnDetailRepository;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,11 +42,22 @@ public class FinanceService {
     private final SaleRepository saleRepository;
     private final PurchaseRepository purchaseRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
+    private final BranchRepository branchRepository;
     private final ExpenseRepository expenseRepository;
     private final DebtRepository debtRepository;
 
     @Transactional(readOnly = true)
     public ProfitLossReport getProfitLossReport(Long branchId, LocalDate startDate, LocalDate endDate) {
+        return getProfitLossReport(branchId, startDate, endDate, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public ProfitLossReport getProfitLossReport(
+            Long branchId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String capitalModeParam,
+            BigDecimal manualCapitalParam) {
         if (branchId != null && branchId <= 0) {
             branchId = null;
         }
@@ -227,36 +242,89 @@ public class FinanceService {
             }
         }
 
-        // 2. Kas dan Bank (Cash & Bank Position)
-        List<Sale> sales = saleRepository.findSalesWithFilters(branchId, start, end, "COMPLETED");
-        BigDecimal cashSalesIn = BigDecimal.ZERO;
-        for (Sale s : sales) {
-            if (!"HUTANG".equalsIgnoreCase(s.getPaymentMethod()) && !"DEBT".equalsIgnoreCase(s.getPaymentMethod())) {
-                cashSalesIn = cashSalesIn.add(s.getTotalAmount() != null ? s.getTotalAmount() : BigDecimal.ZERO);
-            }
-        }
+        // 2. Pembelian / Kulakan & Pengaturan Modal (Capital)
         List<Purchase> purchases = (branchId != null)
                 ? purchaseRepository.findByBranchIdOrderByPurchaseDateDesc(branchId)
                 : purchaseRepository.findAll();
         BigDecimal cashPurchasesOut = BigDecimal.ZERO;
         for (Purchase p : purchases) {
-            if (p.getPurchaseDate() != null && !p.getPurchaseDate().isBefore(startDate) && !p.getPurchaseDate().isAfter(endDate)) {
-                if (!"HUTANG".equalsIgnoreCase(p.getPaymentMethod()) && !"DEBT".equalsIgnoreCase(p.getPaymentMethod())) {
-                    cashPurchasesOut = cashPurchasesOut.add(p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO);
-                }
+            if (!"HUTANG".equalsIgnoreCase(p.getPaymentMethod()) && !"DEBT".equalsIgnoreCase(p.getPaymentMethod())) {
+                cashPurchasesOut = cashPurchasesOut.add(p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO);
             }
         }
-        BigDecimal cashAndBank = cashSalesIn
-                .add(paidReceivableTotal)
-                .subtract(totalRefunds)
-                .subtract(cashPurchasesOut)
-                .subtract(paidPayableTotal)
-                .subtract(totalExpenses);
+        BigDecimal cashPurchasesTotal = cashPurchasesOut.add(paidPayableTotal);
 
-        BigDecimal totalAssets = cashAndBank.add(totalReceivableDebt).add(inventoryValue);
+        // Hitungan Otomatis Modal dari Kulakan / Stok Awal:
+        // Nilai Persediaan Saat Ini + HPP Terjual - Sisa Hutang Supplier (atau Total Kulakan yang Sudah Dibayar)
+        BigDecimal stockBasedCapital = inventoryValue.add(cogs).subtract(totalPayableDebt).max(BigDecimal.ZERO);
+        BigDecimal autoStockCapital = stockBasedCapital.max(cashPurchasesTotal);
+
+        // Ambil pengaturan modal dari Branch jika tidak dikirim lewat parameter
+        String effectiveCapitalMode = "AUTO_STOCK";
+        BigDecimal effectiveManualCapital = BigDecimal.ZERO;
+        if (branchId != null) {
+            Branch b = branchRepository.findById(branchId).orElse(null);
+            if (b != null) {
+                if (b.getCapitalMode() != null && !b.getCapitalMode().isBlank()) {
+                    effectiveCapitalMode = b.getCapitalMode();
+                }
+                if (b.getInitialCapital() != null) {
+                    effectiveManualCapital = b.getInitialCapital();
+                }
+            }
+        } else {
+            List<Branch> allBranches = branchRepository.findAll();
+            boolean anyManual = false;
+            BigDecimal sumInitial = BigDecimal.ZERO;
+            for (Branch b : allBranches) {
+                if ("MANUAL".equalsIgnoreCase(b.getCapitalMode())) {
+                    anyManual = true;
+                }
+                if (b.getInitialCapital() != null) {
+                    sumInitial = sumInitial.add(b.getInitialCapital());
+                }
+            }
+            effectiveCapitalMode = anyManual ? "MANUAL" : "AUTO_STOCK";
+            effectiveManualCapital = sumInitial;
+        }
+
+        if (capitalModeParam != null && !capitalModeParam.isBlank()) {
+            effectiveCapitalMode = capitalModeParam.toUpperCase();
+        }
+        if (manualCapitalParam != null) {
+            effectiveManualCapital = manualCapitalParam;
+        }
+
         BigDecimal totalLiabilities = totalPayableDebt;
-        BigDecimal totalEquity = totalAssets.subtract(totalLiabilities);
-        BigDecimal capitalModal = totalEquity.subtract(netProfit);
+        BigDecimal capitalModal;
+        BigDecimal totalEquity;
+        BigDecimal totalAssets;
+        BigDecimal cashAndBank;
+
+        if ("MANUAL".equalsIgnoreCase(effectiveCapitalMode) && effectiveManualCapital.compareTo(BigDecimal.ZERO) > 0) {
+            capitalModal = effectiveManualCapital;
+            totalEquity = capitalModal.add(netProfit);
+            totalAssets = totalLiabilities.add(totalEquity);
+            cashAndBank = totalAssets.subtract(inventoryValue).subtract(totalReceivableDebt);
+        } else {
+            // Mode AUTO_STOCK: Modal otomatis dari Kulakan/Stok Awal + Tambahan Modal Kas yang diinput
+            capitalModal = autoStockCapital.add(effectiveManualCapital);
+            totalEquity = capitalModal.add(netProfit);
+            totalAssets = totalLiabilities.add(totalEquity);
+            cashAndBank = totalAssets.subtract(inventoryValue).subtract(totalReceivableDebt);
+
+            // Jika pengeluaran operasional melebihi kas penjualan (sehingga dibiayai dari modal pemilik),
+            // pastikan Kas & Bank tidak minus dan selisihnya diakui sebagai Modal Operasional Pemilik
+            BigDecimal minCashFloor = effectiveManualCapital.max(BigDecimal.ZERO);
+            if (cashAndBank.compareTo(minCashFloor) < 0) {
+                BigDecimal deficitCoveredByOwner = minCashFloor.subtract(cashAndBank);
+                autoStockCapital = autoStockCapital.add(deficitCoveredByOwner);
+                capitalModal = autoStockCapital.add(effectiveManualCapital);
+                totalEquity = capitalModal.add(netProfit);
+                totalAssets = totalLiabilities.add(totalEquity);
+                cashAndBank = minCashFloor;
+            }
+        }
 
         List<ItemBreakdown> sortedItems = new ArrayList<>(itemMap.values());
         sortedItems.sort((a, b) -> b.getGrossProfit().compareTo(a.getGrossProfit()));
@@ -276,6 +344,10 @@ public class FinanceService {
                 .inventoryValue(inventoryValue)
                 .totalAssets(totalAssets)
                 .totalLiabilities(totalLiabilities)
+                .autoStockCapital(autoStockCapital)
+                .cashPurchasesTotal(cashPurchasesTotal)
+                .capitalMode(effectiveCapitalMode)
+                .manualCapitalInput(effectiveManualCapital)
                 .capitalModal(capitalModal)
                 .totalEquity(totalEquity)
                 .expenses(expenses)
@@ -283,6 +355,44 @@ public class FinanceService {
                 .receivableDebtsBreakdown(receivableDebtsList)
                 .itemsBreakdown(sortedItems)
                 .build();
+    }
+
+    @Transactional
+    public Map<String, Object> updateCapitalSettings(CapitalSettingsRequest request) {
+        String mode = (request.getCapitalMode() != null && !request.getCapitalMode().isBlank())
+                ? request.getCapitalMode().toUpperCase()
+                : "AUTO_STOCK";
+        BigDecimal amount = request.getManualCapital() != null ? request.getManualCapital() : BigDecimal.ZERO;
+
+        if (request.getBranchId() != null && request.getBranchId() > 0) {
+            Branch branch = branchRepository.findById(request.getBranchId())
+                    .orElseThrow(() -> new RuntimeException("Cabang tidak ditemukan"));
+            branch.setCapitalMode(mode);
+            branch.setInitialCapital(amount);
+            branchRepository.save(branch);
+        } else {
+            List<Branch> allBranches = branchRepository.findAll();
+            for (int i = 0; i < allBranches.size(); i++) {
+                Branch b = allBranches.get(i);
+                b.setCapitalMode(mode);
+                b.setInitialCapital(i == 0 ? amount : BigDecimal.ZERO);
+                branchRepository.save(b);
+            }
+        }
+        return Map.of(
+                "status", "SUCCESS",
+                "capitalMode", mode,
+                "manualCapital", amount
+        );
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CapitalSettingsRequest {
+        private Long branchId;
+        private String capitalMode;
+        private BigDecimal manualCapital;
     }
 
     @Data
@@ -331,6 +441,10 @@ public class FinanceService {
         private BigDecimal inventoryValue;
         private BigDecimal totalAssets;
         private BigDecimal totalLiabilities;
+        private BigDecimal autoStockCapital;
+        private BigDecimal cashPurchasesTotal;
+        private String capitalMode;
+        private BigDecimal manualCapitalInput;
         private BigDecimal capitalModal;
         private BigDecimal totalEquity;
         private List<Expense> expenses;

@@ -61,6 +61,10 @@ interface ProfitLossData {
   inventoryValue?: number;
   totalAssets?: number;
   totalLiabilities?: number;
+  autoStockCapital?: number;
+  cashPurchasesTotal?: number;
+  capitalMode?: string;
+  manualCapitalInput?: number;
   capitalModal?: number;
   totalEquity?: number;
   expenses: { id?: number; expenseDate?: string; category: string; expenseType?: string; amount: number; notes: string; branch?: { name: string } }[];
@@ -89,6 +93,12 @@ const ProfitLossPage: React.FC = () => {
   const [companyName, setCompanyName] = useState<string>('APOTEK GRAPI INDONESIA');
   const [directorName, setDirectorName] = useState<string>('Direktur Utama');
   const [directorTitle, setDirectorTitle] = useState<string>('DIREKTUR');
+
+  // Capital (Modal) settings state: AUTO_STOCK (Otomatis dari Kulakan/Stok Awal) vs MANUAL
+  const [capitalMode, setCapitalMode] = useState<'AUTO_STOCK' | 'MANUAL'>('AUTO_STOCK');
+  const [manualCapitalStr, setManualCapitalStr] = useState<string>('0');
+  const [isSavingCapital, setIsSavingCapital] = useState<boolean>(false);
+  const [capitalSavedMsg, setCapitalSavedMsg] = useState<string>('');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemPage, setItemPage] = useState(1);
@@ -125,7 +135,7 @@ const ProfitLossPage: React.FC = () => {
     }
   }, [settings]);
 
-  const { data: report, isLoading } = useQuery<ProfitLossData>({
+  const { data: report, isLoading, refetch: refetchReport } = useQuery<ProfitLossData>({
     queryKey: ['report', 'finance', 'profit-loss', branchId, startDate, endDate],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -137,6 +147,34 @@ const ProfitLossPage: React.FC = () => {
     },
     enabled: !!startDate && !!endDate
   });
+
+  useEffect(() => {
+    if (report) {
+      const mode = report.capitalMode === 'MANUAL' ? 'MANUAL' : 'AUTO_STOCK';
+      setCapitalMode(mode);
+      setManualCapitalStr(String(Math.round(Number(report.manualCapitalInput || 0))));
+    }
+  }, [report?.capitalMode, report?.manualCapitalInput, branchId]);
+
+  const handleSaveCapital = async () => {
+    try {
+      setIsSavingCapital(true);
+      setCapitalSavedMsg('');
+      const numericAmount = Math.max(0, Number(manualCapitalStr || 0));
+      await api.put('/finance/capital', {
+        branchId: branchId ? Number(branchId) : null,
+        capitalMode,
+        manualCapital: numericAmount
+      });
+      await refetchReport();
+      setCapitalSavedMsg('Tersimpan!');
+      setTimeout(() => setCapitalSavedMsg(''), 3000);
+    } catch (err) {
+      console.error('Gagal menyimpan pengaturan modal:', err);
+    } finally {
+      setIsSavingCapital(false);
+    }
+  };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Math.round(val || 0));
@@ -192,21 +230,55 @@ const ProfitLossPage: React.FC = () => {
     return Array.from(map.entries()).map(([name, amount]) => ({ name, amount }));
   }, [report?.debtsBreakdown]);
 
+  // Live Neraca & Modal computation (supports both AUTO_STOCK from Kulakan/Stok Awal and MANUAL input)
+  const netProfitVal = report ? (Number(report.grossProfit || 0) - Number(report.totalExpenses || 0)) : 0;
+  const receivableVal = Number(report?.totalReceivableDebt ?? 0);
+  const inventoryVal = Number(report?.inventoryValue ?? 0);
+  const cogsVal = Number(report?.costOfGoodsSold ?? 0);
+  const payableVal = Number(report?.totalPayableDebt ?? 0);
+  const cashPurchasesVal = Number(report?.cashPurchasesTotal ?? 0);
+
+  const stockBasedCapital = Math.max(0, inventoryVal + cogsVal - payableVal);
+  const autoStockCapitalVal = Math.max(
+    Number(report?.autoStockCapital ?? 0),
+    stockBasedCapital,
+    cashPurchasesVal
+  );
+
+  const manualInputVal = Math.max(0, Number(manualCapitalStr || 0));
+  const totalLiabilities = payableVal;
+
+  let capitalModal = 0;
+  let totalEquity = 0;
+  let totalAssets = 0;
+  let cashVal = 0;
+
+  if (capitalMode === 'MANUAL' && manualInputVal > 0) {
+    capitalModal = manualInputVal;
+    totalEquity = capitalModal + netProfitVal;
+    totalAssets = totalLiabilities + totalEquity;
+    cashVal = totalAssets - inventoryVal - receivableVal;
+  } else {
+    capitalModal = autoStockCapitalVal + manualInputVal;
+    totalEquity = capitalModal + netProfitVal;
+    totalAssets = totalLiabilities + totalEquity;
+    cashVal = totalAssets - inventoryVal - receivableVal;
+    if (cashVal < manualInputVal) {
+      const deficit = manualInputVal - cashVal;
+      capitalModal += deficit;
+      totalEquity = capitalModal + netProfitVal;
+      totalAssets = totalLiabilities + totalEquity;
+      cashVal = manualInputVal;
+    }
+  }
+  const totalCurrentAssets = cashVal + receivableVal + inventoryVal;
+
   const handlePrintFinancialReport = () => {
     if (!report) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const netProfit = Number(report.grossProfit || 0) - Number(report.totalExpenses || 0);
-    const cashVal = Number(report.cashAndBank ?? 0);
-    const receivableVal = Number(report.totalReceivableDebt ?? 0);
-    const inventoryVal = Number(report.inventoryValue ?? 0);
-    const totalCurrentAssets = cashVal + receivableVal + inventoryVal;
-    const totalAssets = totalCurrentAssets;
-    const payableVal = Number(report.totalPayableDebt ?? 0);
-    const totalLiabilities = payableVal;
-    const totalEquity = totalAssets - totalLiabilities;
-    const capitalModal = totalEquity - netProfit;
+    const netProfit = netProfitVal;
 
     const nowStr = new Date().toLocaleDateString('id-ID', {
       day: '2-digit',
@@ -558,17 +630,6 @@ const ProfitLossPage: React.FC = () => {
     printWindow.document.close();
   };
 
-  const netProfitVal = report ? (Number(report.grossProfit || 0) - Number(report.totalExpenses || 0)) : 0;
-  const cashVal = Number(report?.cashAndBank ?? 0);
-  const receivableVal = Number(report?.totalReceivableDebt ?? 0);
-  const inventoryVal = Number(report?.inventoryValue ?? 0);
-  const totalCurrentAssets = cashVal + receivableVal + inventoryVal;
-  const totalAssets = totalCurrentAssets;
-  const payableVal = Number(report?.totalPayableDebt ?? 0);
-  const totalLiabilities = payableVal;
-  const totalEquity = totalAssets - totalLiabilities;
-  const capitalModal = totalEquity - netProfitVal;
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header & Controls */}
@@ -698,6 +759,121 @@ const ProfitLossPage: React.FC = () => {
         </div>
       ) : report ? (
         <>
+          {/* Pengaturan & Hitungan Otomatis Modal Usaha (Neraca) */}
+          <Card className="p-4 sm:p-5 border border-indigo-100 bg-gradient-to-r from-indigo-50/60 via-white to-emerald-50/40 rounded-2xl shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Scale className="w-4 h-4 text-indigo-600" />
+                  <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide">
+                    Perhitungan Modal Usaha (Neraca — Ekuitas)
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">
+                    {capitalMode === 'AUTO_STOCK' ? 'Otomatis Kulakan / Stok Awal' : 'Input Manual Total Modal'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Hitungan Otomatis Modal Kulakan/Stok Awal:{' '}
+                  <span className="font-bold text-slate-800">
+                    Persediaan ({formatCurrency(inventoryVal)}) + HPP Terjual ({formatCurrency(cogsVal)}) − Hutang Supplier ({formatCurrency(payableVal)})
+                  </span>
+                  {cashPurchasesVal > stockBasedCapital && (
+                    <span className="text-slate-500"> (atau Total Kulakan Tunai/Cicilan {formatCurrency(cashPurchasesVal)})</span>
+                  )}{' '}
+                  = <span className="font-extrabold text-indigo-700">{formatCurrency(autoStockCapitalVal)}</span>
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCapitalMode('AUTO_STOCK')}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      capitalMode === 'AUTO_STOCK'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Otomatis Kulakan/Stok + Kas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCapitalMode('MANUAL');
+                      if (Number(manualCapitalStr || 0) <= 0) {
+                        setManualCapitalStr(String(Math.round(autoStockCapitalVal)));
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      capitalMode === 'MANUAL'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Input Manual Total Modal
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-1.5">
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {capitalMode === 'AUTO_STOCK' ? '+ Modal Kas Awal (Rp):' : 'Total Modal (Rp):'}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    value={manualCapitalStr}
+                    onChange={(e) => setManualCapitalStr(e.target.value)}
+                    className="w-36 text-xs font-extrabold text-slate-900 focus:outline-none text-right"
+                    placeholder="0"
+                  />
+                </div>
+
+                {capitalMode === 'MANUAL' && (
+                  <button
+                    type="button"
+                    onClick={() => setManualCapitalStr(String(Math.round(autoStockCapitalVal)))}
+                    className="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold cursor-pointer"
+                    title="Isi dengan nilai modal otomatis dari kulakan/stok awal"
+                  >
+                    Ambil Nilai Kulakan
+                  </button>
+                )}
+
+                <Button
+                  type="button"
+                  onClick={handleSaveCapital}
+                  disabled={isSavingCapital}
+                  className="h-9 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
+                >
+                  {isSavingCapital ? 'Menyimpan...' : 'Simpan Modal'}
+                </Button>
+
+                {capitalSavedMsg && (
+                  <span className="text-xs font-extrabold text-emerald-600">{capitalSavedMsg}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 pt-2.5 border-t border-indigo-100/80 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="text-slate-600">
+                  Total Modal di Neraca (Ekuitas): <strong className="text-indigo-700">{formatCurrency(capitalModal)}</strong>
+                </span>
+                <span className="text-slate-600">
+                  Saldo Kas & Bank (Aktiva Lancar): <strong className="text-emerald-700">{formatCurrency(cashVal)}</strong>
+                </span>
+                <span className="text-slate-600">
+                  Nilai Persediaan Stok: <strong className="text-slate-800">{formatCurrency(inventoryVal)}</strong>
+                </span>
+              </div>
+              <span className="text-[11px] font-bold text-emerald-700">
+                ✓ Neraca Seimbang (Aktiva {formatCurrency(totalAssets)} = Pasiva {formatCurrency(totalLiabilities + totalEquity)})
+              </span>
+            </div>
+          </Card>
+
           {/* Top 4 Summary Cards (Always visible for quick executive overview) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="p-6 border-none shadow-sm bg-gradient-to-br from-emerald-600 to-emerald-700 text-white relative overflow-hidden group">

@@ -3,6 +3,7 @@ package com.apotek.modules.masterdata.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.Filter;
@@ -31,6 +32,12 @@ public class Branch {
     @Column(nullable = false)
     private String type = "RETAIL"; // RETAIL, WAREHOUSE
 
+    @Column(name = "initial_capital")
+    private BigDecimal initialCapital = BigDecimal.ZERO;
+
+    @Column(name = "capital_mode")
+    private String capitalMode = "AUTO_STOCK"; // AUTO_STOCK, MANUAL
+
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
 
@@ -52,6 +59,10 @@ public class Branch {
     public void setActive(boolean active) { this.active = active; }
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
+    public BigDecimal getInitialCapital() { return initialCapital != null ? initialCapital : BigDecimal.ZERO; }
+    public void setInitialCapital(BigDecimal initialCapital) { this.initialCapital = initialCapital; }
+    public String getCapitalMode() { return capitalMode != null ? capitalMode : "AUTO_STOCK"; }
+    public void setCapitalMode(String capitalMode) { this.capitalMode = capitalMode; }
     public String getTenantId() { return tenantId; }
     public void setTenantId(String tenantId) { this.tenantId = tenantId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
