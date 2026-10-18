@@ -248,16 +248,18 @@ public class FinanceService {
                 : purchaseRepository.findAll();
         BigDecimal cashPurchasesOut = BigDecimal.ZERO;
         for (Purchase p : purchases) {
-            if (!"HUTANG".equalsIgnoreCase(p.getPaymentMethod()) && !"DEBT".equalsIgnoreCase(p.getPaymentMethod())) {
+            if ("RECEIVED".equalsIgnoreCase(p.getStatus())
+                    && !"HUTANG".equalsIgnoreCase(p.getPaymentMethod())
+                    && !"DEBT".equalsIgnoreCase(p.getPaymentMethod())) {
                 cashPurchasesOut = cashPurchasesOut.add(p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO);
             }
         }
         BigDecimal cashPurchasesTotal = cashPurchasesOut.add(paidPayableTotal);
 
         // Hitungan Otomatis Modal dari Kulakan / Stok Awal:
-        // Nilai Persediaan Saat Ini + HPP Terjual - Sisa Hutang Supplier (atau Total Kulakan yang Sudah Dibayar)
+        // Nilai Persediaan Saat Ini + HPP Terjual - Sisa Hutang Supplier
         BigDecimal stockBasedCapital = inventoryValue.add(cogs).subtract(totalPayableDebt).max(BigDecimal.ZERO);
-        BigDecimal autoStockCapital = stockBasedCapital.max(cashPurchasesTotal);
+        BigDecimal autoStockCapital = stockBasedCapital;
 
         // Ambil pengaturan modal dari Branch jika tidak dikirim lewat parameter
         String effectiveCapitalMode = "AUTO_STOCK";

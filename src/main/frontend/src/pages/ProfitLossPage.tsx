@@ -236,14 +236,11 @@ const ProfitLossPage: React.FC = () => {
   const inventoryVal = Number(report?.inventoryValue ?? 0);
   const cogsVal = Number(report?.costOfGoodsSold ?? 0);
   const payableVal = Number(report?.totalPayableDebt ?? 0);
-  const cashPurchasesVal = Number(report?.cashPurchasesTotal ?? 0);
-
   const stockBasedCapital = Math.max(0, inventoryVal + cogsVal - payableVal);
-  const autoStockCapitalVal = Math.max(
-    Number(report?.autoStockCapital ?? 0),
-    stockBasedCapital,
-    cashPurchasesVal
-  );
+  const autoStockCapitalVal = stockBasedCapital;
+  const totalRevenueVal = Number(report?.totalRevenue ?? 0);
+  const totalExpensesVal = Number(report?.totalExpenses ?? 0);
+  const cashSalesNetVal = Math.max(0, totalRevenueVal - receivableVal);
 
   const manualInputVal = Math.max(0, Number(manualCapitalStr || 0));
   const totalLiabilities = payableVal;
@@ -762,25 +759,30 @@ const ProfitLossPage: React.FC = () => {
           {/* Pengaturan & Hitungan Otomatis Modal Usaha (Neraca) */}
           <Card className="p-4 sm:p-5 border border-indigo-100 bg-gradient-to-r from-indigo-50/60 via-white to-emerald-50/40 rounded-2xl shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <Scale className="w-4 h-4 text-indigo-600" />
                   <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide">
-                    Perhitungan Modal Usaha (Neraca — Ekuitas)
+                    Perhitungan Modal Usaha & Kas (Neraca)
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700">
                     {capitalMode === 'AUTO_STOCK' ? 'Otomatis Kulakan / Stok Awal' : 'Input Manual Total Modal'}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-600">
-                  Hitungan Otomatis Modal Kulakan/Stok Awal:{' '}
-                  <span className="font-bold text-slate-800">
+                  <strong>1. Rumus Modal Kulakan/Stok Awal:</strong>{' '}
+                  <span className="font-semibold text-slate-800">
                     Persediaan ({formatCurrency(inventoryVal)}) + HPP Terjual ({formatCurrency(cogsVal)}) − Hutang Supplier ({formatCurrency(payableVal)})
-                  </span>
-                  {cashPurchasesVal > stockBasedCapital && (
-                    <span className="text-slate-500"> (atau Total Kulakan Tunai/Cicilan {formatCurrency(cashPurchasesVal)})</span>
-                  )}{' '}
+                  </span>{' '}
                   = <span className="font-extrabold text-indigo-700">{formatCurrency(autoStockCapitalVal)}</span>
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  <strong>2. Rumus Saldo Kas & Bank:</strong>{' '}
+                  <span className="font-semibold text-slate-800">
+                    Penjualan Tunai Bersih ({formatCurrency(cashSalesNetVal)}) − Beban Operasi ({formatCurrency(totalExpensesVal)})
+                    {manualInputVal > 0 && capitalMode === 'AUTO_STOCK' ? ` + Modal Kas Awal (${formatCurrency(manualInputVal)})` : ''}
+                  </span>{' '}
+                  = <span className="font-extrabold text-emerald-700">{formatCurrency(cashVal)}</span>
                 </p>
               </div>
 
@@ -859,17 +861,20 @@ const ProfitLossPage: React.FC = () => {
             <div className="mt-3 pt-2.5 border-t border-indigo-100/80 flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex flex-wrap items-center gap-4">
                 <span className="text-slate-600">
-                  Total Modal di Neraca (Ekuitas): <strong className="text-indigo-700">{formatCurrency(capitalModal)}</strong>
+                  Total Modal: <strong className="text-indigo-700">{formatCurrency(capitalModal)}</strong>
                 </span>
                 <span className="text-slate-600">
-                  Saldo Kas & Bank (Aktiva Lancar): <strong className="text-emerald-700">{formatCurrency(cashVal)}</strong>
+                  Jumlah Ekuitas (Modal + Laba): <strong className="text-indigo-700">{formatCurrency(totalEquity)}</strong>
                 </span>
                 <span className="text-slate-600">
-                  Nilai Persediaan Stok: <strong className="text-slate-800">{formatCurrency(inventoryVal)}</strong>
+                  Saldo Kas & Bank: <strong className="text-emerald-700">{formatCurrency(cashVal)}</strong>
+                </span>
+                <span className="text-slate-600">
+                  Persediaan Stok: <strong className="text-slate-800">{formatCurrency(inventoryVal)}</strong>
                 </span>
               </div>
               <span className="text-[11px] font-bold text-emerald-700">
-                ✓ Neraca Seimbang (Aktiva {formatCurrency(totalAssets)} = Pasiva {formatCurrency(totalLiabilities + totalEquity)})
+                ✓ Aktiva (Kas + Piutang + Persediaan = {formatCurrency(totalAssets)}) = Pasiva (Hutang + Ekuitas = {formatCurrency(totalLiabilities + totalEquity)})
               </span>
             </div>
           </Card>
