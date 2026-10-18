@@ -193,8 +193,8 @@ const ReportsPage: React.FC = () => {
       totalExpenses += exp;
       totalPayableDebt += debt;
       totalReceivableDebt += recDebt;
-      totalDeductions += Number(b.totalDeductions ?? (exp + debt + recDebt));
-      totalNetProfit += Number(b.netProfit ?? (Number(b.grossProfit || 0) - exp - debt - recDebt));
+      totalDeductions += exp;
+      totalNetProfit += (Number(b.grossProfit || 0) - exp);
       totalTransactions += Number(b.transactionCount || 0);
 
       if (Array.isArray(b.itemsBreakdown)) {
@@ -1457,12 +1457,12 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Pengurangan</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Beban Operasi (Pengurang)</p>
                       <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">Lihat Detail →</span>
                     </div>
-                    <h3 className="text-xl font-black text-rose-600 mt-0.5 truncate">-{formatRupiah(consolidationMetrics.totalDeductions)}</h3>
+                    <h3 className="text-xl font-black text-rose-600 mt-0.5 truncate">-{formatRupiah(consolidationMetrics.totalExpenses)}</h3>
                     <p className="text-[10px] text-slate-400 mt-0.5 truncate">
-                      Biaya: -{formatRupiah(consolidationMetrics.totalExpenses)} • Hutang: -{formatRupiah(consolidationMetrics.totalPayableDebt + consolidationMetrics.totalReceivableDebt)}
+                      Neraca — Piutang: {formatRupiah(consolidationMetrics.totalReceivableDebt)} • Hutang: {formatRupiah(consolidationMetrics.totalPayableDebt)}
                     </p>
                   </div>
                   <div className="absolute bottom-0 left-0 h-1 w-full bg-rose-500/20" />
@@ -1484,7 +1484,7 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Total Profit Bersih</p>
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Laba Bersih (Standar)</p>
                       <span className="text-[10px] font-bold text-emerald-300 bg-slate-800 px-2 py-0.5 rounded-md">Klik Detail →</span>
                     </div>
                     <h3 className={cn(
@@ -1494,7 +1494,7 @@ const ReportsPage: React.FC = () => {
                       {formatRupiah(consolidationMetrics.totalNetProfit)}
                     </h3>
                     <p className="text-[10px] text-rose-300/90 mt-0.5 truncate">
-                      Pengurangan: -{formatRupiah(consolidationMetrics.totalDeductions)} (Biaya & Hutang)
+                      Laba Kotor - Beban Operasi (-{formatRupiah(consolidationMetrics.totalExpenses)})
                     </p>
                   </div>
                 </button>
@@ -1539,14 +1539,14 @@ const ReportsPage: React.FC = () => {
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col space-y-4">
                   <div>
                     <h3 className="font-extrabold text-slate-800">Ringkasan Margin Cabang</h3>
-                    <p className="text-xs text-slate-400">Klik cabang untuk melihat rincian HPP, biaya & hutang</p>
+                    <p className="text-xs text-slate-400">Klik cabang untuk melihat rincian Laba Rugi & Neraca</p>
                   </div>
                   <div className="flex-1 overflow-auto">
                     <div className="space-y-3">
                       {branchComparison.map((branch: any) => {
                         const margin = branch.totalSales > 0 ? (branch.grossProfit / branch.totalSales) * 100 : 0;
-                        const branchDeductions = Number(branch.totalDeductions ?? ((branch.totalExpenses || 0) + (branch.totalPayableDebt || 0) + (branch.totalReceivableDebt || 0)));
-                        const netProfitVal = branch.netProfit ?? (branch.grossProfit - branchDeductions);
+                        const branchExpenses = Number(branch.totalExpenses || 0);
+                        const netProfitVal = Number(branch.grossProfit || 0) - branchExpenses;
                         return (
                           <div
                             key={branch.branchId}
@@ -1565,8 +1565,8 @@ const ReportsPage: React.FC = () => {
                                 Margin Kotor: {margin.toFixed(1)}%
                               </span>
                               <p className="text-xs font-black text-emerald-600 mt-1">Kotor: {formatRupiah(branch.grossProfit)}</p>
-                              <p className="text-[10px] font-semibold text-rose-500">Pengurangan: -{formatRupiah(branchDeductions)}</p>
-                              <p className="text-[11px] font-bold text-indigo-600">Bersih: {formatRupiah(netProfitVal)}</p>
+                              <p className="text-[10px] font-semibold text-rose-500">Beban Operasi: -{formatRupiah(branchExpenses)}</p>
+                              <p className="text-[11px] font-bold text-indigo-600">Laba Bersih: {formatRupiah(netProfitVal)}</p>
                             </div>
                           </div>
                         );
@@ -1580,9 +1580,9 @@ const ReportsPage: React.FC = () => {
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
-                    <h3 className="font-extrabold text-slate-800">Detail Kontribusi Cabang</h3>
+                    <h3 className="font-extrabold text-slate-800">Detail Kontribusi Cabang (Standar Akuntansi)</h3>
                     <p className="text-xs text-slate-400">
-                      Klik angka <span className="font-bold text-emerald-600">Profit Kotor</span> untuk melihat asal hitungan & HPP obat, atau klik <span className="font-bold text-indigo-600">Profit Bersih</span> untuk melihat rincian pengurangan biaya, hutang supplier & hutang customer.
+                      Klik angka <span className="font-bold text-emerald-600">Profit Kotor</span> untuk rincian HPP obat, atau klik <span className="font-bold text-indigo-600">Laba Bersih</span> untuk rincian Beban Operasi serta posisi Neraca (Piutang & Hutang).
                     </p>
                   </div>
                 </div>
@@ -1593,9 +1593,9 @@ const ReportsPage: React.FC = () => {
                         <TableHead className="font-bold text-slate-500">Nama Cabang</TableHead>
                         <TableHead className="font-bold text-slate-500 text-right">Total Pendapatan</TableHead>
                         <TableHead className="font-bold text-slate-500 text-right">Modal Obat (HPP)</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-right">Profit Kotor</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-right">Pengurangan (Biaya & Hutang)</TableHead>
-                        <TableHead className="font-bold text-slate-500 text-right">Profit Bersih</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Laba Kotor</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Beban Operasi</TableHead>
+                        <TableHead className="font-bold text-slate-500 text-right">Laba Bersih</TableHead>
                         <TableHead className="font-bold text-slate-500 text-right">Margin</TableHead>
                         <TableHead className="font-bold text-slate-500 text-center">Transaksi</TableHead>
                         <TableHead className="font-bold text-slate-500 text-center">Detail</TableHead>
@@ -1608,8 +1608,7 @@ const ReportsPage: React.FC = () => {
                         const totalExpensesVal = Number(branch.totalExpenses ?? 0);
                         const totalPayableDebtVal = Number(branch.totalPayableDebt ?? 0);
                         const totalReceivableDebtVal = Number(branch.totalReceivableDebt ?? 0);
-                        const totalDeductionsVal = Number(branch.totalDeductions ?? (totalExpensesVal + totalPayableDebtVal + totalReceivableDebtVal));
-                        const netProfitVal = Number(branch.netProfit ?? (branch.grossProfit - totalDeductionsVal));
+                        const netProfitVal = Number(branch.grossProfit || 0) - totalExpensesVal;
                         return (
                           <TableRow key={branch.branchId} className="hover:bg-slate-50/50 transition-colors">
                             <TableCell className="font-bold text-slate-700">{branch.branchName}</TableCell>
@@ -1649,12 +1648,14 @@ const ReportsPage: React.FC = () => {
                                   setSelectedBreakdown({ data: branch, tab: 'net' });
                                 }}
                                 className="hover:underline cursor-pointer text-right inline-flex flex-col items-end"
-                                title="Klik untuk melihat rincian biaya operasional, hutang supplier & hutang customer"
+                                title="Klik untuk melihat rincian beban operasional & posisi neraca"
                               >
-                                <span className="font-bold">-{formatRupiah(totalDeductionsVal)}</span>
-                                <span className="text-[10px] text-slate-400 font-medium">
-                                  Biaya: {formatRupiah(totalExpensesVal)} | Hutang: {formatRupiah(totalPayableDebtVal + totalReceivableDebtVal)}
-                                </span>
+                                <span className="font-bold">-{formatRupiah(totalExpensesVal)}</span>
+                                {(totalPayableDebtVal > 0 || totalReceivableDebtVal > 0) && (
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    Neraca Hutang/Piutang: {formatRupiah(totalPayableDebtVal + totalReceivableDebtVal)}
+                                  </span>
+                                )}
                               </button>
                             </TableCell>
                             <TableCell className="text-right">
@@ -1670,11 +1671,11 @@ const ReportsPage: React.FC = () => {
                                     ? "bg-indigo-50/70 hover:bg-indigo-100 border-indigo-200/60 text-indigo-700"
                                     : "bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700"
                                 )}
-                                title="Klik untuk lihat rincian pengurangan & Profit Bersih"
+                                title="Klik untuk lihat rincian Beban Operasi & Laba Bersih"
                               >
                                 <span className="font-black">{formatRupiah(netProfitVal)}</span>
                                 <span className="text-[10px] font-semibold text-rose-500">
-                                  Pengurangan: -{formatRupiah(totalDeductionsVal)}
+                                  Beban Operasi: -{formatRupiah(totalExpensesVal)}
                                 </span>
                                 <span className="text-[10px] font-bold opacity-80">Lihat Detail →</span>
                               </button>
@@ -1726,7 +1727,7 @@ const ReportsPage: React.FC = () => {
               <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                    Transparansi Perhitungan Laba Rugi
+                    Standar Akuntansi Laba Rugi & Neraca
                   </span>
                   <h3 className="text-xl font-black text-slate-800 mt-2">
                     Rincian Profit: {selectedBreakdown.data.branchName || 'Semua Cabang'}
@@ -1757,7 +1758,7 @@ const ReportsPage: React.FC = () => {
                       : "border-transparent text-slate-400 hover:text-slate-600"
                   )}
                 >
-                  <span>1. Kenapa Profit Kotor Sekian? (Rincian HPP Obat)</span>
+                  <span>1. Rincian Laba Kotor (HPP Obat)</span>
                   <span className="px-2 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-700 font-black">
                     {formatRupiah(selectedBreakdown.data.grossProfit || 0)}
                   </span>
@@ -1772,17 +1773,12 @@ const ReportsPage: React.FC = () => {
                       : "border-transparent text-slate-400 hover:text-slate-600"
                   )}
                 >
-                  <span>2. Rincian Profit Bersih & Pengurangan</span>
+                  <span>2. Rincian Laba Bersih & Posisi Neraca</span>
                   <span className="px-2 py-0.5 rounded-full text-[11px] bg-rose-50 text-rose-600 font-black">
-                    Pengurangan: -{formatRupiah(
-                      selectedBreakdown.data.totalDeductions ??
-                      ((selectedBreakdown.data.totalExpenses || 0) +
-                       (selectedBreakdown.data.totalPayableDebt || 0) +
-                       (selectedBreakdown.data.totalReceivableDebt || 0))
-                    )}
+                    Beban Operasi: -{formatRupiah(selectedBreakdown.data.totalExpenses || 0)}
                   </span>
                   <span className="px-2 py-0.5 rounded-full text-[11px] bg-indigo-50 text-indigo-700 font-black">
-                    Bersih: {formatRupiah(selectedBreakdown.data.netProfit ?? selectedBreakdown.data.grossProfit ?? 0)}
+                    Laba Bersih: {formatRupiah((selectedBreakdown.data.grossProfit || 0) - (selectedBreakdown.data.totalExpenses || 0))}
                   </span>
                 </button>
               </div>
@@ -1794,7 +1790,7 @@ const ReportsPage: React.FC = () => {
                     {/* Step-by-step Gross Profit Formula Box */}
                     <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
                       <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
-                        Alur Perhitungan Profit Kotor (Laba Kotor) & Profit Bersih
+                        Alur Perhitungan Laba Kotor & Laba Bersih (Standar Akuntansi)
                       </h4>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
@@ -1810,12 +1806,12 @@ const ReportsPage: React.FC = () => {
                           </div>
                         )}
                         <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 bg-white px-3 rounded-xl">
-                          <span className="font-bold text-slate-700">Total Pendapatan Bersih (Omset)</span>
+                          <span className="font-bold text-slate-700">Jumlah Pendapatan Bersih</span>
                           <span className="font-black text-slate-900">{formatRupiah(selectedBreakdown.data.totalSales || 0)}</span>
                         </div>
                         <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-rose-600">
                           <div>
-                            <span className="font-bold">Dikurangi: Total Modal Obat Terjual (HPP / Harga Beli Batch)</span>
+                            <span className="font-bold">Dikurangi: Harga Pokok Penjualan (HPP / Modal Obat Terjual)</span>
                             <p className="text-[11px] text-slate-400">Akumulasi (Harga Beli per Batch × Jumlah Obat Terjual)</p>
                           </div>
                           <span className="font-black">
@@ -1823,41 +1819,38 @@ const ReportsPage: React.FC = () => {
                           </span>
                         </div>
                         <div className="flex justify-between items-center pt-2 px-3 py-2.5 bg-emerald-600 text-white rounded-xl shadow-sm">
-                          <span className="font-black uppercase tracking-wide text-xs sm:text-sm">HASIL: PROFIT KOTOR (LABA KOTOR)</span>
+                          <span className="font-black uppercase tracking-wide text-xs sm:text-sm">LABA KOTOR (GROSS PROFIT)</span>
                           <span className="text-lg font-black">{formatRupiah(selectedBreakdown.data.grossProfit || 0)}</span>
                         </div>
 
-                        {/* Continuation from Gross Profit to Pengurangan & Net Profit */}
+                        {/* Continuation from Gross Profit to Operational Expenses & Net Profit */}
                         {(() => {
                           const expVal = Number(selectedBreakdown.data.totalExpenses || 0);
-                          const payDebtVal = Number(selectedBreakdown.data.totalPayableDebt || 0);
-                          const recDebtVal = Number(selectedBreakdown.data.totalReceivableDebt || 0);
-                          const dedVal = Number(selectedBreakdown.data.totalDeductions ?? (expVal + payDebtVal + recDebtVal));
-                          const netVal = Number(selectedBreakdown.data.netProfit ?? ((selectedBreakdown.data.grossProfit || 0) - dedVal));
+                          const netVal = Number(selectedBreakdown.data.grossProfit || 0) - expVal;
                           return (
                             <div className="mt-3 pt-3 border-t border-dashed border-slate-300 space-y-2">
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2 px-3 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-700">
                                 <div>
                                   <span className="font-extrabold text-xs sm:text-sm">
-                                    Dikurangi: Total Pengurangan Profit Bersih
+                                    Dikurangi: Jumlah Beban Operasi (Biaya Operasional)
                                   </span>
                                   <p className="text-[11px] text-rose-600/90">
-                                    Biaya Operasional ({formatRupiah(expVal)}) + Hutang Supplier ({formatRupiah(payDebtVal)}) + Hutang Customer ({formatRupiah(recDebtVal)})
+                                    Sesuai Standar Akuntansi (Laba/Rugi hanya dikurangi Beban Operasi, bukan Liabilitas/Hutang Neraca)
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-3 self-end sm:self-center">
-                                  <span className="font-black text-sm sm:text-base">-{formatRupiah(dedVal)}</span>
+                                  <span className="font-black text-sm sm:text-base">-{formatRupiah(expVal)}</span>
                                   <button
                                     type="button"
                                     onClick={() => setSelectedBreakdown({ ...selectedBreakdown, tab: 'net' })}
                                     className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold cursor-pointer transition-colors"
                                   >
-                                    Lihat Rincian Pengurangan →
+                                    Lihat Rincian Beban & Neraca →
                                   </button>
                                 </div>
                               </div>
                               <div className="flex justify-between items-center px-3 py-2.5 bg-slate-900 text-white rounded-xl shadow-sm">
-                                <span className="font-black uppercase tracking-wide text-xs sm:text-sm">HASIL AKHIR: PROFIT BERSIH (LABA BERSIH)</span>
+                                <span className="font-black uppercase tracking-wide text-xs sm:text-sm">LABA(RUGI) BERSIH (LABA KOTOR - BEBAN OPERASI)</span>
                                 <span className={cn("text-lg font-black", netVal >= 0 ? "text-emerald-400" : "text-rose-400")}>
                                   {formatRupiah(netVal)}
                                 </span>
@@ -1873,10 +1866,10 @@ const ReportsPage: React.FC = () => {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                           <h4 className="text-sm font-extrabold text-slate-800">
-                            Rincian Modal (HPP) & Profit Kotor per Obat Terjual
+                            Rincian Harga Pokok Penjualan (HPP) & Laba Kotor per Obat Terjual
                           </h4>
                           <p className="text-xs text-slate-400">
-                            Daftar produk yang membentuk angka Pendapatan, Modal HPP, dan Profit Kotor di atas
+                            Daftar produk yang membentuk angka Pendapatan, Modal HPP, dan Laba Kotor di atas
                           </p>
                         </div>
                         <div className="relative w-full sm:w-64">
@@ -1898,7 +1891,7 @@ const ReportsPage: React.FC = () => {
                               <th className="py-2.5 px-3 text-center">Qty Terjual</th>
                               <th className="py-2.5 px-4 text-right">Total Harga Jual</th>
                               <th className="py-2.5 px-4 text-right">Modal Obat (HPP)</th>
-                              <th className="py-2.5 px-4 text-right">Profit Kotor</th>
+                              <th className="py-2.5 px-4 text-right">Laba Kotor</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -1950,30 +1943,27 @@ const ReportsPage: React.FC = () => {
                     {(() => {
                       const grossVal = Number(selectedBreakdown.data.grossProfit || 0);
                       const expVal = Number(selectedBreakdown.data.totalExpenses || 0);
-                      const payDebtVal = Number(selectedBreakdown.data.totalPayableDebt || 0);
-                      const recDebtVal = Number(selectedBreakdown.data.totalReceivableDebt || 0);
-                      const dedVal = Number(selectedBreakdown.data.totalDeductions ?? (expVal + payDebtVal + recDebtVal));
-                      const netVal = Number(selectedBreakdown.data.netProfit ?? (grossVal - dedVal));
+                      const netVal = grossVal - expVal;
                       return (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/70">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">1. Profit Kotor (Awal)</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-700">1. Laba Kotor (Awal)</p>
                             <p className="text-lg font-black text-emerald-700 mt-1">{formatRupiah(grossVal)}</p>
-                            <p className="text-[11px] text-emerald-600/80 mt-0.5">Omset dikurangi Modal HPP Obat</p>
+                            <p className="text-[11px] text-emerald-600/80 mt-0.5">Pendapatan Bersih - HPP Obat</p>
                           </div>
                           <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-rose-700">2. Total Pengurangan</p>
-                            <p className="text-lg font-black text-rose-600 mt-1">-{formatRupiah(dedVal)}</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-rose-700">2. Pengurangan Beban Operasi</p>
+                            <p className="text-lg font-black text-rose-600 mt-1">-{formatRupiah(expVal)}</p>
                             <p className="text-[11px] text-rose-600/90 mt-0.5">
-                              Biaya: {formatRupiah(expVal)} • Supplier: {formatRupiah(payDebtVal)} • Customer: {formatRupiah(recDebtVal)}
+                              Biaya Umum, Adm, Listrik, Gaji, Sewa, dll.
                             </p>
                           </div>
                           <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">3. Profit Bersih (Akhir)</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">3. Laba(Rugi) Bersih</p>
                             <p className={cn("text-lg font-black mt-1", netVal >= 0 ? "text-emerald-400" : "text-rose-400")}>
                               {formatRupiah(netVal)}
                             </p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Profit Kotor dikurangi Total Pengurangan</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Laba Kotor - Beban Operasi (Standar PSAK)</p>
                           </div>
                         </div>
                       );
@@ -1982,76 +1972,75 @@ const ReportsPage: React.FC = () => {
                     {/* Step-by-step Net Profit Formula Box */}
                     <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
                       <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
-                        Alur Perhitungan Profit Bersih & Rincian Komponen Pengurangan
+                        Alur Perhitungan Laba(Rugi) Bersih (Standar Akuntansi)
                       </h4>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60">
                           <div>
-                            <span className="font-bold text-slate-700">1. Profit Kotor (Pendapatan Bersih - Modal HPP Obat)</span>
-                            <p className="text-[11px] text-slate-400">Keuntungan penjualan obat sebelum dikurangi biaya & hutang</p>
+                            <span className="font-bold text-slate-700">1. Laba Kotor (Jumlah Pendapatan - Harga Pokok Penjualan)</span>
+                            <p className="text-[11px] text-slate-400">Keuntungan penjualan obat setelah dikurangi HPP</p>
                           </div>
                           <span className="font-black text-emerald-600">{formatRupiah(selectedBreakdown.data.grossProfit || 0)}</span>
                         </div>
                         <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-rose-600">
                           <div>
-                            <span className="font-bold">2. Pengurangan Biaya Operasional / Pengeluaran ({(selectedBreakdown.data.expensesBreakdown || []).length} Catatan)</span>
-                            <p className="text-[11px] text-slate-400">Gaji, listrik, sewa, operasional harian, dll. pada periode ini</p>
+                            <span className="font-bold">2. Dikurangi: Jumlah Beban Operasi ({(selectedBreakdown.data.expensesBreakdown || []).length} Catatan Pengeluaran)</span>
+                            <p className="text-[11px] text-slate-400">Biaya Umum & Administrasi, Utilitas, Sewa, Gaji, Pajak, dll.</p>
                           </div>
                           <span className="font-black">-{formatRupiah(selectedBreakdown.data.totalExpenses || 0)}</span>
                         </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-amber-700">
-                          <div>
-                            <span className="font-bold">3. Pengurangan Sisa Hutang Pembelian ke Supplier ({(selectedBreakdown.data.debtsBreakdown || []).length} Faktur Belum Lunas)</span>
-                            <p className="text-[11px] text-slate-400">Total sisa tagihan faktur pembelian obat ke supplier yang belum dibayar</p>
-                          </div>
-                          <span className="font-black">-{formatRupiah(selectedBreakdown.data.totalPayableDebt || 0)}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-1.5 border-b border-slate-200/60 text-purple-700">
-                          <div>
-                            <span className="font-bold">4. Pengurangan Sisa Hutang Customer / Piutang Penjualan ({(selectedBreakdown.data.receivableDebtsBreakdown || []).length} Transaksi Belum Lunas)</span>
-                            <p className="text-[11px] text-slate-400">Total sisa tagihan belanja tempo customer yang uangnya belum diterima lunas</p>
-                          </div>
-                          <span className="font-black">-{formatRupiah(selectedBreakdown.data.totalReceivableDebt || 0)}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 px-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">
-                          <div>
-                            <span className="font-black text-xs sm:text-sm uppercase">TOTAL PENGURANGAN PROFIT BERSIH (Poin 2 + 3 + 4)</span>
-                            <p className="text-[11px] text-rose-600/80">Total nominal yang mengurangi Profit Kotor menjadi Profit Bersih</p>
-                          </div>
-                          <span className="text-base font-black">
-                            -{formatRupiah(
-                              selectedBreakdown.data.totalDeductions ??
-                              ((selectedBreakdown.data.totalExpenses || 0) +
-                               (selectedBreakdown.data.totalPayableDebt || 0) +
-                               (selectedBreakdown.data.totalReceivableDebt || 0))
-                            )}
-                          </span>
-                        </div>
                         <div className="flex justify-between items-center pt-2 px-3 py-2.5 bg-slate-900 text-white rounded-xl shadow-sm">
-                          <span className="font-black uppercase tracking-wide text-xs sm:text-sm">HASIL: PROFIT BERSIH (Profit Kotor - Total Pengurangan)</span>
+                          <span className="font-black uppercase tracking-wide text-xs sm:text-sm">LABA(RUGI) BERSIH (Laba Kotor - Beban Operasi)</span>
                           <span className={cn(
                             "text-lg font-black",
-                            (selectedBreakdown.data.netProfit ?? selectedBreakdown.data.grossProfit ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                            ((selectedBreakdown.data.grossProfit || 0) - (selectedBreakdown.data.totalExpenses || 0)) >= 0 ? "text-emerald-400" : "text-rose-400"
                           )}>
-                            {formatRupiah(selectedBreakdown.data.netProfit ?? selectedBreakdown.data.grossProfit ?? 0)}
+                            {formatRupiah((selectedBreakdown.data.grossProfit || 0) - (selectedBreakdown.data.totalExpenses || 0))}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Supplier Debts Breakdown Table */}
+                    {/* Balance Sheet (Neraca) Info Box inside Modal */}
+                    <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200/80 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md">
+                            Informasi Akun Neraca (Balance Sheet)
+                          </span>
+                          <h4 className="text-xs font-extrabold text-slate-800 mt-1">
+                            Posisi Piutang Dagang (Aktiva) & Hutang Dagang (Kewajiban/Liabilitas)
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Sesuai standar akuntansi, Piutang Customer & Hutang Supplier dicatat pada <strong>Neraca</strong> dan tidak memotong Laba Bersih secara ganda.
+                          </p>
+                        </div>
+                        <div className="flex gap-3 text-right shrink-0">
+                          <div className="px-3 py-1.5 rounded-xl bg-white border border-purple-200">
+                            <span className="text-[10px] font-bold text-purple-700 block">Piutang Dagang (Aktiva)</span>
+                            <span className="text-xs font-black text-purple-800">{formatRupiah(selectedBreakdown.data.totalReceivableDebt || 0)}</span>
+                          </div>
+                          <div className="px-3 py-1.5 rounded-xl bg-white border border-amber-200">
+                            <span className="text-[10px] font-bold text-amber-700 block">Hutang Dagang (Kewajiban)</span>
+                            <span className="text-xs font-black text-amber-800">{formatRupiah(selectedBreakdown.data.totalPayableDebt || 0)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Supplier Debts Breakdown Table (Neraca - Kewajiban Lancar) */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-sm font-extrabold text-slate-800">
-                            A. Rincian Pengurangan Sisa Hutang Pembelian ke Supplier (Belum Lunas)
+                            Neraca (Kewajiban Lancar): Rincian Hutang Dagang ke Supplier
                           </h4>
                           <p className="text-xs text-slate-400">
-                            Daftar faktur pembelian obat tempo (`HUTANG_PEMBELIAN`) yang masih memiliki sisa tagihan
+                            Daftar faktur pembelian/hutang supplier (`HUTANG_PEMBELIAN`) yang belum lunas
                           </p>
                         </div>
                         <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-xs font-black">
-                          Total Hutang Supplier: -{formatRupiah(selectedBreakdown.data.totalPayableDebt || 0)}
+                          Jumlah Hutang Dagang: {formatRupiah(selectedBreakdown.data.totalPayableDebt || 0)}
                         </span>
                       </div>
 
@@ -2065,7 +2054,7 @@ const ReportsPage: React.FC = () => {
                               <th className="py-2.5 px-4 text-left">Jatuh Tempo</th>
                               <th className="py-2.5 px-4 text-right">Total Tagihan</th>
                               <th className="py-2.5 px-4 text-right">Sudah Dibayar</th>
-                              <th className="py-2.5 px-4 text-right">Sisa Hutang (Pengurang)</th>
+                              <th className="py-2.5 px-4 text-right">Sisa Hutang Dagang</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -2079,14 +2068,14 @@ const ReportsPage: React.FC = () => {
                                   <td className="py-2.5 px-4 text-right font-semibold text-slate-700">{formatRupiah(debt.totalAmount)}</td>
                                   <td className="py-2.5 px-4 text-right font-medium text-emerald-600">{formatRupiah(debt.paidAmount)}</td>
                                   <td className="py-2.5 px-4 text-right font-black text-amber-700">
-                                    -{formatRupiah(debt.remainingAmount)}
+                                    {formatRupiah(debt.remainingAmount)}
                                   </td>
                                 </tr>
                               ))
                             ) : (
                               <tr>
                                 <td colSpan={7} className="py-6 text-center text-slate-400 italic">
-                                  Tidak ada sisa hutang pembelian ke supplier yang belum lunas (Rp 0).
+                                  Tidak ada sisa hutang dagang ke supplier (Rp 0).
                                 </td>
                               </tr>
                             )}
@@ -2095,19 +2084,19 @@ const ReportsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Customer Receivable Debts Breakdown Table */}
+                    {/* Customer Receivable Debts Breakdown Table (Neraca - Aktiva Lancar) */}
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-sm font-extrabold text-slate-800">
-                            B. Rincian Pengurangan Sisa Hutang Customer / Piutang Penjualan (Belum Lunas)
+                            Neraca (Aktiva Lancar): Rincian Piutang Dagang Customer
                           </h4>
                           <p className="text-xs text-slate-400">
-                            Daftar transaksi belanja tempo customer (`HUTANG_PENJUALAN`) yang belum dibayar lunas
+                            Daftar piutang penjualan customer (`HUTANG_PENJUALAN`) yang belum dibayar lunas
                           </p>
                         </div>
                         <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 text-xs font-black">
-                          Total Hutang Customer: -{formatRupiah(selectedBreakdown.data.totalReceivableDebt || 0)}
+                          Jumlah Piutang Dagang: {formatRupiah(selectedBreakdown.data.totalReceivableDebt || 0)}
                         </span>
                       </div>
 
@@ -2121,7 +2110,7 @@ const ReportsPage: React.FC = () => {
                               <th className="py-2.5 px-4 text-left">Jatuh Tempo</th>
                               <th className="py-2.5 px-4 text-right">Total Belanja</th>
                               <th className="py-2.5 px-4 text-right">Sudah Dibayar</th>
-                              <th className="py-2.5 px-4 text-right">Sisa Hutang Customer (Pengurang)</th>
+                              <th className="py-2.5 px-4 text-right">Sisa Piutang Dagang</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -2135,14 +2124,14 @@ const ReportsPage: React.FC = () => {
                                   <td className="py-2.5 px-4 text-right font-semibold text-slate-700">{formatRupiah(debt.totalAmount)}</td>
                                   <td className="py-2.5 px-4 text-right font-medium text-emerald-600">{formatRupiah(debt.paidAmount)}</td>
                                   <td className="py-2.5 px-4 text-right font-black text-purple-700">
-                                    -{formatRupiah(debt.remainingAmount)}
+                                    {formatRupiah(debt.remainingAmount)}
                                   </td>
                                 </tr>
                               ))
                             ) : (
                               <tr>
                                 <td colSpan={7} className="py-6 text-center text-slate-400 italic">
-                                  Tidak ada sisa hutang customer / piutang penjualan yang belum lunas (Rp 0).
+                                  Tidak ada sisa piutang dagang customer (Rp 0).
                                 </td>
                               </tr>
                             )}
@@ -2156,14 +2145,14 @@ const ReportsPage: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="text-sm font-extrabold text-slate-800">
-                            C. Rincian Pengurangan Biaya Operasional
+                            Laba/Rugi (Pengurang): Rincian Beban Operasi / Biaya Operasional
                           </h4>
                           <p className="text-xs text-slate-400">
-                            Daftar pengeluaran operasional yang mengurangi Profit Kotor pada periode ini
+                            Daftar pengeluaran operasional yang mengurangi Laba Kotor menjadi Laba Bersih pada periode ini
                           </p>
                         </div>
                         <span className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-black">
-                          Total Biaya: -{formatRupiah(selectedBreakdown.data.totalExpenses || 0)}
+                          Jumlah Beban Operasi: -{formatRupiah(selectedBreakdown.data.totalExpenses || 0)}
                         </span>
                       </div>
 

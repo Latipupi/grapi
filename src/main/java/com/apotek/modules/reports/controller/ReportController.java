@@ -391,8 +391,10 @@ public class ReportController {
             }
         }
 
-        BigDecimal totalDeductions = totalExpenses.add(totalPayableDebt).add(totalReceivableDebt);
-        BigDecimal netProfit = grossProfit.subtract(totalDeductions);
+        // Standard Accounting (PSAK): Net Profit = Gross Profit - Operational Expenses
+        // Liabilities (Payable Debt) and Receivables (Customer Debt) belong to the Balance Sheet (Neraca)
+        BigDecimal totalDeductions = totalExpenses;
+        BigDecimal netProfit = grossProfit.subtract(totalExpenses);
 
         BigDecimal margin = totalSales.compareTo(BigDecimal.ZERO) > 0
                 ? grossProfit.divide(totalSales, 4, RoundingMode.HALF_UP).multiply(new BigDecimal(100))

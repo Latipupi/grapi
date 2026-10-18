@@ -4,9 +4,15 @@ import com.apotek.modules.expenses.repository.*;
 
 import com.apotek.modules.debt.model.Debt;
 import com.apotek.modules.debt.repository.DebtRepository;
+import com.apotek.modules.inventory.model.InventoryBatch;
+import com.apotek.modules.inventory.repository.InventoryBatchRepository;
+import com.apotek.modules.purchasing.model.Purchase;
+import com.apotek.modules.purchasing.repository.PurchaseRepository;
+import com.apotek.modules.sales.model.Sale;
 import com.apotek.modules.sales.model.SaleDetail;
 import com.apotek.modules.sales.model.SalesReturnDetail;
 import com.apotek.modules.sales.repository.SaleDetailRepository;
+import com.apotek.modules.sales.repository.SaleRepository;
 import com.apotek.modules.sales.repository.SalesReturnDetailRepository;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +35,9 @@ public class FinanceService {
 
     private final SaleDetailRepository saleDetailRepository;
     private final SalesReturnDetailRepository salesReturnDetailRepository;
+    private final SaleRepository saleRepository;
+    private final PurchaseRepository purchaseRepository;
+    private final InventoryBatchRepository inventoryBatchRepository;
     private final ExpenseRepository expenseRepository;
     private final DebtRepository debtRepository;
 
@@ -106,20 +115,28 @@ public class FinanceService {
                 .map(e -> e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<Debt> unpaidDebts = (branchId != null)
+        List<Debt> allDebts = (branchId != null)
                 ? debtRepository.findByBranchIdOrderByDueDateDesc(branchId)
                 : debtRepository.findAll();
         BigDecimal totalPayableDebt = BigDecimal.ZERO;
         BigDecimal totalReceivableDebt = BigDecimal.ZERO;
+        BigDecimal paidReceivableTotal = BigDecimal.ZERO;
+        BigDecimal paidPayableTotal = BigDecimal.ZERO;
         List<DebtBreakdown> debtsList = new ArrayList<>();
         List<DebtBreakdown> receivableDebtsList = new ArrayList<>();
 
-        for (Debt d : unpaidDebts) {
+        for (Debt d : allDebts) {
+            BigDecimal totalAmt = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal paidAmt = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
+            if ("HUTANG_PENJUALAN".equalsIgnoreCase(d.getType())) {
+                paidReceivableTotal = paidReceivableTotal.add(paidAmt);
+            } else if ("HUTANG_PEMBELIAN".equalsIgnoreCase(d.getType())) {
+                paidPayableTotal = paidPayableTotal.add(paidAmt);
+            }
+
             if ("PAID".equalsIgnoreCase(d.getStatus())) {
                 continue;
             }
-            BigDecimal totalAmt = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
-            BigDecimal paidAmt = d.getPaidAmount() != null ? d.getPaidAmount() : BigDecimal.ZERO;
             BigDecimal remaining = totalAmt.subtract(paidAmt);
             if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
@@ -188,8 +205,58 @@ public class FinanceService {
             }
         }
 
-        BigDecimal totalDeductions = totalExpenses.add(totalPayableDebt).add(totalReceivableDebt);
-        BigDecimal netProfit = grossProfit.subtract(totalDeductions);
+        // Standard Accounting (PSAK): Net Profit = Gross Profit - Operational Expenses
+        BigDecimal totalDeductions = totalExpenses;
+        BigDecimal netProfit = grossProfit.subtract(totalExpenses);
+
+        // Balance Sheet (Neraca) Calculations:
+        // 1. Persediaan (Inventory Asset Value)
+        List<InventoryBatch> batches = (branchId != null)
+                ? inventoryBatchRepository.findByBranchIdOrderByExpiryDateAsc(branchId)
+                : inventoryBatchRepository.findAllByOrderByExpiryDateAsc();
+        BigDecimal inventoryValue = BigDecimal.ZERO;
+        for (InventoryBatch b : batches) {
+            BigDecimal q = b.getCurrentQuantity() != null ? b.getCurrentQuantity() : BigDecimal.ZERO;
+            if (q.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal price = b.getPurchasePrice() != null && b.getPurchasePrice().compareTo(BigDecimal.ZERO) > 0
+                        ? b.getPurchasePrice()
+                        : (b.getProduct() != null && b.getProduct().getPurchasePrice() != null
+                        ? b.getProduct().getPurchasePrice()
+                        : BigDecimal.ZERO);
+                inventoryValue = inventoryValue.add(q.multiply(price));
+            }
+        }
+
+        // 2. Kas dan Bank (Cash & Bank Position)
+        List<Sale> sales = saleRepository.findSalesWithFilters(branchId, start, end, "COMPLETED");
+        BigDecimal cashSalesIn = BigDecimal.ZERO;
+        for (Sale s : sales) {
+            if (!"HUTANG".equalsIgnoreCase(s.getPaymentMethod()) && !"DEBT".equalsIgnoreCase(s.getPaymentMethod())) {
+                cashSalesIn = cashSalesIn.add(s.getTotalAmount() != null ? s.getTotalAmount() : BigDecimal.ZERO);
+            }
+        }
+        List<Purchase> purchases = (branchId != null)
+                ? purchaseRepository.findByBranchIdOrderByPurchaseDateDesc(branchId)
+                : purchaseRepository.findAll();
+        BigDecimal cashPurchasesOut = BigDecimal.ZERO;
+        for (Purchase p : purchases) {
+            if (p.getPurchaseDate() != null && !p.getPurchaseDate().isBefore(startDate) && !p.getPurchaseDate().isAfter(endDate)) {
+                if (!"HUTANG".equalsIgnoreCase(p.getPaymentMethod()) && !"DEBT".equalsIgnoreCase(p.getPaymentMethod())) {
+                    cashPurchasesOut = cashPurchasesOut.add(p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO);
+                }
+            }
+        }
+        BigDecimal cashAndBank = cashSalesIn
+                .add(paidReceivableTotal)
+                .subtract(totalRefunds)
+                .subtract(cashPurchasesOut)
+                .subtract(paidPayableTotal)
+                .subtract(totalExpenses);
+
+        BigDecimal totalAssets = cashAndBank.add(totalReceivableDebt).add(inventoryValue);
+        BigDecimal totalLiabilities = totalPayableDebt;
+        BigDecimal totalEquity = totalAssets.subtract(totalLiabilities);
+        BigDecimal capitalModal = totalEquity.subtract(netProfit);
 
         List<ItemBreakdown> sortedItems = new ArrayList<>(itemMap.values());
         sortedItems.sort((a, b) -> b.getGrossProfit().compareTo(a.getGrossProfit()));
@@ -205,6 +272,12 @@ public class FinanceService {
                 .totalReceivableDebt(totalReceivableDebt)
                 .totalDeductions(totalDeductions)
                 .netProfit(netProfit)
+                .cashAndBank(cashAndBank)
+                .inventoryValue(inventoryValue)
+                .totalAssets(totalAssets)
+                .totalLiabilities(totalLiabilities)
+                .capitalModal(capitalModal)
+                .totalEquity(totalEquity)
                 .expenses(expenses)
                 .debtsBreakdown(debtsList)
                 .receivableDebtsBreakdown(receivableDebtsList)
@@ -254,6 +327,12 @@ public class FinanceService {
         private BigDecimal totalReceivableDebt;
         private BigDecimal totalDeductions;
         private BigDecimal netProfit;
+        private BigDecimal cashAndBank;
+        private BigDecimal inventoryValue;
+        private BigDecimal totalAssets;
+        private BigDecimal totalLiabilities;
+        private BigDecimal capitalModal;
+        private BigDecimal totalEquity;
         private List<Expense> expenses;
         private List<DebtBreakdown> debtsBreakdown;
         private List<DebtBreakdown> receivableDebtsBreakdown;
