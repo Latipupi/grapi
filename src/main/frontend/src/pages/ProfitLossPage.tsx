@@ -85,7 +85,7 @@ const ProfitLossPage: React.FC = () => {
   );
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  const [viewMode, setViewMode] = useState<'standard_doc' | 'interactive'>('standard_doc');
+  const [viewMode, setViewMode] = useState<'standard_doc' | 'interactive'>('interactive');
   const [detailTab, setDetailTab] = useState<'gross' | 'net'>('gross');
   const [itemSearch, setItemSearch] = useState('');
 
@@ -672,74 +672,78 @@ const ProfitLossPage: React.FC = () => {
             </div>
           </div>
 
-          <Button
-            onClick={handlePrintFinancialReport}
-            disabled={!report}
-            className="h-11 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-2 shadow-sm"
-          >
-            <Printer className="w-4 h-4" />
-            Cetak / PDF Laporan Keuangan (3 Hal)
-          </Button>
+          {false && (
+            <Button
+              onClick={handlePrintFinancialReport}
+              disabled={!report}
+              className="h-11 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-2 shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              Cetak / PDF Laporan Keuangan (3 Hal)
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Mode Switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode('standard_doc')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
-              viewMode === 'standard_doc'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Dokumen Laporan Keuangan Standar (Cover + Neraca + Laba/Rugi)
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('interactive')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
-              viewMode === 'interactive'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            Analisis Interaktif (Rincian HPP Obat, Biaya & Neraca)
-          </button>
-        </div>
-
-        {viewMode === 'standard_doc' && (
-          <div className="flex flex-wrap items-center gap-2 text-xs px-2">
-            <span className="text-slate-400 font-bold">Nama Perusahaan:</span>
-            <input
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 w-52"
-              placeholder="Nama PT / Apotek"
-            />
-            <span className="text-slate-400 font-bold ml-1">Penandatangan:</span>
-            <input
-              type="text"
-              value={directorName}
-              onChange={(e) => setDirectorName(e.target.value)}
-              className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 w-40"
-              placeholder="Nama Direktur"
-            />
-            <input
-              type="text"
-              value={directorTitle}
-              onChange={(e) => setDirectorTitle(e.target.value)}
-              className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 w-28"
-              placeholder="Jabatan"
-            />
+      {/* Mode Switcher (Temporarily hidden) */}
+      {false && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setViewMode('standard_doc')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+                viewMode === 'standard_doc'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Dokumen Laporan Keuangan Standar (Cover + Neraca + Laba/Rugi)
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('interactive')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+                viewMode === 'interactive'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Analisis Interaktif (Rincian HPP Obat, Biaya & Neraca)
+            </button>
           </div>
-        )}
-      </div>
+
+          {viewMode === 'standard_doc' && (
+            <div className="flex flex-wrap items-center gap-2 text-xs px-2">
+              <span className="text-slate-400 font-bold">Nama Perusahaan:</span>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 w-52"
+                placeholder="Nama PT / Apotek"
+              />
+              <span className="text-slate-400 font-bold ml-1">Penandatangan:</span>
+              <input
+                type="text"
+                value={directorName}
+                onChange={(e) => setDirectorName(e.target.value)}
+                className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 w-40"
+                placeholder="Nama Direktur"
+              />
+              <input
+                type="text"
+                value={directorTitle}
+                onChange={(e) => setDirectorTitle(e.target.value)}
+                className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 w-28"
+                placeholder="Jabatan"
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
